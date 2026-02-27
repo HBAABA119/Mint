@@ -2,15 +2,134 @@
 Prim Language Compiler
 
 Main compiler that selects the appropriate parser based on mode directive.
+Includes optimization passes and an optimizing compiler.
 """
 
 import re
-from typing import Union
-from prim_interpreter import PrimInterpreter, RuntimeEnvironment
+from typing import Union, List, Callable, Any
+from prim_interpreter import PrimInterpreter, RuntimeEnvironment, AstNode, NodeType
 from prim_slim_parser import parse_slim_code
 from prim_block_parser import parse_block_code
 from prim_flow_parser import parse_flow_code
 from prim_std_lib import register_standard_library
+
+
+class OptimizationPass:
+    """Base class for optimization passes"""
+
+    def __init__(self, name: str):
+        self.name = name
+
+    def optimize(self, ast: AstNode) -> AstNode:
+        """Optimize the AST"""
+        return ast
+
+
+class ConstantFolding(OptimizationPass):
+    """Constant folding optimization"""
+
+    def __init__(self):
+        super().__init__("constant_folding")
+
+    def optimize(self, ast: AstNode) -> AstNode:
+        """Fold constant expressions"""
+        return self._fold_constants(ast)
+
+    def _fold_constants(self, node: AstNode) -> AstNode:
+        """Recursively fold constants"""
+        if node.type == NodeType.BINARY_OPERATION:
+            left = self._fold_constants(node.properties['left'])
+            right = self._fold_constants(node.properties['right'])
+
+            # Check if both operands are constants
+            if (left.type == NodeType.NUMBER_LITERAL and
+                right.type == NodeType.NUMBER_LITERAL):
+                op = node.properties['operator']
+                left_val = left.properties['value']
+                right_val = right.properties['value']
+
+                try:
+                    if op == '+':
+                        result = left_val + right_val
+                    elif op == '-':
+                        result = left_val - right_val
+                    elif op == '*':
+                        result = left_val * right_val
+                    elif op == '/':
+                        result = left_val / right_val
+                    else:
+                        return node
+
+                    return AstNode(NodeType.NUMBER_LITERAL, value=result)
+                except:
+                    return node
+
+        return node
+
+
+class DeadCodeElimination(OptimizationPass):
+    """Dead code elimination optimization"""
+
+    def __init__(self):
+        super().__init__("dead_code_elimination")
+
+    def optimize(self, ast: AstNode) -> AstNode:
+        """Eliminate dead code"""
+        return self._eliminate_dead_code(ast)
+
+    def _eliminate_dead_code(self, node: AstNode) -> AstNode:
+        """Recursively eliminate dead code"""
+        # This is a simplified version
+        # In a real implementation, this would analyze control flow
+        return node
+
+
+class InlineExpansion(OptimizationPass):
+    """Inline expansion optimization"""
+
+    def __init__(self):
+        super().__init__("inline_expansion")
+
+    def optimize(self, ast: AstNode) -> AstNode:
+        """Inline function calls"""
+        return self._inline_functions(ast)
+
+    def _inline_functions(self, node: AstNode) -> AstNode:
+        """Recursively inline functions"""
+        # This is a simplified version
+        # In a real implementation, this would inline small functions
+        return node
+
+
+class OptimizingCompiler:
+    """Optimizing compiler with multiple passes"""
+
+    def __init__(self):
+        self.optimizations: List[OptimizationPass] = []
+        self.enabled = True
+
+    def add_optimization(self, optimization: OptimizationPass):
+        """Add an optimization pass"""
+        self.optimizations.append(optimization)
+
+    def enable(self):
+        """Enable optimizations"""
+        self.enabled = True
+
+    def disable(self):
+        """Disable optimizations"""
+        self.enabled = False
+
+    def optimize(self, ast: AstNode) -> AstNode:
+        """Run all optimization passes"""
+        if not self.enabled:
+            return ast
+
+        optimized = ast
+        for opt in self.optimizations:
+            optimized = opt.optimize(optimized)
+
+        return optimized
 
 
 class PrimCompiler:
@@ -18,6 +137,10 @@ class PrimCompiler:
         self.interpreter = PrimInterpreter()
         # Register the standard library
         register_standard_library(self.interpreter)
+        self.optimizing_compiler = OptimizingCompiler()
+        self.optimizing_compiler.add_optimization(ConstantFolding())
+        self.optimizing_compiler.add_optimization(DeadCodeElimination())
+        self.optimizing_compiler.add_optimization(InlineExpansion())
 
     def detect_mode(self, code: str) -> str:
         """

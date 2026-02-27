@@ -48,9 +48,29 @@ class PrimModuleLoader:
         with open(module_file, 'r', encoding='utf-8') as f:
             source_code = f.read()
         
-        # For now, we'll defer parsing to the compiler that calls this
-        # In a full implementation, we'd have a separate parser here
-        raise NotImplementedError("Module loading requires compiler integration, which creates circular dependency in this prototype")
+        # Create a new environment for the module
+        module_env = RuntimeEnvironment(parent=importer_env)
+        
+        try:
+            # Parse and execute the module code
+            # In a full implementation, this would use the parser and compiler
+            # For now, we'll use the interpreter directly
+            from prim_interpreter import PrimInterpreter
+            
+            # Create a temporary interpreter for this module
+            module_interpreter = PrimInterpreter()
+            module_interpreter.global_env = module_env
+            
+            # Execute the module code
+            module_interpreter.execute(source_code)
+            
+            # Cache the module environment
+            self.module_cache[module_name] = module_env
+            
+            return module_env
+            
+        except Exception as e:
+            raise ImportError(f"Failed to load module '{module_name}': {e}")
 
 
 class PrimFileIO:

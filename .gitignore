@@ -22,6 +22,7 @@ wheels/
 
 # Website folder
 prim-website/
+prim_ide/
 
 # Documentation files not for commit
 GITHUB_RELEASE_CHECKLIST.md
