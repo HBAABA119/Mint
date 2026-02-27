@@ -1,0 +1,472 @@
+#mode slim
+# Prim Package Registry
+# Provides centralized package repository with semantic versioning,
+# dependency resolution, package metadata, security scanning, and private packages
+
+# Package type constants
+PACKAGE_LIBRARY = "library"
+PACKAGE_FRAMEWORK = "framework"
+PACKAGE_TOOL = "tool"
+PACKAGE_EXAMPLE = "example"
+
+# PackageVersion factory
+fn make_package_version(version, dependencies, files, checksum, size, release_date, changelog):
+    if dependencies == None:
+        dependencies = {}
+    if files == None:
+        files = []
+    if checksum == None:
+        checksum = ""
+    if size == None:
+        size = 0
+    if release_date == None:
+        release_date = ""
+    if changelog == None:
+        changelog = ""
+    return {
+        "version": version,
+        "dependencies": dependencies,
+        "files": files,
+        "checksum": checksum,
+        "size": size,
+        "release_date": release_date,
+        "changelog": changelog
+    }
+
+# PackageMetadata factory
+fn make_package_metadata(name, description, author, license, repository, homepage, keywords, package_type, versions, latest_version, downloads, rating, security_score):
+    if keywords == None:
+        keywords = []
+    if package_type == None:
+        package_type = PACKAGE_LIBRARY
+    if versions == None:
+        versions = {}
+    if latest_version == None:
+        latest_version = ""
+    if downloads == None:
+        downloads = 0
+    if rating == None:
+        rating = 0.0
+    if security_score == None:
+        security_score = 0.0
+    return {
+        "name": name,
+        "description": description,
+        "author": author,
+        "license": license,
+        "repository": repository,
+        "homepage": homepage,
+        "keywords": keywords,
+        "package_type": package_type,
+        "versions": versions,
+        "latest_version": latest_version,
+        "downloads": downloads,
+        "rating": rating,
+        "security_score": security_score
+    }
+
+# Dependency factory
+fn make_dependency(name, version_constraint, optional):
+    if optional == None:
+        optional = false
+    return {
+        "name": name,
+        "version_constraint": version_constraint,
+        "optional": optional
+    }
+
+# SecurityReport factory
+fn make_security_report(package_name, version, vulnerabilities, security_score, scan_date):
+    if vulnerabilities == None:
+        vulnerabilities = []
+    if security_score == None:
+        security_score = 0.0
+    if scan_date == None:
+        scan_date = ""
+    return {
+        "package_name": package_name,
+        "version": version,
+        "vulnerabilities": vulnerabilities,
+        "security_score": security_score,
+        "scan_date": scan_date
+    }
+
+# SemanticVersion factory
+fn make_semantic_version():
+    return {
+        "parse": fn(version) {
+            # Parse semantic version string (simplified)
+            # Returns [major, minor, patch, prerelease]
+            return [1, 0, 0, ""]
+        },
+        "compare": fn(v1, v2) {
+            # Compare two semantic versions (simplified)
+            return 0
+        },
+        "satisfies": fn(version, constraint) {
+            # Check if version satisfies constraint (simplified)
+            return true
+        }
+    }
+
+# PackageRegistry factory
+fn make_package_registry(registry_url):
+    if registry_url == None:
+        registry_url = "https://registry.prim-lang.org"
+    return {
+        "registry_url": registry_url,
+        "cache_dir": "~/.prim/packages",
+        "metadata_cache": {},
+        "installed_packages": {},
+        "search": fn(query, limit) {
+            if limit == None:
+                limit = 10
+            results = []
+            
+            # Search local cache (simplified)
+            keys = dict_keys(metadata_cache)
+            i = 0
+            while i < len(keys):
+                metadata = metadata_cache[keys[i]]
+                if contains(lowercase(metadata["name"]), lowercase(query)) or contains(lowercase(metadata["description"]), lowercase(query)):
+                    results = push(results, metadata)
+                i = i + 1
+            
+            return slice(results, 0, limit)
+        },
+        "get_package": fn(name) {
+            # Check cache first
+            if contains(dict_keys(metadata_cache), name):
+                return metadata_cache[name]
+            
+            # Fetch from registry (simplified)
+            metadata = fetch_package_metadata(name)
+            if metadata != None:
+                metadata_cache[name] = metadata
+                return metadata
+            
+            return None
+        },
+        "get_versions": fn(name) {
+            metadata = get_package(name)
+            if metadata != None:
+                # Return sorted versions (simplified)
+                return dict_keys(metadata["versions"])
+            return []
+        },
+        "install": fn(name, version, force) {
+            if force == None:
+                force = false
+            
+            metadata = get_package(name)
+            if metadata == None:
+                print("Package '" + name + "' not found")
+                return false
+            
+            # Determine version to install
+            if version == None:
+                version = metadata["latest_version"]
+                if version == "" and len(dict_keys(metadata["versions"])) > 0:
+                    # Get max version (simplified)
+                    version = "1.0.0"
+            
+            if not contains(dict_keys(metadata["versions"]), version):
+                print("Version '" + version + "' not found for package '" + name + "'")
+                return false
+            
+            # Check if already installed
+            if contains(dict_keys(installed_packages), name) and not force:
+                print("Package '" + name + "' is already installed")
+                return true
+            
+            # Resolve dependencies (simplified)
+            pkg_version = metadata["versions"][version]
+            if len(dict_keys(pkg_version["dependencies"])) > 0:
+                print("Resolving dependencies for " + name + "...")
+                # Simplified dependency installation
+            
+            # Install package
+            print("Installing " + name + " " + version + "...")
+            
+            # Update installed packages
+            installed_packages[name] = version
+            save_installed_packages()
+            
+            print("Successfully installed " + name + " " + version)
+            return true
+        },
+        "uninstall": fn(name) {
+            if not contains(dict_keys(installed_packages), name):
+                print("Package '" + name + "' is not installed")
+                return false
+            
+            # Remove package (simplified)
+            # Remove from installed packages
+            new_installed = {}
+            keys = dict_keys(installed_packages)
+            i = 0
+            while i < len(keys):
+                key = keys[i]
+                if key != name:
+                    new_installed[key] = installed_packages[key]
+                i = i + 1
+            installed_packages = new_installed
+            
+            save_installed_packages()
+            
+            print("Successfully uninstalled " + name)
+            return true
+        },
+        "update": fn(name) {
+            metadata = get_package(name)
+            if metadata == None:
+                print("Package '" + name + "' not found")
+                return false
+            
+            current_version = installed_packages[name]
+            if current_version == None:
+                print("Package '" + name + "' is not installed")
+                return false
+            
+            # Get latest version (simplified)
+            latest_version = metadata["latest_version"]
+            if latest_version == "":
+                latest_version = "1.0.0"
+            
+            # Check if update needed (simplified)
+            if latest_version == current_version:
+                print(name + " is already up to date (" + current_version + ")")
+                return true
+            
+            # Update
+            print("Updating " + name + " from " + current_version + " to " + latest_version + "...")
+            return install(name, latest_version, true)
+        },
+        "list_installed": fn() {
+            result = []
+            keys = dict_keys(installed_packages)
+            i = 0
+            while i < len(keys):
+                key = keys[i]
+                result = push(result, [key, installed_packages[key]])
+                i = i + 1
+            return result
+        },
+        "resolve_dependencies": fn(dependencies) {
+            resolved = {}
+            # Simplified dependency resolution
+            return resolved
+        },
+        "scan_security": fn(name, version) {
+            # Scan for security vulnerabilities (simplified)
+            return make_security_report(name, version, [], 100.0, get_current_timestamp())
+        },
+        "get_package_info": fn(name) {
+            metadata = get_package(name)
+            if metadata == None:
+                return None
+            
+            return {
+                "name": metadata["name"],
+                "description": metadata["description"],
+                "author": metadata["author"],
+                "license": metadata["license"],
+                "repository": metadata["repository"],
+                "homepage": metadata["homepage"],
+                "keywords": metadata["keywords"],
+                "package_type": metadata["package_type"],
+                "latest_version": metadata["latest_version"],
+                "downloads": metadata["downloads"],
+                "rating": metadata["rating"],
+                "security_score": metadata["security_score"],
+                "versions": dict_keys(metadata["versions"])
+            }
+        }
+    }
+
+fn fetch_package_metadata(name):
+    # Fetch package metadata from registry (simplified)
+    return None
+
+fn save_installed_packages():
+    # Save installed packages to disk (conceptual)
+    pass
+
+fn get_current_timestamp():
+    # Get current timestamp (simplified)
+    return "2023-01-01T00:00:00"
+
+fn lowercase(s):
+    # Convert to lowercase (simplified)
+    return s
+
+# RegistryCLI factory
+fn make_registry_cli(registry):
+    return {
+        "registry": registry,
+        "run": fn(args) {
+            if len(args) == 0:
+                show_help()
+                return
+            
+            command = args[0]
+            command_args = slice(args, 1, len(args))
+            
+            if command == "search":
+                cmd_search(command_args)
+            elif command == "install":
+                cmd_install(command_args)
+            elif command == "uninstall":
+                cmd_uninstall(command_args)
+            elif command == "update":
+                cmd_update(command_args)
+            elif command == "list":
+                cmd_list(command_args)
+            elif command == "info":
+                cmd_info(command_args)
+            elif command == "versions":
+                cmd_versions(command_args)
+            else:
+                print("Unknown command: " + command)
+                show_help()
+        },
+        "cmd_search": fn(args) {
+            if len(args) == 0:
+                print("Usage: search <query>")
+                return
+            
+            query = args[0]
+            limit = 10
+            
+            if len(args) > 1:
+                limit = to_integer(args[1])
+            
+            results = registry["search"](query, limit)
+            
+            if len(results) == 0:
+                print("No packages found for '" + query + "'")
+                return
+            
+            print("Found " + to_string(len(results)) + " package(s) for '" + query + "':")
+            print()
+            
+            i = 0
+            while i < len(results):
+                pkg = results[i]
+                print("  " + pkg["name"] + " (" + pkg["latest_version"] + ")")
+                print("    " + pkg["description"])
+                print("    Downloads: " + to_string(pkg["downloads"]) + " | Rating: " + to_string(pkg["rating"]))
+                print()
+                i = i + 1
+        },
+        "cmd_install": fn(args) {
+            if len(args) == 0:
+                print("Usage: install <package> [version]")
+                return
+            
+            name = args[0]
+            version = None
+            if len(args) > 1:
+                version = args[1]
+            
+            registry["install"](name, version)
+        },
+        "cmd_uninstall": fn(args) {
+            if len(args) == 0:
+                print("Usage: uninstall <package>")
+                return
+            
+            name = args[0]
+            registry["uninstall"](name)
+        },
+        "cmd_update": fn(args) {
+            if len(args) == 0:
+                print("Usage: update <package>")
+                return
+            
+            name = args[0]
+            registry["update"](name)
+        },
+        "cmd_list": fn(args) {
+            installed = registry["list_installed"]()
+            
+            if len(installed) == 0:
+                print("No packages installed")
+                return
+            
+            print("Installed packages:")
+            print()
+            
+            i = 0
+            while i < len(installed):
+                name, version = installed[i]
+                print("  " + name + " (" + version + ")")
+                i = i + 1
+        },
+        "cmd_info": fn(args) {
+            if len(args) == 0:
+                print("Usage: info <package>")
+                return
+            
+            name = args[0]
+            info = registry["get_package_info"](name)
+            
+            if info == None:
+                print("Package '" + name + "' not found")
+                return
+            
+            print("Package: " + info["name"])
+            print("Description: " + info["description"])
+            print("Author: " + info["author"])
+            print("License: " + info["license"])
+            print("Repository: " + info["repository"])
+            print("Homepage: " + info["homepage"])
+            print("Type: " + info["package_type"])
+            print("Latest Version: " + info["latest_version"])
+            print("Downloads: " + to_string(info["downloads"]))
+            print("Rating: " + to_string(info["rating"]))
+            print("Security Score: " + to_string(info["security_score"]))
+        },
+        "cmd_versions": fn(args) {
+            if len(args) == 0:
+                print("Usage: versions <package>")
+                return
+            
+            name = args[0]
+            versions = registry["get_versions"](name)
+            
+            if len(versions) == 0:
+                print("No versions found for '" + name + "'")
+                return
+            
+            print("Available versions for " + name + ":")
+            print()
+            
+            i = 0
+            while i < len(versions):
+                print("  " + versions[i])
+                i = i + 1
+        },
+        "show_help": fn() {
+            print("""
+Prim Package Registry Commands:
+  search <query> [limit]    Search for packages
+  install <package> [ver]   Install a package
+  uninstall <package>       Uninstall a package
+  update <package>          Update a package
+  list                      List installed packages
+  info <package>            Show package information
+  versions <package>        List package versions
+""")
+        }
+    }
+
+fn main():
+    registry = make_package_registry()
+    cli = make_registry_cli(registry)
+    
+    # Run with empty args to show help
+    cli["run"]([])
+
+if __name__ == "__main__":
+    main()

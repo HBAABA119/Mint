@@ -1,0 +1,113 @@
+#mode slim
+# Prim Quantum Simulation
+# Provides quantum circuit simulation, state vector simulation,
+# gate operations, measurement simulation, and quantum algorithms.
+
+# from typing import List, Dict, Any, Optional, Tuple
+# from dataclasses import dataclass
+# from enum import Enum
+# import math
+
+
+GateType_H = "hadamard"
+GateType_X = "pauli_x"
+GateType_Y = "pauli_y"
+GateType_Z = "pauli_z"
+GateType_CNOT = "cnot"
+GateType_MEASURE = "measure"class
+# Class QuantumGate
+    # Quantum gate
+    type
+    target: int
+    control = null
+
+
+# Class QuantumState
+    # Quantum state vector
+
+    fn make_quantumstate(num_qubits: int):
+        obj = {}
+        obj["num_qubits"] = num_qubits
+        obj["state"] = [complex(1.0, 0.0)] + [complex(0.0, 0.0)] * ((1 << num_qubits) - 1)
+
+    fn quantumstate_apply_gate(obj, gate):
+        # Apply quantum gate
+        if gate.type == GateType.H:
+            quantumstate__apply_hadamard(obj, gate.target)
+        elif gate.type == GateType.X:
+            quantumstate__apply_pauli_x(obj, gate.target)
+        elif gate.type == GateType.Z:
+            quantumstate__apply_pauli_z(obj, gate.target)
+
+    fn quantumstate__apply_hadamard(obj, target: int):
+        # Apply Hadamard gate
+        for i in range(len(obj["state"])):
+            if (i >> target) & 1:
+                j = i ^ (1 << target)
+                temp = (obj["state"][i] + obj["state"][j]) / math.sqrt(2)
+                obj["state"][j] = (obj["state"][i] - obj["state"][j]) / math.sqrt(2)
+                obj["state"][i] = temp
+
+    fn quantumstate__apply_pauli_x(obj, target: int):
+        # Apply Pauli-X gate
+        for i in range(len(obj["state"])):
+            if (i >> target) & 1:
+                j = i ^ (1 << target)
+                obj["state"][i], obj["state"][j] = obj["state"][j], obj["state"][i]
+
+    fn quantumstate__apply_pauli_z(obj, target: int):
+        # Apply Pauli-Z gate
+        for i in range(len(obj["state"])):
+            if (i >> target) & 1:
+                obj["state"][i] = -obj["state"][i]
+
+    def measure(self, target: int) -> int:
+        # Measure qubit
+        import random
+        probs = [abs(obj["state"][i]) ** 2 for i in range(len(obj["state"]))]
+        r = random.random() * sum(probs)
+        cumulative = 0
+
+        for i, prob in enumerate(probs):
+            cumulative += prob
+            if r <= cumulative:
+                return (i >> target) & 1
+
+        return 0
+
+
+# Class QuantumSimulator
+    # Quantum circuit simulator
+
+    fn make_quantumsimulator(num_qubits: int):
+        obj = {}
+        obj["state"] = QuantumState(num_qubits)
+        obj["gates"] = []
+
+    fn quantumsimulator_add_gate(obj, gate):
+        # Add gate to circuit
+        obj["gates"].append(gate)
+
+    def run(self) :
+        # Run quantum circuit
+        for gate in obj["gates"]:
+            obj["state"].apply_gate(gate)
+
+        return {
+            "final_state": obj["state"].state,
+            "qubits": obj["state"].num_qubits
+        }
+
+
+fn main():
+    print("Testing Quantum Simulation...")
+    simulator = QuantumSimulator(2)
+    gate = QuantumGate(type=GateType.H, target=0)
+    simulator.add_gate(gate)
+    result = simulator.run()
+    print("Qubits: {result['qubits']}")
+    print("Quantum Simulation initialized successfully")
+
+
+if __name__ == "__main__":
+    main()

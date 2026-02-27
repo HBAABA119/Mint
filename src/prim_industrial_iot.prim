@@ -1,0 +1,45 @@
+#mode slim
+# Prim Industrial IoT
+# Provides industrial automation, PLC integration, SCADA systems,
+# predictive maintenance, and industrial monitoring
+
+# Equipment status constants
+EQUIPMENT_RUNNING = "running"
+EQUIPMENT_STOPPED = "stopped"
+EQUIPMENT_MAINTENANCE = "maintenance"
+EQUIPMENT_FAULT = "fault"
+
+# Factory function for Equipment
+fn make_equipment(id, type_, status):
+    return {
+        "id": id,
+        "type": type_,
+        "status": status
+    }
+
+# IndustrialManager factory
+fn make_industrial_manager():
+    return {
+        "equipment": {}
+    }
+
+fn industrial_manager_add_equipment(manager, equipment):
+    manager["equipment"][equipment["id"]] = equipment
+
+fn industrial_manager_get_equipment(manager):
+    equipment = []
+    keys = dict_keys(manager["equipment"])
+    for key in keys:
+        equipment = push(equipment, manager["equipment"][key])
+    return equipment
+
+fn main():
+    print("Testing Industrial IoT...")
+    manager = make_industrial_manager()
+    eq = make_equipment("eq1", "motor", EQUIPMENT_RUNNING)
+    industrial_manager_add_equipment(manager, eq)
+    print("Equipment: " + to_string(len(industrial_manager_get_equipment(manager))))
+    print("Industrial IoT initialized successfully")
+
+if __name__ == "__main__":
+    main()

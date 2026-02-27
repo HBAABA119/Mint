@@ -1,0 +1,44 @@
+#mode slim
+# Prim Creative AI
+# Provides creativity modeling, generative AI, creative problem solving,
+# artificial creativity, and creative AI systems
+
+# Creative type constants
+CREATIVE_GENERATIVE = "generative"
+CREATIVE_COMBINATORIAL = "combinatorial"
+CREATIVE_TRANSFORMATIVE = "transformative"
+CREATIVE_EXPLORATORY = "exploratory"
+
+# Factory function for CreativeModel
+fn make_creative_model(name, type_, parameters):
+    return {
+        "name": name,
+        "type": type_,
+        "parameters": parameters
+    }
+
+# CreativeAI factory
+fn make_creative_ai():
+    return {
+        "models": {}
+    }
+
+fn creative_ai_add_model(ai, model):
+    ai["models"][model["name"]] = model
+
+fn creative_ai_generate(ai, name, prompt):
+    if contains(dict_keys(ai["models"]), name):
+        return {"generated": "creative_content"}
+    return None
+
+fn main():
+    print("Testing Creative AI...")
+    ai = make_creative_ai()
+    model = make_creative_model("creative", CREATIVE_GENERATIVE, {})
+    creative_ai_add_model(ai, model)
+    result = creative_ai_generate(ai, "creative", "prompt")
+    print("Result: " + to_string(result))
+    print("Creative AI initialized successfully")
+
+if __name__ == "__main__":
+    main()

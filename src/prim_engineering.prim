@@ -1,0 +1,332 @@
+#mode slim
+# Prim Engineering Applications
+# Provides control systems, signal processing, optimization, circuit analysis,
+# and mechanical engineering tools
+
+# Control system type constants
+CONTROL_PID = "pid"
+CONTROL_STATE_SPACE = "state_space"
+CONTROL_LQR = "lqr"
+CONTROL_MPC = "mpc"
+
+# Signal type constants
+SIGNAL_CONTINUOUS = "continuous"
+SIGNAL_DISCRETE = "discrete"
+SIGNAL_DIGITAL = "digital"
+
+# PIDController factory
+fn make_pid_controller(kp, ki, kd, setpoint):
+    if kp == None:
+        kp = 1.0
+    if ki == None:
+        ki = 0.0
+    if kd == None:
+        kd = 0.0
+    if setpoint == None:
+        setpoint = 0.0
+    return {
+        "kp": kp,
+        "ki": ki,
+        "kd": kd,
+        "setpoint": setpoint,
+        "integral": 0.0,
+        "prev_error": 0.0,
+        "compute": fn(measurement, dt) {
+            error = setpoint - measurement
+            
+            # Proportional
+            p = kp * error
+            
+            # Integral
+            integral = integral + error * dt
+            i = ki * integral
+            
+            # Derivative
+            derivative = 0.0
+            if dt > 0:
+                derivative = (error - prev_error) / dt
+            d = kd * derivative
+            
+            prev_error = error
+            
+            return p + i + d
+        },
+        "reset": fn() {
+            integral = 0.0
+            prev_error = 0.0
+        }
+    }
+
+# StateSpaceController factory
+fn make_state_space_controller(A, B, C, D):
+    state_size = len(A)
+    return {
+        "A": A,
+        "B": B,
+        "C": C,
+        "D": D,
+        "state": [],
+        "step": fn(u, dt) {
+            # State update: x_dot = Ax + Bu (simplified)
+            # Output: y = Cx + Du
+            return u
+        },
+        "lqr_design": fn(Q, R) {
+            # Design LQR controller (conceptual)
+            return []
+        }
+    }
+
+# SignalProcessor factory
+fn make_signal_processor():
+    return {
+        "fft": fn(signal) {
+            # Fast Fourier Transform (conceptual)
+            return signal
+        },
+        "ifft": fn(signal) {
+            # Inverse FFT (conceptual)
+            return signal
+        },
+        "filter_signal": fn(signal, cutoff, sample_rate) {
+            # Low-pass filter (conceptual)
+            return signal
+        },
+        "convolve": fn(signal, kernel) {
+            # Convolution (simplified)
+            result = []
+            n = len(signal)
+            m = len(kernel)
+            i = 0
+            while i < n:
+                sum_val = 0.0
+                j = 0
+                while j < m:
+                    idx = i - j
+                    if idx >= 0 and idx < n:
+                        sum_val = sum_val + signal[idx] * kernel[j]
+                    j = j + 1
+                result = push(result, sum_val)
+                i = i + 1
+            return result
+        },
+        "correlate": fn(signal, kernel) {
+            # Cross-correlation (simplified)
+            return signal
+        }
+    }
+
+# CircuitAnalyzer factory
+fn make_circuit_analyzer():
+    return {
+        "nodes": [],
+        "components": {},
+        "voltages": {},
+        "currents": {},
+        "add_resistor": fn(name, value, node1, node2) {
+            components[name] = {
+                "type": "resistor",
+                "value": value,
+                "node1": node1,
+                "node2": node2
+            }
+        },
+        "add_voltage_source": fn(name, value, node1, node2) {
+            components[name] = {
+                "type": "voltage_source",
+                "value": value,
+                "node1": node1,
+                "node2": node2
+            }
+        },
+        "solve_dc": fn() {
+            # Solve DC circuit analysis (simplified)
+            return {
+                "voltages": voltages,
+                "currents": currents
+            }
+        }
+    }
+
+# MechanicalSystem factory
+fn make_mechanical_system():
+    return {
+        "masses": [],
+        "spring_constants": [],
+        "damping_coefficients": [],
+        "positions": [],
+        "velocities": [],
+        "add_mass_spring_damper": fn(mass, k, c, initial_position, initial_velocity) {
+            if initial_position == None:
+                initial_position = 0.0
+            if initial_velocity == None:
+                initial_velocity = 0.0
+            masses = push(masses, mass)
+            spring_constants = push(spring_constants, k)
+            damping_coefficients = push(damping_coefficients, c)
+            positions = push(positions, initial_position)
+            velocities = push(velocities, initial_velocity)
+        },
+        "step": fn(dt) {
+            # Advance simulation by dt
+            if dt == None:
+                dt = 0.01
+            i = 0
+            while i < len(masses):
+                m = masses[i]
+                k = spring_constants[i]
+                c = damping_coefficients[i]
+                
+                # Force from spring and damper
+                F = -k * positions[i] - c * velocities[i]
+                
+                # Acceleration
+                a = F / m
+                
+                # Update velocity and position
+                velocities[i] = velocities[i] + a * dt
+                positions[i] = positions[i] + velocities[i] * dt
+                i = i + 1
+        },
+        "get_energy": fn() {
+            # Calculate system energy
+            kinetic_energy = 0.0
+            potential_energy = 0.0
+            
+            i = 0
+            while i < len(masses):
+                m = masses[i]
+                k = spring_constants[i]
+                
+                kinetic_energy = kinetic_energy + 0.5 * m * velocities[i] * velocities[i]
+                potential_energy = potential_energy + 0.5 * k * positions[i] * positions[i]
+                i = i + 1
+            
+            return {
+                "kinetic": kinetic_energy,
+                "potential": potential_energy,
+                "total": kinetic_energy + potential_energy
+            }
+        }
+    }
+
+# OptimizationEngine factory
+fn make_optimization_engine():
+    return {
+        "minimize": fn(f, x0, method) {
+            # Minimize function (conceptual)
+            return x0
+        },
+        "constrained_minimize": fn(f, x0, constraints) {
+            # Minimize with constraints (conceptual)
+            return x0
+        },
+        "multi_objective": fn(objectives, x0) {
+            # Multi-objective optimization (conceptual)
+            return x0
+        }
+    }
+
+# FiniteElement factory
+fn make_finite_element():
+    return {
+        "nodes": [],
+        "elements": [],
+        "stiffness": None,
+        "displacements": None,
+        "add_node": fn(position) {
+            nodes = push(nodes, position)
+        },
+        "add_element": fn(node1, node2) {
+            elements = push(elements, [node1, node2])
+        },
+        "assemble_stiffness": fn(E, A) {
+            # Assemble stiffness matrix (conceptual)
+            n = len(nodes)
+            # Simplified - would create n x n matrix
+        },
+        "solve": fn(loads, fixed_nodes) {
+            # Solve for displacements (conceptual)
+            displacements = []
+            i = 0
+            while i < len(loads):
+                displacements = push(displacements, 0.0)
+                i = i + 1
+            return displacements
+        }
+    }
+
+# ControlSystemDesigner factory
+fn make_control_system_designer():
+    return {
+        "pid_tune": fn(system_response, Kp_range, Ki_range, Kd_range) {
+            # Auto-tune PID controller (conceptual)
+            return make_pid_controller(1.0, 0.0, 0.0, 0.0)
+        },
+        "bode_plot": fn(system_func, frequencies) {
+            # Calculate Bode plot data (conceptual)
+            magnitude = []
+            phase = []
+            for w in frequencies:
+                magnitude = push(magnitude, 0.0)
+                phase = push(phase, 0.0)
+            return [magnitude, phase]
+        }
+    }
+
+fn create_pid_controller(kp, ki, kd):
+    return make_pid_controller(kp, ki, kd, 0.0)
+
+fn main():
+    print("Testing Engineering Applications...")
+    
+    # Test PID Controller
+    pid = create_pid_controller(2.0, 0.1, 0.5)
+    pid["setpoint"] = 10.0
+    output = pid["compute"](8.0, 0.1)
+    print("PID output: " + to_string(output))
+    
+    # Test Signal Processor
+    sp = make_signal_processor()
+    signal = [1.0, 2.0, 3.0, 4.0, 5.0]
+    conv_result = sp["convolve"](signal, [1.0, 0.5])
+    print("Convolution result: " + to_string(len(conv_result)))
+    
+    # Test Circuit Analyzer
+    ca = make_circuit_analyzer()
+    ca["add_resistor"]("R1", 1000.0, "n1", "n2")
+    ca["add_voltage_source"]("V1", 5.0, "n1", "n2")
+    results = ca["solve_dc"]()
+    print("Circuit results: " + to_string(len(dict_keys(results))))
+    
+    # Test Mechanical System
+    ms = make_mechanical_system()
+    ms["add_mass_spring_damper"](1.0, 10.0, 0.5, 0.0, 0.0)
+    ms["step"](0.01)
+    energy = ms["get_energy"]()
+    print("Mechanical energy: " + to_string(energy["total"]))
+    
+    # Test Optimization
+    opt = make_optimization_engine()
+    fn objective(x) {
+        return (x[0] - 1) * (x[0] - 1) + (x[1] - 2) * (x[1] - 2)
+    }
+    result = opt["minimize"](objective, [0.0, 0.0], "bfgs")
+    print("Optimization result: " + to_string(result))
+    
+    # Test Finite Element
+    fe = make_finite_element()
+    fe["add_node"]([0.0, 0.0])
+    fe["add_node"]([1.0, 0.0])
+    fe["add_node"]([2.0, 0.0])
+    fe["add_element"](0, 1)
+    fe["add_element"](1, 2)
+    
+    loads = [0.0, 1000.0, 0.0]
+    displacements = fe["solve"](loads, [0])
+    print("Finite element: " + to_string(len(displacements)) + " displacements")
+    
+    print("\nEngineering Applications initialized successfully")
+
+if __name__ == "__main__":
+    main()

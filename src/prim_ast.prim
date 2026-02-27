@@ -1,0 +1,384 @@
+#mode slim
+# Prim AST (Abstract Syntax Tree)
+# Defines the AST node types for the Prim language, AST construction utilities,
+# tree traversal and transformation, and AST serialization
+
+# AST node types as constants
+NODE_PROGRAM = "program"
+NODE_MODULE = "module"
+NODE_IMPORT = "import"
+NODE_EXPORT = "export"
+NODE_FUNCTION = "function"
+NODE_FUNCTION_CALL = "function_call"
+NODE_VARIABLE = "variable"
+NODE_LITERAL = "literal"
+NODE_BINARY_OP = "binary_op"
+NODE_UNARY_OP = "unary_op"
+NODE_ASSIGNMENT = "assignment"
+NODE_BLOCK = "block"
+NODE_IF = "if"
+NODE_IF_ELSE = "if_else"
+NODE_FOR = "for"
+NODE_WHILE = "while"
+NODE_RETURN = "return"
+NODE_BREAK = "break"
+NODE_CONTINUE = "continue"
+NODE_LIST = "list"
+NODE_DICT = "dict"
+NODE_TUPLE = "tuple"
+NODE_LAMBDA = "lambda"
+NODE_MATCH = "match"
+NODE_PATTERN = "pattern"
+NODE_TYPE_ANNOTATION = "type_annotation"
+NODE_GENERIC_TYPE = "generic_type"
+NODE_MACRO_CALL = "macro_call"
+NODE_EFFECT = "effect"
+NODE_BLOCK_STATEMENT = "block_statement"
+NODE_EXPRESSION_STATEMENT = "expression_statement"
+NODE_NUMBER_LITERAL = "number_literal"
+NODE_STRING_LITERAL = "string_literal"
+NODE_BOOLEAN_LITERAL = "boolean_literal"
+NODE_NULL_LITERAL = "null_literal"
+NODE_VARIABLE_ACCESS = "variable_access"
+NODE_BINARY_OPERATION = "binary_operation"
+NODE_UNARY_OPERATION = "unary_operation"
+NODE_IF_STATEMENT = "if_statement"
+NODE_WHILE_LOOP = "while_loop"
+NODE_RETURN_STATEMENT = "return_statement"
+
+# Factory function for creating AST nodes
+fn make_ast_node(node_type, properties):
+    return {
+        "node_type": node_type,
+        "properties": properties,
+        "children": []
+    }
+
+# Add a child node
+fn add_child(node, child):
+    node["children"] = push(node["children"], child)
+    return node
+
+# Convert node to dictionary
+fn node_to_dict(node):
+    children = []
+    for child in node["children"]:
+        children = push(children, node_to_dict(child))
+    return {
+        "type": node["node_type"],
+        "properties": node["properties"],
+        "children": children
+    }
+
+# Create node from dictionary
+fn node_from_dict(data):
+    node = make_ast_node(data["type"], data["properties"])
+    for child in data["children"]:
+        add_child(node, node_from_dict(child))
+    return node
+
+# Builder for constructing ASTs
+fn make_ast_builder():
+    return {
+        "current_node": None,
+        "node_stack": []
+    }
+
+fn builder_start_node(builder, node):
+    if builder["current_node"]:
+        builder["node_stack"] = push(builder["node_stack"], builder["current_node"])
+    builder["current_node"] = node
+    return builder
+
+fn builder_end_node(builder):
+    node = builder["current_node"]
+    if len(builder["node_stack"]) > 0:
+        builder["current_node"] = builder["node_stack"][len(builder["node_stack"]) - 1]
+        builder["node_stack"] = slice(builder["node_stack"], 0, len(builder["node_stack"]) - 1)
+        add_child(builder["current_node"], node)
+    else:
+        builder["current_node"] = None
+    return node
+
+fn builder_add_child(builder, node):
+    if builder["current_node"]:
+        add_child(builder["current_node"], node)
+    return builder
+
+fn builder_get_ast(builder):
+    return builder["current_node"]
+
+# AST visitor base functions
+fn visit_node(visitor, node):
+    node_type = node["node_type"]
+    method_name = "visit_" + node_type
+    if contains(dict_keys(visitor), method_name):
+        return visitor[method_name](visitor, node)
+    return generic_visit(visitor, node)
+
+fn generic_visit(visitor, node):
+    for child in node["children"]:
+        visit_node(visitor, child)
+    return None
+
+# AST transformer functions
+fn transform_node(transformer, node):
+    result = visit_node(transformer, node)
+    if result:
+        return result
+    return node
+
+fn generic_transform(transformer, node):
+    new_children = []
+    for child in node["children"]:
+        new_children = push(new_children, transform_node(transformer, child))
+    node["children"] = new_children
+    return node
+
+# AST serialization functions
+fn serialize_node(node):
+    return to_json(node_to_dict(node))
+
+fn deserialize_node(json_str):
+    data = from_json(json_str)
+    return node_from_dict(data)
+
+# AST printer
+fn make_ast_printer():
+    return {
+        "indent": 0
+    }
+
+fn printer_print(printer, text):
+    indent_str = ""
+    i = 0
+    while i < printer["indent"]:
+        indent_str = indent_str + "  "
+        i = i + 1
+    print(indent_str + text)
+
+fn printer_visit(printer, node):
+    printer_print(printer, node["node_type"])
+    printer["indent"] = printer["indent"] + 1
+    for child in node["children"]:
+        printer_visit(printer, child)
+    printer["indent"] = printer["indent"] - 1
+
+# Helper functions for creating specific node types
+fn make_program_node():
+    return make_ast_node(NODE_PROGRAM, {})
+
+fn make_module_node(name):
+    return make_ast_node(NODE_MODULE, {"name": name})
+
+fn make_import_node(module_name, alias):
+    return make_ast_node(NODE_IMPORT, {"module_name": module_name, "alias": alias})
+
+fn make_export_node(name):
+    return make_ast_node(NODE_EXPORT, {"name": name})
+
+fn make_function_node(name, params, return_type, body):
+    return make_ast_node(NODE_FUNCTION, {
+        "name": name,
+        "parameters": params,
+        "return_type": return_type,
+        "body": body
+    })
+
+fn make_parameter_node(name, type_annotation, default_value):
+    return make_ast_node(NODE_VARIABLE, {
+        "name": name,
+        "type_annotation": type_annotation,
+        "default_value": default_value
+    })
+
+fn make_function_call_node(function, arguments):
+    return make_ast_node(NODE_FUNCTION_CALL, {
+        "function": function,
+        "arguments": arguments
+    })
+
+fn make_variable_node(name, type_annotation):
+    return make_ast_node(NODE_VARIABLE, {
+        "name": name,
+        "type_annotation": type_annotation
+    })
+
+fn make_literal_node(value):
+    return make_ast_node(NODE_LITERAL, {"value": value})
+
+fn make_number_literal_node(value):
+    return make_ast_node(NODE_NUMBER_LITERAL, {"value": value})
+
+fn make_string_literal_node(value):
+    return make_ast_node(NODE_STRING_LITERAL, {"value": value})
+
+fn make_boolean_literal_node(value):
+    return make_ast_node(NODE_BOOLEAN_LITERAL, {"value": value})
+
+fn make_null_literal_node():
+    return make_ast_node(NODE_NULL_LITERAL, {"value": None})
+
+fn make_binary_op_node(operator, left, right):
+    return make_ast_node(NODE_BINARY_OP, {
+        "operator": operator,
+        "left": left,
+        "right": right
+    })
+
+fn make_binary_operation_node(operator, left, right):
+    return make_ast_node(NODE_BINARY_OPERATION, {
+        "operator": operator,
+        "left": left,
+        "right": right
+    })
+
+fn make_unary_op_node(operator, operand):
+    return make_ast_node(NODE_UNARY_OP, {
+        "operator": operator,
+        "operand": operand
+    })
+
+fn make_unary_operation_node(operator, operand):
+    return make_ast_node(NODE_UNARY_OPERATION, {
+        "operator": operator,
+        "operand": operand
+    })
+
+fn make_assignment_node(target, value):
+    return make_ast_node(NODE_ASSIGNMENT, {
+        "target": target,
+        "value": value
+    })
+
+fn make_block_node(statements):
+    return make_ast_node(NODE_BLOCK, {"statements": statements})
+
+fn make_block_statement_node(statements):
+    return make_ast_node(NODE_BLOCK_STATEMENT, {"statements": statements})
+
+fn make_expression_statement_node(expression):
+    return make_ast_node(NODE_EXPRESSION_STATEMENT, {"expression": expression})
+
+fn make_if_node(condition, then_branch):
+    return make_ast_node(NODE_IF, {
+        "condition": condition,
+        "then_branch": then_branch
+    })
+
+fn make_if_statement_node(condition, consequent, alternate):
+    return make_ast_node(NODE_IF_STATEMENT, {
+        "condition": condition,
+        "consequent": consequent,
+        "alternate": alternate
+    })
+
+fn make_if_else_node(condition, then_branch, else_branch):
+    return make_ast_node(NODE_IF_ELSE, {
+        "condition": condition,
+        "then_branch": then_branch,
+        "else_branch": else_branch
+    })
+
+fn make_for_node(variable, iterable, body):
+    return make_ast_node(NODE_FOR, {
+        "variable": variable,
+        "iterable": iterable,
+        "body": body
+    })
+
+fn make_while_node(condition, body):
+    return make_ast_node(NODE_WHILE, {
+        "condition": condition,
+        "body": body
+    })
+
+fn make_while_loop_node(condition, body):
+    return make_ast_node(NODE_WHILE_LOOP, {
+        "condition": condition,
+        "body": body
+    })
+
+fn make_return_node(value):
+    return make_ast_node(NODE_RETURN, {"value": value})
+
+fn make_return_statement_node(value):
+    return make_ast_node(NODE_RETURN_STATEMENT, {"value": value})
+
+fn make_list_node(elements):
+    return make_ast_node(NODE_LIST, {"elements": elements})
+
+fn make_dict_node(pairs):
+    return make_ast_node(NODE_DICT, {"pairs": pairs})
+
+fn make_lambda_node(params, body):
+    return make_ast_node(NODE_LAMBDA, {
+        "parameters": params,
+        "body": body
+    })
+
+fn make_variable_access_node(name):
+    return make_ast_node(NODE_VARIABLE_ACCESS, {"name": name})
+
+fn make_type_annotation_node(type_name, type_params):
+    return make_ast_node(NODE_TYPE_ANNOTATION, {
+        "type_name": type_name,
+        "type_params": type_params
+    })
+
+fn make_effect_node(effect_type):
+    return make_ast_node(NODE_EFFECT, {"effect_type": effect_type})
+
+# Main entry point for testing
+fn main():
+    # Build a simple AST
+    builder = make_ast_builder()
+    
+    # Create a program
+    program = make_program_node()
+    builder_start_node(builder, program)
+    
+    # Create a module
+    module = make_module_node("main")
+    builder_start_node(builder, module)
+    
+    # Create a function
+    func = make_function_node("add", [], None, None)
+    builder_start_node(builder, func)
+    
+    # Add parameters
+    param1 = make_parameter_node("x", None, None)
+    param2 = make_parameter_node("y", None, None)
+    builder_add_child(builder, param1)
+    builder_add_child(builder, param2)
+    
+    # Create a return statement with binary operation
+    left_var = make_variable_access_node("x")
+    right_var = make_variable_access_node("y")
+    bin_op = make_binary_op_node("+", left_var, right_var)
+    ret = make_return_node(bin_op)
+    builder_add_child(builder, ret)
+    
+    # End function
+    builder_end_node(builder)
+    
+    # End module
+    builder_end_node(builder)
+    
+    # End program
+    ast = builder_end_node(builder)
+    
+    # Print the AST
+    printer = make_ast_printer()
+    printer_visit(printer, ast)
+    
+    # Serialize
+    json_str = serialize_node(ast)
+    print("\nSerialized AST (truncated):")
+    print(slice(json_str, 0, 200) + "...")
+    
+    print("\nAST system initialized successfully")
+
+# Run main if this is the entry point
+if __name__ == "__main__":
+    main()

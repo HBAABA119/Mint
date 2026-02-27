@@ -1,0 +1,45 @@
+#mode slim
+# Prim Hardware Interface
+# Provides hardware abstraction, device interfaces, protocol support,
+# hardware discovery, and interface management
+
+# Interface type constants
+INTERFACE_GPIO = "gpio"
+INTERFACE_I2C = "i2c"
+INTERFACE_SPI = "spi"
+INTERFACE_UART = "uart"
+
+# Factory function for Interface
+fn make_interface(id, type_, address):
+    return {
+        "id": id,
+        "type": type_,
+        "address": address
+    }
+
+# InterfaceManager factory
+fn make_interface_manager():
+    return {
+        "interfaces": {}
+    }
+
+fn interface_manager_add_interface(manager, interface):
+    manager["interfaces"][interface["id"]] = interface
+
+fn interface_manager_get_interfaces(manager):
+    interfaces = []
+    keys = dict_keys(manager["interfaces"])
+    for key in keys:
+        interfaces = push(interfaces, manager["interfaces"][key])
+    return interfaces
+
+fn main():
+    print("Testing Hardware Interface...")
+    manager = make_interface_manager()
+    interface = make_interface("iface1", INTERFACE_GPIO, "0x1000")
+    interface_manager_add_interface(manager, interface)
+    print("Interfaces: " + to_string(len(interface_manager_get_interfaces(manager))))
+    print("Hardware Interface initialized successfully")
+
+if __name__ == "__main__":
+    main()

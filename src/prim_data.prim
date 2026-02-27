@@ -1,0 +1,546 @@
+#mode slim
+# Prim Data Processing
+# Provides DataFrame operations, statistical analysis functions, data visualization tools,
+# streaming data processing, and big data integration
+
+# Data type constants
+DATA_NUMERIC = "numeric"
+DATA_CATEGORICAL = "categorical"
+DATA_TEXT = "text"
+DATA_BOOLEAN = "boolean"
+DATA_DATETIME = "datetime"
+
+# Column factory
+fn make_column(name, data, dtype):
+    if dtype == None:
+        dtype = DATA_NUMERIC
+    return {
+        "name": name,
+        "data": data,
+        "dtype": dtype,
+        "len": fn() { len(data) },
+        "get": fn(index) { data[index] },
+        "mean": fn() {
+            # Calculate mean (simplified)
+            if dtype == DATA_NUMERIC:
+                sum = 0.0
+                for v in data:
+                    sum = sum + v
+                return sum / len(data)
+            print("Error: Cannot calculate mean for non-numeric data")
+            return None
+        },
+        "std": fn() {
+            # Calculate standard deviation (simplified)
+            if dtype == DATA_NUMERIC:
+                mean_val = column_mean(data)
+                sum_sq = 0.0
+                for v in data:
+                    diff = v - mean_val
+                    sum_sq = sum_sq + diff * diff
+                return sqrt(sum_sq / len(data))
+            print("Error: Cannot calculate std for non-numeric data")
+            return None
+        },
+        "min": fn() {
+            # Calculate minimum
+            if dtype == DATA_NUMERIC:
+                min_val = data[0]
+                for v in data:
+                    if v < min_val:
+                        min_val = v
+                return min_val
+            print("Error: Cannot calculate min for non-numeric data")
+            return None
+        },
+        "max": fn() {
+            # Calculate maximum
+            if dtype == DATA_NUMERIC:
+                max_val = data[0]
+                for v in data:
+                    if v > max_val:
+                        max_val = v
+                return max_val
+            print("Error: Cannot calculate max for non-numeric data")
+            return None
+        },
+        "sum": fn() {
+            # Calculate sum
+            if dtype == DATA_NUMERIC:
+                total = 0.0
+                for v in data:
+                    total = total + v
+                return total
+            print("Error: Cannot calculate sum for non-numeric data")
+            return None
+        },
+        "count": fn(value) {
+            # Count occurrences of value
+            count = 0
+            for v in data:
+                if v == value:
+                    count = count + 1
+            return count
+        },
+        "unique": fn() {
+            # Get unique values (simplified)
+            seen = {}
+            result = []
+            for v in data:
+                if not contains(dict_keys(seen), to_string(v)):
+                    seen[to_string(v)] = true
+                    result = push(result, v)
+            return result
+        }
+    }
+
+fn column_mean(data):
+    sum = 0.0
+    for v in data:
+        sum = sum + v
+    return sum / len(data)
+
+# DataFrame factory
+fn make_dataframe(name):
+    if name == None:
+        name = "dataframe"
+    return {
+        "name": name,
+        "columns": {},
+        "n_rows": 0
+    }
+
+fn dataframe_add_column(df, name, data, dtype):
+    # Add a column to the DataFrame
+    if len(data) != df["n_rows"] and df["n_rows"] > 0:
+        print("Error: Column length must match DataFrame length")
+        return
+    
+    df["columns"][name] = make_column(name, data, dtype)
+    df["n_rows"] = len(data)
+
+fn dataframe_len(df):
+    return df["n_rows"]
+
+fn dataframe_get_column(df, column_name):
+    if contains(dict_keys(df["columns"]), column_name):
+        return df["columns"][column_name]
+    return None
+
+fn dataframe_set_column(df, column_name, data):
+    if contains(dict_keys(df["columns"]), column_name):
+        df["columns"][column_name]["data"] = data
+    else:
+        dataframe_add_column(df, column_name, data, None)
+
+fn dataframe_head(df, n):
+    # Get first n rows
+    if n == None:
+        n = 5
+    result = make_dataframe(df["name"] + "_head")
+    keys = dict_keys(df["columns"])
+    for name in keys:
+        col = df["columns"][name]
+        slice_data = slice(col["data"], 0, n)
+        dataframe_add_column(result, name, slice_data, col["dtype"])
+    return result
+
+fn dataframe_tail(df, n):
+    # Get last n rows
+    if n == None:
+        n = 5
+    result = make_dataframe(df["name"] + "_tail")
+    keys = dict_keys(df["columns"])
+    for name in keys:
+        col = df["columns"][name]
+        start = len(col["data"]) - n
+        if start < 0:
+            start = 0
+        slice_data = slice(col["data"], start, len(col["data"]))
+        dataframe_add_column(result, name, slice_data, col["dtype"])
+    return result
+
+fn dataframe_filter(df, condition):
+    # Filter rows based on condition
+    indices = []
+    i = 0
+    while i < df["n_rows"]:
+        row = {}
+        keys = dict_keys(df["columns"])
+        for name in keys:
+            row[name] = df["columns"][name]["data"][i]
+        if condition(row):
+            indices = push(indices, i)
+        i = i + 1
+    
+    result = make_dataframe(df["name"] + "_filtered")
+    for name in keys:
+        col = df["columns"][name]
+        filtered_data = []
+        for idx in indices:
+            filtered_data = push(filtered_data, col["data"][idx])
+        dataframe_add_column(result, name, filtered_data, col["dtype"])
+    
+    return result
+
+fn dataframe_select(df, column_names):
+    # Select specific columns
+    result = make_dataframe(df["name"] + "_selected")
+    for name in column_names:
+        if contains(dict_keys(df["columns"]), name):
+            col = df["columns"][name]
+            dataframe_add_column(result, name, col["data"], col["dtype"])
+    return result
+
+fn dataframe_group_by(df, column_name):
+    # Group by column (simplified)
+    groups = {}
+    i = 0
+    while i < df["n_rows"]:
+        key = df["columns"][column_name]["data"][i]
+        if not contains(dict_keys(groups), to_string(key)):
+            groups[to_string(key)] = make_dataframe(df["name"] + "_group_" + to_string(key))
+            keys = dict_keys(df["columns"])
+            for name in keys:
+                col = df["columns"][name]
+                groups[to_string(key)]["columns"][name] = make_column(name, [], col["dtype"])
+        
+        for name in keys:
+            col = df["columns"][name]
+            groups[to_string(key)]["columns"][name]["data"] = push(
+                groups[to_string(key)]["columns"][name]["data"], 
+                col["data"][i]
+            )
+            groups[to_string(key)]["n_rows"] = groups[to_string(key)]["n_rows"] + 1
+        i = i + 1
+    
+    return groups
+
+fn dataframe_join(df, other, on, how):
+    # Join with another DataFrame (simplified inner join)
+    if not contains(dict_keys(df["columns"]), on) or not contains(dict_keys(other["columns"]), on):
+        print("Error: Column '" + on + "' not found in both DataFrames")
+        return None
+    
+    if how == None:
+        how = "inner"
+    
+    result = make_dataframe(df["name"] + "_joined")
+    joined_data = {}
+    
+    if how == "inner":
+        i = 0
+        while i < df["n_rows"]:
+            j = 0
+            while j < other["n_rows"]:
+                if df["columns"][on]["data"][i] == other["columns"][on]["data"][j]:
+                    # Add left columns
+                    keys = dict_keys(df["columns"])
+                    for name in keys:
+                        if not contains(dict_keys(joined_data), name):
+                            joined_data[name] = []
+                        joined_data[name] = push(joined_data[name], df["columns"][name]["data"][i])
+                    
+                    # Add right columns (excluding join key)
+                    other_keys = dict_keys(other["columns"])
+                    for name in other_keys:
+                        if name != on:
+                            if not contains(dict_keys(joined_data), name):
+                                joined_data[name] = []
+                            joined_data[name] = push(joined_data[name], other["columns"][name]["data"][j])
+                j = j + 1
+            i = i + 1
+    
+    # Add columns to result
+    joined_keys = dict_keys(joined_data)
+    for name in joined_keys:
+        dtype = df["columns"][name]["dtype"] if contains(dict_keys(df["columns"]), name) else other["columns"][name]["dtype"]
+        dataframe_add_column(result, name, joined_data[name], dtype)
+    
+    return result
+
+fn dataframe_sort_by(df, column_name, ascending):
+    # Sort by column (simplified)
+    if not contains(dict_keys(df["columns"]), column_name):
+        print("Error: Column '" + column_name + "' not found")
+        return None
+    
+    if ascending == None:
+        ascending = true
+    
+    # Create index array and sort (conceptual)
+    indices = []
+    i = 0
+    while i < df["n_rows"]:
+        indices = push(indices, i)
+        i = i + 1
+    
+    # Simple bubble sort of indices
+    n = len(indices)
+    i = 0
+    while i < n:
+        j = 0
+        while j < n - i - 1:
+            val1 = df["columns"][column_name]["data"][indices[j]]
+            val2 = df["columns"][column_name]["data"][indices[j + 1]]
+            if (ascending and val1 > val2) or (not ascending and val1 < val2):
+                temp = indices[j]
+                indices[j] = indices[j + 1]
+                indices[j + 1] = temp
+            j = j + 1
+        i = i + 1
+    
+    result = make_dataframe(df["name"] + "_sorted")
+    keys = dict_keys(df["columns"])
+    for name in keys:
+        col = df["columns"][name]
+        sorted_data = []
+        for idx in indices:
+            sorted_data = push(sorted_data, col["data"][idx])
+        dataframe_add_column(result, name, sorted_data, col["dtype"])
+    
+    return result
+
+fn dataframe_aggregate(df, aggregations):
+    # Aggregate columns
+    results = {}
+    agg_keys = dict_keys(aggregations)
+    for column_name in agg_keys:
+        if not contains(dict_keys(df["columns"]), column_name):
+            continue
+        
+        col = df["columns"][column_name]
+        agg_func = aggregations[column_name]
+        
+        if agg_func == "mean":
+            results[column_name + "_mean"] = col["mean"]()
+        elif agg_func == "std":
+            results[column_name + "_std"] = col["std"]()
+        elif agg_func == "min":
+            results[column_name + "_min"] = col["min"]()
+        elif agg_func == "max":
+            results[column_name + "_max"] = col["max"]()
+        elif agg_func == "sum":
+            results[column_name + "_sum"] = col["sum"]()
+        elif agg_func == "count":
+            results[column_name + "_count"] = col["len"]()
+    
+    return results
+
+fn dataframe_to_dict(df):
+    # Convert to dictionary
+    result = {}
+    keys = dict_keys(df["columns"])
+    for name in keys:
+        result[name] = df["columns"][name]["data"]
+    return result
+
+fn dataframe_describe(df):
+    # Get statistics for all numeric columns
+    stats = {}
+    keys = dict_keys(df["columns"])
+    for name in keys:
+        col = df["columns"][name]
+        if col["dtype"] == DATA_NUMERIC:
+            stats[name] = {
+                "mean": col["mean"](),
+                "std": col["std"](),
+                "min": col["min"](),
+                "max": col["max"](),
+                "count": col["len"]()
+            }
+    return stats
+
+# Statistics module
+fn statistics_mean(data):
+    sum = 0.0
+    for v in data:
+        sum = sum + v
+    return sum / len(data)
+
+fn statistics_median(data):
+    sorted_data = sort(data)
+    n = len(sorted_data)
+    if n % 2 == 0:
+        return (sorted_data[n / 2 - 1] + sorted_data[n / 2]) / 2
+    else:
+        return sorted_data[n / 2]
+
+fn statistics_std(data):
+    mean_val = statistics_mean(data)
+    sum_sq = 0.0
+    for v in data:
+        diff = v - mean_val
+        sum_sq = sum_sq + diff * diff
+    return sqrt(sum_sq / len(data))
+
+fn statistics_variance(data):
+    std_val = statistics_std(data)
+    return std_val * std_val
+
+fn statistics_correlation(x, y):
+    # Calculate correlation coefficient (simplified)
+    mean_x = statistics_mean(x)
+    mean_y = statistics_mean(y)
+    
+    num = 0.0
+    den_x = 0.0
+    den_y = 0.0
+    
+    i = 0
+    while i < len(x):
+        diff_x = x[i] - mean_x
+        diff_y = y[i] - mean_y
+        num = num + diff_x * diff_y
+        den_x = den_x + diff_x * diff_x
+        den_y = den_y + diff_y * diff_y
+        i = i + 1
+    
+    return num / sqrt(den_x * den_y)
+
+fn statistics_covariance(x, y):
+    mean_x = statistics_mean(x)
+    mean_y = statistics_mean(y)
+    
+    sum = 0.0
+    i = 0
+    while i < len(x):
+        sum = sum + (x[i] - mean_x) * (y[i] - mean_y)
+        i = i + 1
+    
+    return sum / len(x)
+
+# Data visualizer
+fn visualizer_histogram(data, bins, title):
+    # Generate histogram data (simplified)
+    if bins == None:
+        bins = 10
+    if title == None:
+        title = "Histogram"
+    
+    min_val = data[0]
+    max_val = data[0]
+    for v in data:
+        if v < min_val:
+            min_val = v
+        if v > max_val:
+            max_val = v
+    
+    bin_width = (max_val - min_val) / bins
+    hist = []
+    i = 0
+    while i < bins:
+        hist = push(hist, 0)
+        i = i + 1
+    
+    for v in data:
+        bin_idx = int((v - min_val) / bin_width)
+        if bin_idx >= bins:
+            bin_idx = bins - 1
+        hist[bin_idx] = hist[bin_idx] + 1
+    
+    return {
+        "type": "histogram",
+        "title": title,
+        "hist": hist,
+        "bins": bins
+    }
+
+fn visualizer_scatter(x, y, title):
+    if title == None:
+        title = "Scatter Plot"
+    return {
+        "type": "scatter",
+        "title": title,
+        "x": x,
+        "y": y
+    }
+
+fn visualizer_line(x, y, title):
+    if title == None:
+        title = "Line Plot"
+    return {
+        "type": "line",
+        "title": title,
+        "x": x,
+        "y": y
+    }
+
+fn visualizer_bar(categories, values, title):
+    if title == None:
+        title = "Bar Chart"
+    return {
+        "type": "bar",
+        "title": title,
+        "categories": categories,
+        "values": values
+    }
+
+# StreamProcessor factory
+fn make_stream_processor(name):
+    if name == None:
+        name = "stream"
+    return {
+        "name": name,
+        "buffer": [],
+        "buffer_size": 1000
+    }
+
+fn stream_processor_process(processor, data):
+    # Process incoming data
+    processor["buffer"] = push(processor["buffer"], data)
+    
+    if len(processor["buffer"]) > processor["buffer_size"]:
+        processor["buffer"] = slice(processor["buffer"], 1, len(processor["buffer"]))
+    
+    return data
+
+fn stream_processor_get_buffer(processor):
+    # Get current buffer
+    return processor["buffer"]
+
+fn create_dataframe(name):
+    return make_dataframe(name)
+
+fn main():
+    print("Testing Data Processing...")
+    
+    # Create DataFrame
+    df = create_dataframe("test_data")
+    dataframe_add_column(df, "id", [1, 2, 3, 4, 5], DATA_NUMERIC)
+    dataframe_add_column(df, "value", [10, 20, 30, 40, 50], DATA_NUMERIC)
+    dataframe_add_column(df, "category", ["A", "B", "A", "B", "A"], DATA_CATEGORICAL)
+    
+    print("DataFrame created with " + to_string(dataframe_len(df)) + " rows")
+    
+    # Test statistics
+    print("Statistics: " + to_string(dataframe_describe(df)))
+    
+    # Test filtering
+    filtered = dataframe_filter(df, fn(row) { row["value"] > 25 })
+    print("Filtered: " + to_string(dataframe_len(filtered)) + " rows")
+    
+    # Test grouping
+    groups = dataframe_group_by(df, "category")
+    print("Groups: " + to_string(len(dict_keys(groups))))
+    
+    # Test statistics functions
+    print("Mean: " + to_string(statistics_mean([10, 20, 30, 40, 50])))
+    print("Correlation: " + to_string(statistics_correlation([1, 2, 3, 4, 5], [10, 20, 30, 40, 50])))
+    
+    # Test visualization
+    histogram = visualizer_histogram([1, 2, 3, 4, 5, 5, 5, 6, 6, 7], 5, None)
+    print("Histogram: " + histogram["type"])
+    
+    # Test streaming
+    stream = make_stream_processor(None)
+    i = 0
+    while i < 10:
+        stream_processor_process(stream, {"id": i, "value": i * 10})
+        i = i + 1
+    print("Stream buffer: " + to_string(len(stream_processor_get_buffer(stream))))
+    
+    print("\nData Processing initialized successfully")
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,526 @@
+#mode slim
+# Prim Resource Management
+# Provides resource allocation, monitoring, scheduling, quotas,
+# and capacity planning
+
+# Resource type constants
+RESOURCE_CPU = "cpu"
+RESOURCE_MEMORY = "memory"
+RESOURCE_DISK = "disk"
+RESOURCE_NETWORK = "network"
+RESOURCE_GPU = "gpu"
+RESOURCE_CUSTOM = "custom"
+
+# Allocation policy constants
+ALLOCATION_FIFO = "fifo"
+ALLOCATION_PRIORITY = "priority"
+ALLOCATION_FAIR_SHARE = "fair_share"
+ALLOCATION_PROPORTIONAL = "proportional"
+
+# Resource factory
+fn make_resource(id, type_, capacity, allocated, available, metadata):
+    if allocated == None:
+        allocated = 0.0
+    if available == None:
+        available = capacity
+    if metadata == None:
+        metadata = {}
+    return {
+        "id": id,
+        "type": type_,
+        "capacity": capacity,
+        "allocated": allocated,
+        "available": available,
+        "metadata": metadata
+    }
+
+# ResourceRequest factory
+fn make_resource_request(id, resources, priority, duration):
+    if priority == None:
+        priority = 0
+    return {
+        "id": id,
+        "resources": resources,
+        "priority": priority,
+        "duration": duration
+    }
+
+# ResourceAllocation factory
+fn make_resource_allocation(id, request_id, resources, allocated_at, expires_at):
+    return {
+        "id": id,
+        "request_id": request_id,
+        "resources": resources,
+        "allocated_at": allocated_at,
+        "expires_at": expires_at
+    }
+
+# ResourcePool factory
+fn make_resource_pool(name, resource_type, capacity):
+    return {
+        "name": name,
+        "resource_type": resource_type,
+        "capacity": capacity,
+        "available": capacity,
+        "allocated": 0.0,
+        "allocations": {},
+        "allocate": fn(request_id, amount) {
+            if amount > available:
+                return false
+            
+            available = available - amount
+            allocated = allocated + amount
+            allocations[request_id] = amount
+            return true
+        },
+        "release": fn(request_id) {
+            if contains(dict_keys(allocations), request_id):
+                amount = allocations[request_id]
+                available = available + amount
+                allocated = allocated - amount
+                # Remove from allocations
+                new_allocations = {}
+                keys = dict_keys(allocations)
+                i = 0
+                while i < len(keys):
+                    key = keys[i]
+                    if key != request_id:
+                        new_allocations[key] = allocations[key]
+                    i = i + 1
+                allocations = new_allocations
+        },
+        "get_utilization": fn() {
+            return (allocated / capacity) * 100 if capacity > 0 else 0
+        },
+        "get_status": fn() {
+            return {
+                "capacity": capacity,
+                "allocated": allocated,
+                "available": available,
+                "utilization": get_utilization()
+            }
+        }
+    }
+
+# ResourceManager factory
+fn make_resource_manager():
+    return {
+        "pools": {},
+        "allocations": {},
+        "requests": [],
+        "allocation_counter": 0,
+        "policy": ALLOCATION_FIFO,
+        "add_pool": fn(name, resource_type, capacity) {
+            pool = make_resource_pool(name, resource_type, capacity)
+            pools[name] = pool
+        },
+        "allocate": fn(request) {
+            # Check if enough resources available
+            resource_keys = dict_keys(request["resources"])
+            i = 0
+            while i < len(resource_keys):
+                resource_type = resource_keys[i]
+                amount = request["resources"][resource_type]
+                pool = get_pool_for_type(resource_type)
+                if pool == None or pool["available"] < amount:
+                    return None
+                i = i + 1
+            
+            # Allocate resources
+            allocation_counter = allocation_counter + 1
+            allocation_id = "alloc_" + to_string(allocation_counter)
+            
+            allocated_resources = {}
+            resource_keys = dict_keys(request["resources"])
+            i = 0
+            while i < len(resource_keys):
+                resource_type = resource_keys[i]
+                amount = request["resources"][resource_type]
+                pool = get_pool_for_type(resource_type)
+                pool["allocate"](allocation_id, amount)
+                allocated_resources[resource_type] = amount
+                i = i + 1
+            
+            allocation = make_resource_allocation(
+                allocation_id,
+                request["id"],
+                allocated_resources,
+                get_current_time(),
+                get_current_time() + request["duration"] if request["duration"] != None else None
+            )
+            
+            allocations[allocation_id] = allocation
+            return allocation
+        },
+        "release": fn(allocation_id) {
+            if not contains(dict_keys(allocations), allocation_id):
+                return
+            
+            allocation = allocations[allocation_id]
+            
+            resource_keys = dict_keys(allocation["resources"])
+            i = 0
+            while i < len(resource_keys):
+                resource_type = resource_keys[i]
+                pool = get_pool_for_type(resource_type)
+                if pool != None:
+                    pool["release"](allocation_id)
+                i = i + 1
+            
+            # Remove from allocations
+            new_allocations = {}
+            keys = dict_keys(allocations)
+            i = 0
+            while i < len(keys):
+                key = keys[i]
+                if key != allocation_id:
+                    new_allocations[key] = allocations[key]
+                i = i + 1
+            allocations = new_allocations
+        },
+        "get_status": fn() {
+            pool_statuses = {}
+            pool_keys = dict_keys(pools)
+            i = 0
+            while i < len(pool_keys):
+                pool_name = pool_keys[i]
+                pool_statuses[pool_name] = pools[pool_name]["get_status"]()
+                i = i + 1
+            
+            return {
+                "pools": pool_statuses,
+                "allocations": len(dict_keys(allocations)),
+                "utilization": get_total_utilization()
+            }
+        },
+        "get_pool_for_type": fn(resource_type) {
+            pool_keys = dict_keys(pools)
+            i = 0
+            while i < len(pool_keys):
+                pool = pools[pool_keys[i]]
+                if pool["resource_type"] == resource_type:
+                    return pool
+                i = i + 1
+            return None
+        },
+        "get_total_utilization": fn() {
+            if len(dict_keys(pools)) == 0:
+                return 0.0
+            
+            total_util = 0.0
+            pool_keys = dict_keys(pools)
+            i = 0
+            while i < len(pool_keys):
+                pool = pools[pool_keys[i]]
+                total_util = total_util + pool["get_utilization"]()
+                i = i + 1
+            
+            return total_util / len(dict_keys(pools))
+        }
+    }
+
+# ResourceMonitor factory
+fn make_resource_monitor():
+    return {
+        "metrics": {},
+        "thresholds": {},
+        "alerts": [],
+        "running": false,
+        "start": fn() {
+            running = true
+        },
+        "stop": fn() {
+            running = false
+        },
+        "collect_metrics": fn(resource_manager) {
+            status = resource_manager["get_status"]()
+            pool_keys = dict_keys(status["pools"])
+            
+            i = 0
+            while i < len(pool_keys):
+                pool_name = pool_keys[i]
+                pool_status = status["pools"][pool_name]
+                
+                if not contains(dict_keys(metrics), pool_name):
+                    metrics[pool_name] = []
+                
+                metrics[pool_name] = push(metrics[pool_name], pool_status["utilization"])
+                
+                # Keep last 100 values
+                if len(metrics[pool_name]) > 100:
+                    metrics[pool_name] = slice(metrics[pool_name], len(metrics[pool_name]) - 100, len(metrics[pool_name]))
+                
+                # Check thresholds
+                if contains(dict_keys(thresholds), pool_name):
+                    if pool_status["utilization"] > thresholds[pool_name]:
+                        alerts = push(alerts, {
+                            "pool": pool_name,
+                            "utilization": pool_status["utilization"],
+                            "threshold": thresholds[pool_name],
+                            "timestamp": get_current_time()
+                        })
+                
+                i = i + 1
+        },
+        "get_metrics": fn(pool_name) {
+            if contains(dict_keys(metrics), pool_name):
+                return metrics[pool_name]
+            return []
+        },
+        "set_threshold": fn(pool_name, threshold) {
+            thresholds[pool_name] = threshold
+        },
+        "get_alerts": fn() {
+            return alerts
+        }
+    }
+
+# ResourceScheduler factory
+fn make_resource_scheduler(policy):
+    if policy == None:
+        policy = ALLOCATION_FIFO
+    return {
+        "policy": policy,
+        "queue": [],
+        "submit": fn(request) {
+            queue = push(queue, request)
+        },
+        "schedule": fn(resource_manager) {
+            allocations = []
+            
+            if policy == ALLOCATION_PRIORITY:
+                # Sort by priority (simplified)
+                queue = sort_by_priority(queue)
+            
+            i = 0
+            while i < len(queue):
+                request = queue[i]
+                allocation = resource_manager["allocate"](request)
+                if allocation != None:
+                    allocations = push(allocations, allocation)
+                    # Remove from queue (simplified)
+                    new_queue = []
+                    j = 0
+                    while j < len(queue):
+                        if j != i:
+                            new_queue = push(new_queue, queue[j])
+                        j = j + 1
+                    queue = new_queue
+                    i = i - 1  # Adjust index
+                i = i + 1
+            
+            return allocations
+        },
+        "get_queue_size": fn() {
+            return len(queue)
+        }
+    }
+
+fn sort_by_priority(queue):
+    # Sort by priority (simplified)
+    return queue
+
+# QuotaManager factory
+fn make_quota_manager():
+    return {
+        "quotas": {},
+        "usage": {},
+        "set_quota": fn(user_id, resource_type, limit) {
+            if not contains(dict_keys(quotas), user_id):
+                quotas[user_id] = {}
+            quotas[user_id][resource_type] = limit
+        },
+        "check_quota": fn(user_id, resource_type, amount) {
+            if not contains(dict_keys(quotas), user_id):
+                return true
+            
+            if not contains(dict_keys(quotas[user_id]), resource_type):
+                return true
+            
+            limit = quotas[user_id][resource_type]
+            usage_amount = 0.0
+            if contains(dict_keys(usage), user_id) and contains(dict_keys(usage[user_id]), resource_type):
+                usage_amount = usage[user_id][resource_type]
+            
+            return (usage_amount + amount) <= limit
+        },
+        "record_usage": fn(user_id, resource_type, amount) {
+            if not contains(dict_keys(usage), user_id):
+                usage[user_id] = {}
+            usage[user_id][resource_type] = usage[user_id].get(resource_type, 0) + amount
+        },
+        "get_usage": fn(user_id) {
+            if contains(dict_keys(usage), user_id):
+                return usage[user_id]
+            return {}
+        },
+        "get_remaining": fn(user_id, resource_type) {
+            if not contains(dict_keys(quotas), user_id):
+                return 1000000.0  # Infinity
+            
+            if not contains(dict_keys(quotas[user_id]), resource_type):
+                return 1000000.0
+            
+            limit = quotas[user_id][resource_type]
+            usage_amount = 0.0
+            if contains(dict_keys(usage), user_id) and contains(dict_keys(usage[user_id]), resource_type):
+                usage_amount = usage[user_id][resource_type]
+            
+            return max(0, limit - usage_amount)
+        }
+    }
+
+# CapacityPlanner factory
+fn make_capacity_planner():
+    return {
+        "history": [],
+        "forecasts": {},
+        "record_usage": fn(resource_manager) {
+            status = resource_manager["get_status"]()
+            history = push(history, {
+                "timestamp": get_current_time(),
+                "utilization": status["utilization"]
+            })
+        },
+        "forecast": fn(pool_name, periods) {
+            if periods == None:
+                periods = 10
+            
+            if len(history) == 0:
+                return []
+            
+            # Simple moving average forecast
+            values = []
+            i = 0
+            while i < len(history) and i < 10:
+                values = push(values, history[len(history) - 1 - i]["utilization"])
+                i = i + 1
+            
+            forecast = []
+            i = 0
+            while i < periods:
+                avg = mean(values) if len(values) > 0 else 0
+                forecast = push(forecast, avg)
+                values = push(values, avg)
+                if len(values) > 10:
+                    values = slice(values, 1, len(values))
+                i = i + 1
+            
+            forecasts[pool_name] = forecast
+            return forecast
+        },
+        "get_capacity_recommendations": fn() {
+            recommendations = {}
+            
+            forecast_keys = dict_keys(forecasts)
+            i = 0
+            while i < len(forecast_keys):
+                pool_name = forecast_keys[i]
+                forecast = forecasts[pool_name]
+                
+                if len(forecast) > 0:
+                    avg_forecast = mean(forecast)
+                    
+                    if avg_forecast > 90:
+                        recommendations[pool_name] = "URGENT: Scale up immediately"
+                    elif avg_forecast > 75:
+                        recommendations[pool_name] = "WARNING: Consider scaling up"
+                    elif avg_forecast < 20:
+                        recommendations[pool_name] = "INFO: Consider scaling down"
+                
+                i = i + 1
+            
+            return recommendations
+        }
+    }
+
+fn get_current_time():
+    # Get current time (simplified)
+    return 1000.0
+
+fn mean(values):
+    if len(values) == 0:
+        return 0.0
+    total = 0.0
+    i = 0
+    while i < len(values):
+        total = total + values[i]
+        i = i + 1
+    return total / len(values)
+
+fn max(a, b):
+    return a if a > b else b
+
+fn create_resource_manager():
+    return make_resource_manager()
+
+fn main():
+    print("Testing Resource Management...")
+    
+    # Create resource manager
+    rm = create_resource_manager()
+    
+    # Add resource pools
+    rm["add_pool"]("cpu_pool", RESOURCE_CPU, 100.0)
+    rm["add_pool"]("memory_pool", RESOURCE_MEMORY, 16.0)
+    rm["add_pool"]("gpu_pool", RESOURCE_GPU, 4.0)
+    
+    # Create resource request
+    request = make_resource_request(
+        "req1",
+        {RESOURCE_CPU: 10.0, RESOURCE_MEMORY: 2.0},
+        1,
+        60.0
+    )
+    
+    # Allocate resources
+    allocation = rm["allocate"](request)
+    allocation_id = "None"
+    if allocation != None:
+        allocation_id = allocation["id"]
+    print("Allocation: " + allocation_id)
+    
+    # Get status
+    status = rm["get_status"]()
+    print("Status: " + to_string(status["allocations"]) + " allocations")
+    
+    # Test resource monitor
+    monitor = make_resource_monitor()
+    monitor["start"]()
+    monitor["collect_metrics"](rm)
+    metrics = monitor["get_metrics"]("cpu_pool")
+    print("Metrics: " + to_string(len(metrics)) + " samples")
+    
+    # Test scheduler
+    scheduler = make_resource_scheduler(ALLOCATION_PRIORITY)
+    scheduler["submit"](request)
+    scheduled = scheduler["schedule"](rm)
+    print("Scheduled: " + to_string(len(scheduled)) + " allocations")
+    
+    # Test quota manager
+    quota_mgr = make_quota_manager()
+    quota_mgr["set_quota"]("user1", RESOURCE_CPU, 50.0)
+    has_quota = quota_mgr["check_quota"]("user1", RESOURCE_CPU, 30.0)
+    print("Has quota: " + to_string(has_quota))
+    
+    # Test capacity planner
+    planner = make_capacity_planner()
+    i = 0
+    while i < 20:
+        planner["record_usage"](rm)
+        i = i + 1
+    
+    forecast = planner["forecast"]("cpu_pool", 5)
+    print("Forecast: " + to_string(len(forecast)) + " periods")
+    
+    recommendations = planner["get_capacity_recommendations"]()
+    print("Recommendations: " + to_string(len(dict_keys(recommendations))))
+    
+    # Cleanup
+    if allocation != None:
+        rm["release"](allocation["id"])
+    
+    print("\nResource Management initialized successfully")
+
+if __name__ == "__main__":
+    main()

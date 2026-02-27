@@ -1,0 +1,457 @@
+#mode slim
+# Prim Model Deployment
+# Provides model serving, API generation, containerization, monitoring,
+# and A/B testing capabilities
+
+# Deployment type constants
+DEPLOYMENT_LOCAL = "local"
+DEPLOYMENT_DOCKER = "docker"
+DEPLOYMENT_KUBERNETES = "kubernetes"
+DEPLOYMENT_SERVERLESS = "serverless"
+DEPLOYMENT_EDGE = "edge"
+
+# Model format constants
+FORMAT_PICKLE = "pickle"
+FORMAT_ONNX = "onnx"
+FORMAT_TENSORFLOW = "tensorflow"
+FORMAT_PYTORCH = "pytorch"
+FORMAT_PRIM = "prim"
+
+# Model factory
+fn make_model(name, version, model_data, format, metadata):
+    if metadata == None:
+        metadata = {}
+    return {
+        "name": name,
+        "version": version,
+        "model": model_data,
+        "format": format,
+        "metadata": metadata,
+        "created_at": 0.0
+    }
+
+# Deployment factory
+fn make_deployment(id, model, deployment_type, endpoint):
+    return {
+        "id": id,
+        "model": model,
+        "deployment_type": deployment_type,
+        "endpoint": endpoint,
+        "status": "pending",
+        "metrics": {}
+    }
+
+# ModelServer factory
+fn make_model_server(host, port):
+    if host == None:
+        host = "0.0.0.0"
+    if port == None:
+        port = 8000
+    return {
+        "host": host,
+        "port": port,
+        "models": {},
+        "running": false
+    }
+
+fn model_server_load_model(server, model):
+    # Load model into server
+    server["models"][model["name"]] = model
+
+fn model_server_unload_model(server, name):
+    # Unload model from server
+    if contains(dict_keys(server["models"]), name):
+        del server["models"][name]
+
+fn model_server_predict(server, model_name, data):
+    # Make prediction
+    if not contains(dict_keys(server["models"]), model_name):
+        print("ValueError: Model " + model_name + " not found")
+        return None
+    
+    model = server["models"][model_name]
+    # Simple function call (conceptual)
+    return data
+
+fn model_server_start(server):
+    # Start model server
+    server["running"] = true
+    print("Model server started on " + server["host"] + ":" + to_string(server["port"]))
+
+fn model_server_stop(server):
+    # Stop model server
+    server["running"] = false
+    print("Model server stopped")
+
+fn model_server_get_status(server):
+    # Get server status
+    return {
+        "host": server["host"],
+        "port": server["port"],
+        "running": server["running"],
+        "models": dict_keys(server["models"])
+    }
+
+# APIGenerator factory
+fn make_api_generator():
+    return {
+        "endpoints": []
+    }
+
+fn api_generator_generate_rest_api(generator, model_name, input_schema, output_schema):
+    # Generate REST API specification
+    return {
+        "openapi": "3.0.0",
+        "info": {
+            "title": model_name + " API",
+            "version": "1.0.0"
+        },
+        "paths": {
+            "/predict": {
+                "post": {
+                    "summary": "Make prediction",
+                    "requestBody": {
+                        "content": {
+                            "application/json": {
+                                "schema": input_schema
+                            }
+                        }
+                    },
+                    "responses": {
+                        "200": {
+                            "content": {
+                                "application/json": {
+                                    "schema": output_schema
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "/health": {
+                "get": {
+                    "summary": "Health check",
+                    "responses": {
+                        "200": {
+                            "description": "Healthy"
+                        }
+                    }
+                }
+            },
+            "/metrics": {
+                "get": {
+                    "summary": "Get metrics",
+                    "responses": {
+                        "200": {
+                            "description": "Metrics"
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+fn api_generator_generate_grpc_api(generator, model_name):
+    # Generate gRPC API specification
+    return "syntax = 'proto3';\n\nservice " + model_name + "Service {\n  rpc Predict(PredictRequest) returns (PredictResponse);\n  rpc Health(HealthRequest) returns (HealthResponse);\n}\n\nmessage PredictRequest {\n  repeated float features = 1;\n}\n\nmessage PredictResponse {\n  repeated float predictions = 1;\n}"
+
+# Containerizer factory
+fn make_containerizer():
+    return {
+        "dockerfiles": []
+    }
+
+fn containerizer_generate_dockerfile(containerizer, model_name, python_version, dependencies):
+    # Generate Dockerfile
+    if python_version == None:
+        python_version = "3.9"
+    if dependencies == None:
+        dependencies = ["numpy", "scikit-learn", "flask"]
+    
+    return "FROM python:" + python_version + "\n\nWORKDIR /app\n\nCOPY requirements.txt .\nRUN pip install --no-cache-dir -r requirements.txt\n\nCOPY model/ ./model/\nCOPY app.py .\n\nEXPOSE 8000\n\nCMD [\"python\", \"app.py\"]"
+
+fn containerizer_generate_docker_compose(containerizer, services):
+    # Generate docker-compose.yml (conceptual)
+    return "version: '3.8'\nservices:"
+
+# DeploymentMonitor factory
+fn make_deployment_monitor():
+    return {
+        "metrics": {},
+        "alerts": []
+    }
+
+fn deployment_monitor_record_metric(monitor, name, value):
+    # Record metric value
+    if not contains(dict_keys(monitor["metrics"]), name):
+        monitor["metrics"][name] = []
+    monitor["metrics"][name] = push(monitor["metrics"][name], value)
+
+fn deployment_monitor_get_metrics(monitor, name):
+    # Get metric history
+    if contains(dict_keys(monitor["metrics"]), name):
+        return monitor["metrics"][name]
+    return []
+
+fn deployment_monitor_add_alert(monitor, severity, message):
+    # Add alert
+    monitor["alerts"] = push(monitor["alerts"], {
+        "severity": severity,
+        "message": message,
+        "timestamp": 0.0
+    })
+
+fn deployment_monitor_get_alerts(monitor, severity):
+    # Get alerts
+    if severity != None:
+        filtered = []
+        for a in monitor["alerts"]:
+            if a["severity"] == severity:
+                filtered = push(filtered, a)
+        return filtered
+    return monitor["alerts"]
+
+# ABTestManager factory
+fn make_ab_test_manager():
+    return {
+        "experiments": {},
+        "assignments": {}
+    }
+
+fn ab_test_manager_create_experiment(manager, name, variants, traffic_split):
+    # Create A/B test experiment
+    if traffic_split == None:
+        n = len(variants)
+        traffic_split = []
+        i = 0
+        while i < n:
+            traffic_split = push(traffic_split, 1.0 / n)
+            i = i + 1
+    
+    manager["experiments"][name] = {
+        "variants": variants,
+        "traffic_split": traffic_split,
+        "metrics": {}
+    }
+
+fn ab_test_manager_assign_variant(manager, experiment_name, user_id):
+    # Assign user to variant
+    if not contains(dict_keys(manager["experiments"]), experiment_name):
+        return "control"
+    
+    # Check if already assigned
+    key = experiment_name + ":" + user_id
+    if contains(dict_keys(manager["assignments"]), key):
+        return manager["assignments"][key]
+    
+    # Assign to variant based on traffic split (simplified)
+    experiment = manager["experiments"][experiment_name]
+    variants = experiment["variants"]
+    
+    # Simplified assignment - always first variant
+    variant = variants[0]
+    manager["assignments"][key] = variant
+    return variant
+
+fn ab_test_manager_record_metric(manager, experiment_name, variant, metric_name, value):
+    # Record metric for variant
+    if not contains(dict_keys(manager["experiments"]), experiment_name):
+        return
+    
+    experiment = manager["experiments"][experiment_name]
+    if not contains(dict_keys(experiment["metrics"]), variant):
+        experiment["metrics"][variant] = {}
+    
+    if not contains(dict_keys(experiment["metrics"][variant]), metric_name):
+        experiment["metrics"][variant][metric_name] = []
+    
+    experiment["metrics"][variant][metric_name] = push(
+        experiment["metrics"][variant][metric_name], 
+        value
+    )
+
+fn ab_test_manager_get_results(manager, experiment_name):
+    # Get experiment results
+    if not contains(dict_keys(manager["experiments"]), experiment_name):
+        return {}
+    
+    experiment = manager["experiments"][experiment_name]
+    results = {}
+    
+    variant_keys = dict_keys(experiment["metrics"])
+    for variant in variant_keys:
+        results[variant] = {}
+        metric_keys = dict_keys(experiment["metrics"][variant])
+        for metric_name in metric_keys:
+            values = experiment["metrics"][variant][metric_name]
+            if len(values) > 0:
+                # Calculate mean
+                sum_val = 0.0
+                for v in values:
+                    sum_val = sum_val + v
+                mean_val = sum_val / len(values)
+                
+                results[variant][metric_name] = {
+                    "mean": mean_val,
+                    "count": len(values)
+                }
+    
+    return results
+
+# DeploymentPipeline factory
+fn make_deployment_pipeline():
+    return {
+        "stages": [],
+        "status": "idle"
+    }
+
+fn deployment_pipeline_add_stage(pipeline, name, action):
+    # Add pipeline stage
+    pipeline["stages"] = push(pipeline["stages"], {"name": name, "action": action})
+
+fn deployment_pipeline_run(pipeline):
+    # Run deployment pipeline
+    results = []
+    pipeline["status"] = "running"
+    
+    for stage in pipeline["stages"]:
+        try:
+            result = stage["action"]()
+            results = push(results, {
+                "stage": stage["name"],
+                "status": "success",
+                "result": result
+            })
+        catch e:
+            results = push(results, {
+                "stage": stage["name"],
+                "status": "failed",
+                "error": to_string(e)
+            })
+            pipeline["status"] = "failed"
+            break
+    
+    if pipeline["status"] == "running":
+        pipeline["status"] = "completed"
+    
+    return {
+        "status": pipeline["status"],
+        "stages": results
+    }
+
+# ModelRegistry factory
+fn make_model_registry():
+    return {
+        "models": {}
+    }
+
+fn model_registry_register_model(registry, model):
+    # Register model in registry
+    if not contains(dict_keys(registry["models"]), model["name"]):
+        registry["models"][model["name"]] = []
+    registry["models"][model["name"]] = push(registry["models"][model["name"]], model)
+
+fn model_registry_get_model(registry, name, version):
+    # Get model from registry
+    if not contains(dict_keys(registry["models"]), name):
+        return None
+    
+    models = registry["models"][name]
+    
+    if version != None:
+        for model in models:
+            if model["version"] == version:
+                return model
+    else:
+        # Return latest version
+        if len(models) > 0:
+            return models[len(models) - 1]
+    
+    return None
+
+fn model_registry_list_models(registry):
+    # List all models
+    return dict_keys(registry["models"])
+
+fn model_registry_list_versions(registry, name):
+    # List versions of a model
+    if not contains(dict_keys(registry["models"]), name):
+        return []
+    versions = []
+    for m in registry["models"][name]:
+        versions = push(versions, m["version"])
+    return versions
+
+fn create_deployment(model, deployment_type, endpoint):
+    # Create deployment
+    return make_deployment("deploy_" + to_string(0.0), model, deployment_type, endpoint)
+
+fn main():
+    print("Testing Model Deployment...")
+    
+    # Test Model Server
+    server = make_model_server("localhost", 8000)
+    
+    # Create a simple model
+    simple_model = make_model("test_model", "1.0", fn(data) { data }, FORMAT_PRIM, {})
+    
+    model_server_load_model(server, simple_model)
+    model_server_start(server)
+    
+    # Test prediction
+    prediction = model_server_predict(server, "test_model", [1, 2, 3, 4, 5])
+    print("Prediction: " + to_string(prediction))
+    
+    model_server_stop(server)
+    
+    # Test API Generator
+    api_gen = make_api_generator()
+    input_schema = {"type": "object", "properties": {"features": {"type": "array"}}}
+    output_schema = {"type": "object", "properties": {"predictions": {"type": "array"}}}
+    
+    api_spec = api_generator_generate_rest_api(api_gen, "test_model", input_schema, output_schema)
+    print("API spec paths: " + to_string(len(dict_keys(api_spec["paths"]))))
+    
+    # Test Containerizer
+    containerizer = make_containerizer()
+    dockerfile = containerizer_generate_dockerfile(containerizer, "test_model", None, None)
+    print("Dockerfile length: " + to_string(len(dockerfile)))
+    
+    # Test Deployment Monitor
+    monitor = make_deployment_monitor()
+    deployment_monitor_record_metric(monitor, "response_time", 0.5)
+    deployment_monitor_record_metric(monitor, "response_time", 0.6)
+    deployment_monitor_add_alert(monitor, "warning", "High response time")
+    print("Metrics: " + to_string(len(deployment_monitor_get_metrics(monitor, "response_time"])))
+    print("Alerts: " + to_string(len(deployment_monitor_get_alerts(monitor, None))))
+    
+    # Test AB Test Manager
+    ab_test = make_ab_test_manager()
+    ab_test_manager_create_experiment(ab_test, "test_exp", ["control", "variant_a", "variant_b"], None)
+    variant = ab_test_manager_assign_variant(ab_test, "test_exp", "user1")
+    print("Assigned variant: " + variant)
+    
+    ab_test_manager_record_metric(ab_test, "test_exp", "control", "conversion", 1.0)
+    ab_test_manager_record_metric(ab_test, "test_exp", "control", "conversion", 0.0)
+    results = ab_test_manager_get_results(ab_test, "test_exp")
+    print("Experiment results: " + to_string(results))
+    
+    # Test Deployment Pipeline
+    pipeline = make_deployment_pipeline()
+    deployment_pipeline_add_stage(pipeline, "build", fn() { "Build complete" })
+    deployment_pipeline_add_stage(pipeline, "test", fn() { "Tests passed" })
+    deployment_pipeline_add_stage(pipeline, "deploy", fn() { "Deployed" })
+    
+    pipeline_results = deployment_pipeline_run(pipeline)
+    print("Pipeline status: " + pipeline_results["status"])
+    
+    # Test Model Registry
+    registry = make_model_registry()
+    model_registry_register_model(registry, simple_model)
+    registered = model_registry_get_model(registry, "test_model", None)
+    print("Registered model: " + (registered["name"] if registered != None else "None"))
+    
+    print("\nModel Deployment initialized successfully")
+
+if __name__ == "__main__":
+    main()

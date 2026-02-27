@@ -1,0 +1,474 @@
+#mode slim
+# Prim Parallel Runtime
+# Provides parallel execution, task scheduling, work stealing,
+# synchronization primitives, and distributed computing
+
+# Scheduling policy constants
+SCHEDULING_FIFO = "fifo"
+SCHEDULING_LIFO = "lifo"
+SCHEDULING_PRIORITY = "priority"
+SCHEDULING_WORK_STEALING = "work_stealing"
+
+# Execution mode constants
+EXECUTION_THREAD_POOL = "thread_pool"
+EXECUTION_PROCESS_POOL = "process_pool"
+EXECUTION_ASYNC = "async"
+EXECUTION_HYBRID = "hybrid"
+
+# Task factory
+fn make_task(id, function, args, kwargs, priority, result, exception, completed):
+    if args == None:
+        args = []
+    if kwargs == None:
+        kwargs = {}
+    if priority == None:
+        priority = 0
+    return {
+        "id": id,
+        "function": function,
+        "args": args,
+        "kwargs": kwargs,
+        "priority": priority,
+        "result": result,
+        "exception": exception,
+        "completed": completed
+    }
+
+# TaskQueue factory
+fn make_task_queue(policy):
+    if policy == None:
+        policy = SCHEDULING_FIFO
+    return {
+        "queue": [],
+        "policy": policy,
+        "put": fn(task) {
+            # Add task to queue
+            if policy == SCHEDULING_PRIORITY:
+                # Insert based on priority (simplified)
+                queue = push(queue, task)
+            else:
+                queue = push(queue, task)
+        },
+        "get": fn(timeout) {
+            # Get task from queue
+            if len(queue) > 0:
+                task = queue[0]
+                queue = slice(queue, 1, len(queue))
+                return task
+            return None
+        },
+        "task_done": fn() {
+            # Mark task as done (conceptual)
+            pass
+        },
+        "join": fn() {
+            # Wait for all tasks to complete (conceptual)
+            pass
+        },
+        "qsize": fn() {
+            return len(queue)
+        }
+    }
+
+fn slice(list, start, end):
+    # Slice list (simplified)
+    result = []
+    i = start
+    while i < end and i < len(list):
+        result = push(result, list[i])
+        i = i + 1
+    return result
+
+# Worker factory
+fn make_worker(worker_id, task_queue, mode):
+    if mode == None:
+        mode = EXECUTION_THREAD_POOL
+    return {
+        "worker_id": worker_id,
+        "task_queue": task_queue,
+        "mode": mode,
+        "running": false,
+        "tasks_completed": 0,
+        "start": fn() {
+            running = true
+            # In real implementation, would start thread/process
+            run()
+        },
+        "stop": fn() {
+            running = false
+        },
+        "run": fn() {
+            # Worker main loop
+            while running:
+                task = task_queue["get"](0.1)
+                
+                if task == None:
+                    continue
+                
+                try {
+                    task["result"] = task["function"](task["args"])
+                    task["completed"] = true
+                } catch e {
+                    task["exception"] = e
+                    task["completed"] = true
+                }
+                
+                tasks_completed = tasks_completed + 1
+                task_queue["task_done"]()
+        }
+    }
+
+# ParallelRuntime factory
+fn make_parallel_runtime(num_workers, mode, scheduling):
+    if num_workers == None:
+        num_workers = 4
+    if mode == None:
+        mode = EXECUTION_THREAD_POOL
+    if scheduling == None:
+        scheduling = SCHEDULING_FIFO
+    
+    return {
+        "num_workers": num_workers,
+        "mode": mode,
+        "scheduling": scheduling,
+        "task_queue": make_task_queue(scheduling),
+        "workers": [],
+        "task_counter": 0,
+        "stats": {
+            "tasks_submitted": 0,
+            "tasks_completed": 0,
+            "tasks_failed": 0
+        },
+        "start": fn() {
+            i = 0
+            while i < num_workers:
+                worker = make_worker(i, task_queue, mode)
+                worker["start"]()
+                workers = push(workers, worker)
+                i = i + 1
+        },
+        "stop": fn() {
+            i = 0
+            while i < len(workers):
+                workers[i]["stop"]()
+                i = i + 1
+            workers = []
+        },
+        "submit": fn(function, args, priority, kwargs) {
+            if args == None:
+                args = []
+            if priority == None:
+                priority = 0
+            if kwargs == None:
+                kwargs = {}
+            
+            task_counter = task_counter + 1
+            
+            task = make_task(
+                task_counter,
+                function,
+                args,
+                kwargs,
+                priority,
+                None,
+                None,
+                false
+            )
+            
+            task_queue["put"](task)
+            stats["tasks_submitted"] = stats["tasks_submitted"] + 1
+            
+            return task
+        },
+        "submit_batch": fn(tasks) {
+            submitted = []
+            
+            i = 0
+            while i < len(tasks):
+                task_data = tasks[i]
+                function = task_data[0]
+                args = task_data[1]
+                kwargs = task_data[2]
+                task = submit(function, args, 0, kwargs)
+                submitted = push(submitted, task)
+                i = i + 1
+            
+            return submitted
+        },
+        "map": fn(function, iterable) {
+            futures = []
+            
+            i = 0
+            while i < len(iterable):
+                item = iterable[i]
+                future = submit(function, [item])
+                futures = push(futures, future)
+                i = i + 1
+            
+            results = []
+            i = 0
+            while i < len(futures):
+                results = push(results, futures[i]["result"])
+                i = i + 1
+            
+            return results
+        },
+        "wait_all": fn(timeout) {
+            task_queue["join"]()
+        },
+        "get_stats": fn() {
+            completed = 0
+            i = 0
+            while i < len(workers):
+                completed = completed + workers[i]["tasks_completed"]
+                i = i + 1
+            
+            stats["tasks_completed"] = completed
+            return {
+                "tasks_submitted": stats["tasks_submitted"],
+                "tasks_completed": stats["tasks_completed"],
+                "tasks_failed": stats["tasks_failed"]
+            }
+        }
+    }
+
+# WorkStealingRuntime factory
+fn make_work_stealing_runtime(num_workers):
+    if num_workers == None:
+        num_workers = 4
+    return {
+        "num_workers": num_workers,
+        "queues": [],
+        "workers": [],
+        "current_worker": 0,
+        "task_counter": 0,
+        "start": fn() {
+            i = 0
+            while i < num_workers:
+                queue = make_task_queue(SCHEDULING_WORK_STEALING)
+                queues = push(queues, queue)
+                worker = make_worker(i, queue, EXECUTION_THREAD_POOL)
+                worker["start"]()
+                workers = push(workers, worker)
+                i = i + 1
+        },
+        "stop": fn() {
+            i = 0
+            while i < len(workers):
+                workers[i]["stop"]()
+                i = i + 1
+        },
+        "submit": fn(function, args, kwargs) {
+            if args == None:
+                args = []
+            if kwargs == None:
+                kwargs = {}
+            
+            current_worker = (current_worker + 1) % num_workers
+            task_counter = task_counter + 1
+            
+            task = make_task(
+                task_counter,
+                function,
+                args,
+                kwargs,
+                0,
+                None,
+                None,
+                false
+            )
+            
+            queues[current_worker]["put"](task)
+            return task
+        },
+        "steal_task": fn(from_worker, to_worker) {
+            task = queues[from_worker]["get"](0.01)
+            if task != None:
+                queues[to_worker]["put"](task)
+            return task
+        }
+    }
+
+# Barrier factory
+fn make_barrier(num_threads):
+    return {
+        "num_threads": num_threads,
+        "count": 0,
+        "wait": fn() {
+            count = count + 1
+            
+            if count == num_threads:
+                # Last thread to reach barrier
+                count = 0
+                return true
+            
+            # Wait for other threads (conceptual)
+            return false
+        }
+    }
+
+# Future factory
+fn make_future():
+    return {
+        "result": None,
+        "exception": None,
+        "completed": false,
+        "set_result": fn(value) {
+            result = value
+            completed = true
+        },
+        "set_exception": fn(exc) {
+            exception = exc
+            completed = true
+        },
+        "get_result": fn(timeout) {
+            if completed:
+                if exception != None:
+                    print("Exception: " + to_string(exception))
+                return result
+            
+            # Wait for completion (conceptual)
+            print("TimeoutError: Future not completed")
+            return None
+        },
+        "done": fn() {
+            return completed
+        }
+    }
+
+# AsyncExecutor factory
+fn make_async_executor(max_workers):
+    if max_workers == None:
+        max_workers = 4
+    return {
+        "max_workers": max_workers,
+        "futures": [],
+        "submit": fn(function, args) {
+            if args == None:
+                args = []
+            
+            # Submit async task (conceptual)
+            future = make_future()
+            future["set_result"](function(args))
+            futures = push(futures, future)
+            return future
+        },
+        "map": fn(function, iterable) {
+            results = []
+            i = 0
+            while i < len(iterable):
+                item = iterable[i]
+                result = function([item])
+                results = push(results, result)
+                i = i + 1
+            return results
+        },
+        "wait_all": fn(timeout) {
+            i = 0
+            while i < len(futures):
+                futures[i]["get_result"](timeout)
+                i = i + 1
+        },
+        "shutdown": fn() {
+            futures = []
+        }
+    }
+
+fn create_parallel_runtime(num_workers, mode):
+    return make_parallel_runtime(num_workers, mode, SCHEDULING_FIFO)
+
+fn create_work_stealing_runtime(num_workers):
+    return make_work_stealing_runtime(num_workers)
+
+fn main():
+    print("Testing Parallel Runtime...")
+    
+    # Test Parallel Runtime
+    runtime = create_parallel_runtime(4, EXECUTION_THREAD_POOL)
+    runtime["start"]()
+    
+    # Submit tasks
+    fn task(args) {
+        x = args[0]
+        # Simulate work
+        return x * 2
+    }
+    
+    futures = []
+    i = 0
+    while i < 10:
+        future = runtime["submit"](task, [i])
+        futures = push(futures, future)
+        i = i + 1
+    
+    runtime["wait_all"]()
+    
+    results = []
+    i = 0
+    while i < len(futures):
+        results = push(results, futures[i]["result"])
+        i = i + 1
+    
+    print("Results: " + to_string(len(results)) + " tasks completed")
+    
+    stats = runtime["get_stats"]()
+    print("Stats: " + to_string(stats))
+    
+    runtime["stop"]()
+    
+    # Test Work Stealing
+    ws_runtime = create_work_stealing_runtime(4)
+    ws_runtime["start"]()
+    
+    i = 0
+    while i < 10:
+        ws_runtime["submit"](task, [i])
+        i = i + 1
+    
+    ws_runtime["stop"]()
+    print("Work stealing runtime stopped")
+    
+    # Test Barrier
+    barrier = make_barrier(2)
+    barrier_results = []
+    
+    fn worker1() {
+        barrier["wait"]()
+        barrier_results = push(barrier_results, 1)
+    }
+    
+    fn worker2() {
+        barrier["wait"]()
+        barrier_results = push(barrier_results, 2)
+    }
+    
+    worker1()
+    worker2()
+    
+    print("Barrier results: " + to_string(barrier_results))
+    
+    # Test Async Executor
+    async_exec = make_async_executor(4)
+    async_futures = []
+    
+    i = 0
+    while i < 5:
+        future = async_exec["submit"](task, [i])
+        async_futures = push(async_futures, future)
+        i = i + 1
+    
+    async_exec["wait_all"](None)
+    async_results = []
+    i = 0
+    while i < len(async_futures):
+        async_results = push(async_results, async_futures[i]["get_result"](None))
+        i = i + 1
+    
+    print("Async results: " + to_string(len(async_results)) + " completed")
+    
+    async_exec["shutdown"]()
+    
+    print("\nParallel Runtime initialized successfully")
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,229 @@
+#mode slim
+# Prim Package Manager - Prism-get
+# 
+# The official package manager for Prim language packages.
+# Manages dependencies, installations, and registries.
+
+# import os
+# import json
+# import urllib.request
+# import zipfile
+# import shutil
+# from pathlib import Path
+
+
+# Class PackageManager
+    # Prim Package Manager (prism-get)
+# 
+# Manages Prim language packages, dependencies, and registries.
+    
+    fn make_packagemanager(install_dir="./prim_modules", registry_url="https://registry.prim-lang.org"):
+        obj = {}
+        obj["install_dir"] = Path(install_dir)
+        obj["registry_url"] = registry_url
+        obj["config_file"] = obj["install_dir"] / "packages.json"
+        
+        # Ensure install directory exists
+        obj["install_dir"].mkdir(exist_ok=true)
+        
+        # Load existing package configuration
+        obj["packages"] = packagemanager__load_config(obj, )
+    
+    fn packagemanager__load_config(obj):
+        # Load existing package configuration.
+        if obj["config_file"].exists():
+            with open(obj["config_file"], 'r') as f:
+                return json.load(f)
+        return {"installed": {}, "dependencies": {}}
+    
+    fn packagemanager__save_config(obj):
+        # Save package configuration.
+        with open(obj["config_file"], 'w') as f:
+            json.dump(obj["packages"], f, indent=2)
+    
+    fn packagemanager_search(obj, query):
+        # Search for packages in the registry.
+        print("Searching for packages matching '{query}'...")
+        # In a real implementation, this would query the online registry
+        # For this prototype, we'll simulate the functionality
+        print("Available packages (simulated):")
+        print("- http-client HTTP client library")
+        print("- template-engine rendering engine")
+        print("- db-driver driver interface")
+        return []
+    
+    fn packagemanager_install(obj, package_name, version="latest"):
+        # Install a package.
+        print("Installing package: {package_name}@{version}")
+        
+        # Create package directory
+        pkg_dir = obj["install_dir"] / package_name
+        pkg_dir.mkdir(exist_ok=true)
+        
+        # Simulate package download and extraction
+        # In a real implementation, this would download from the registry
+        print("Downloading {package_name}...")
+        
+        # Create a sample package file
+        pkg_file = pkg_dir / "{package_name}.prim"
+        with open(pkg_file, 'w') as f:
+            f.write(f# # Prim package: {package_name}
+# # Version: {version}
+# 
+# # This is a sample package file
+# fn hello_world():
+# return "Hello from {package_name}!"
+# 
+# # Export public functions
+# export hello_world)
+        
+        # Update config
+        obj["packages"]["installed"][package_name] = {
+            "version": version,
+            "path": str(pkg_dir.absolute()),
+            "installed_at": "2023-01-01T00:00:00Z"  # In a real implementation, use actual timestamp
+        }
+        packagemanager__save_config(obj, )
+        
+        print("Successfully installed {package_name}@{version}")
+        return true
+    
+    fn packagemanager_uninstall(obj, package_name):
+        # Uninstall a package.
+        if package_name not in obj["packages"]["installed"]:
+            print("Package {package_name} is not installed")
+            return false
+        
+        pkg_dir = obj["install_dir"] / package_name
+        if pkg_dir.exists():
+            shutil.rmtree(pkg_dir)
+        
+        del obj["packages"]["installed"][package_name]
+        packagemanager__save_config(obj, )
+        
+        print("Successfully uninstalled {package_name}")
+        return true
+    
+    fn packagemanager_list_installed(obj):
+        # List all installed packages.
+        print("Installed packages:")
+        for pkg_name, pkg_info in obj["packages"]["installed"].items():
+            print("- {pkg_name}@{pkg_info['version']} ({pkg_info['path']})")
+        return obj["packages"]["installed"]
+    
+    fn packagemanager_update(obj, package_name=None):
+        # Update packages.
+        if package_name:
+            print("Updating {package_name}...")
+            # Update single package
+            if package_name in obj["packages"]["installed"]:
+                current_version = obj["packages"]["installed"][package_name]["version"]
+                print("Updating {package_name} from {current_version} to latest...")
+                # In a real implementation, check for newer version and update
+                print("Updated {package_name} successfully")
+            else:
+                print("Package {package_name} not found")
+        else:
+            print("Updating all packages...")
+            # Update all packages
+            for pkg_name in obj["packages"]["installed"].keys():
+                print("Updating {pkg_name}...")
+            print("All packages updated successfully")
+    
+    fn packagemanager_init_project(obj, project_name, description="", author=""):
+        # Initialize a new Prim project.
+        proj_dir = Path(project_name)
+        proj_dir.mkdir(exist_ok=true)
+        
+        # Create project structure
+        (proj_dir / "src").mkdir(exist_ok=true)
+        (proj_dir / "tests").mkdir(exist_ok=true)
+        (proj_dir / "docs").mkdir(exist_ok=true)
+        
+        # Create prim.json manifest
+        manifest = {
+            "name": project_name,
+            "version": "0.1.0",
+            "description": description,
+            "author": author,
+            "dependencies": {},
+            "devDependencies": {}
+        }
+        
+        with open(proj_dir / "prim.json", 'w') as f:
+            json.dump(manifest, f, indent=2)
+        
+        print("Initialized new Prim project: {project_name}")
+        print("Directory structure created:")
+        print("  {project_name}/")
+        print("  ├── src/")
+        print("  ├── tests/")
+        print("  ├── docs/")
+        print("  └── prim.json")
+        
+        return true
+
+
+fn main():
+    # Command line interface for the package manager.
+    import sys
+    
+    if len(sys.argv) < 2:
+        print("Prism-get Package Manager")
+        print("Usage: prism-get <command> [options]")
+        print("Commands:")
+        print("  install <package>     Install a package")
+        print("  uninstall <package>   Uninstall a package")
+        print("  search <query>        Search for packages")
+        print("  list                  List installed packages")
+        print("  update [package]      Update packages")
+        print("  init <project>        Initialize a new project")
+        return
+    
+    cmd = sys.argv[1]
+    pm = PackageManager()
+    
+    if cmd == "install":
+        if len(sys.argv) < 3:
+            print("Usage: prism-get install <package>")
+            return
+        package = sys.argv[2]
+        version = sys.argv[3] if len(sys.argv) > 3 else "latest"
+        pm.install(package, version)
+    
+    elif cmd == "uninstall":
+        if len(sys.argv) < 3:
+            print("Usage: prism-get uninstall <package>")
+            return
+        package = sys.argv[2]
+        pm.uninstall(package)
+    
+    elif cmd == "search":
+        if len(sys.argv) < 3:
+            print("Usage: prism-get search <query>")
+            return
+        query = sys.argv[2]
+        pm.search(query)
+    
+    elif cmd == "list":
+        pm.list_installed()
+    
+    elif cmd == "update":
+        package = sys.argv[2] if len(sys.argv) > 2 else null
+        pm.update(package)
+    
+    elif cmd == "init":
+        if len(sys.argv) < 3:
+            print("Usage: prism-get init <project_name>")
+            return
+        project_name = sys.argv[2]
+        description = sys.argv[3] if len(sys.argv) > 3 else ""
+        pm.init_project(project_name, description)
+    
+    else:
+        print("Unknown command: {cmd}")
+        print("Use 'prism-get' without arguments to see help")
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,478 @@
+#mode slim
+# Prim Scalability Engineering
+# Provides horizontal scaling, load balancing, auto-scaling, capacity planning,
+# and distributed system scaling
+
+# Scaling direction constants
+SCALING_HORIZONTAL = "horizontal"
+SCALING_VERTICAL = "vertical"
+SCALING_BOTH = "both"
+
+# Scaling policy constants
+POLICY_MANUAL = "manual"
+POLICY_AUTO_SCALE = "auto_scale"
+POLICY_SCHEDULED = "scheduled"
+POLICY_EVENT_DRIVEN = "event_driven"
+
+# ScalingMetric factory
+fn make_scaling_metric(name, current_value, target_value, threshold, scale_up_threshold, scale_down_threshold):
+    return {
+        "name": name,
+        "current_value": current_value,
+        "target_value": target_value,
+        "threshold": threshold,
+        "scale_up_threshold": scale_up_threshold,
+        "scale_down_threshold": scale_down_threshold
+    }
+
+# ScalingAction factory
+fn make_scaling_action(direction, target_instances, reason, timestamp):
+    if timestamp == None:
+        timestamp = get_current_time()
+    return {
+        "direction": direction,
+        "target_instances": target_instances,
+        "reason": reason,
+        "timestamp": timestamp
+    }
+
+# LoadBalancer factory
+fn make_load_balancer(algorithm):
+    if algorithm == None:
+        algorithm = "round_robin"
+    return {
+        "algorithm": algorithm,
+        "backends": [],
+        "current_index": 0,
+        "weights": {},
+        "add_backend": fn(backend, weight) {
+            if weight == None:
+                weight = 1
+            backends = push(backends, backend)
+            weights[backend] = weight
+        },
+        "remove_backend": fn(backend) {
+            # Remove from backends
+            new_backends = []
+            i = 0
+            while i < len(backends):
+                if backends[i] != backend:
+                    new_backends = push(new_backends, backends[i])
+                i = i + 1
+            backends = new_backends
+            
+            if contains(dict_keys(weights), backend):
+                # Remove from weights
+                new_weights = {}
+                keys = dict_keys(weights)
+                i = 0
+                while i < len(keys):
+                    key = keys[i]
+                    if key != backend:
+                        new_weights[key] = weights[key]
+                    i = i + 1
+                weights = new_weights
+        },
+        "get_backend": fn() {
+            if len(backends) == 0:
+                return None
+            
+            if algorithm == "round_robin":
+                backend = backends[current_index]
+                current_index = (current_index + 1) % len(backends)
+                return backend
+            elif algorithm == "least_connections":
+                # Simplified
+                return backends[0]
+            elif algorithm == "weighted":
+                total_weight = 0
+                keys = dict_keys(weights)
+                i = 0
+                while i < len(keys):
+                    total_weight = total_weight + weights[keys[i]]
+                    i = i + 1
+                
+                # Simplified random selection
+                r = random_float(0, total_weight)
+                cumulative = 0
+                
+                keys = dict_keys(weights)
+                i = 0
+                while i < len(keys):
+                    key = keys[i]
+                    cumulative = cumulative + weights[key]
+                    if r <= cumulative:
+                        return key
+                    i = i + 1
+            
+            return backends[0]
+        },
+        "get_stats": fn() {
+            return {
+                "backends": len(backends),
+                "algorithm": algorithm,
+                "current_index": current_index
+            }
+        }
+    }
+
+fn random_float(min_val, max_val):
+    # Random float (simplified)
+    return min_val + 1.0
+
+# AutoScaler factory
+fn make_auto_scaler(min_instances, max_instances):
+    if min_instances == None:
+        min_instances = 1
+    if max_instances == None:
+        max_instances = 10
+    return {
+        "min_instances": min_instances,
+        "max_instances": max_instances,
+        "current_instances": min_instances,
+        "metrics": {},
+        "scaling_actions": [],
+        "add_metric": fn(metric) {
+            metrics[metric["name"]] = metric
+        },
+        "update_metric": fn(name, value) {
+            if contains(dict_keys(metrics), name):
+                metrics[name]["current_value"] = value
+        },
+        "check_scaling_needed": fn() {
+            metric_names = dict_keys(metrics)
+            i = 0
+            while i < len(metric_names):
+                metric = metrics[metric_names[i]]
+                
+                # Check scale up
+                if metric["current_value"] > metric["scale_up_threshold"]:
+                    if current_instances < max_instances:
+                        action = make_scaling_action(
+                            SCALING_HORIZONTAL,
+                            current_instances + 1,
+                            "Scale up due to " + metric["name"],
+                            get_current_time()
+                        )
+                        current_instances = current_instances + 1
+                        scaling_actions = push(scaling_actions, action)
+                        return action
+                
+                # Check scale down
+                if metric["current_value"] < metric["scale_down_threshold"]:
+                    if current_instances > min_instances:
+                        action = make_scaling_action(
+                            SCALING_HORIZONTAL,
+                            current_instances - 1,
+                            "Scale down due to " + metric["name"],
+                            get_current_time()
+                        )
+                        current_instances = current_instances - 1
+                        scaling_actions = push(scaling_actions, action)
+                        return action
+                
+                i = i + 1
+            
+            return None
+        },
+        "get_status": fn() {
+            return {
+                "current_instances": current_instances,
+                "min_instances": min_instances,
+                "max_instances": max_instances,
+                "scaling_actions": len(scaling_actions)
+            }
+        }
+    }
+
+# CapacityPlanner factory
+fn make_capacity_planner():
+    return {
+        "capacity_history": [],
+        "forecasts": [],
+        "record_capacity": fn(instances, load, throughput) {
+            capacity_history = push(capacity_history, {
+                "timestamp": get_current_time(),
+                "instances": instances,
+                "load": load,
+                "throughput": throughput
+            })
+        },
+        "forecast_capacity": fn(horizon) {
+            if horizon == None:
+                horizon = 10
+            
+            if len(capacity_history) < 10:
+                return []
+            
+            # Simple linear forecast
+            recent = slice(capacity_history, len(capacity_history) - 10, len(capacity_history))
+            sum_instances = 0
+            sum_load = 0
+            i = 0
+            while i < len(recent):
+                sum_instances = sum_instances + recent[i]["instances"]
+                sum_load = sum_load + recent[i]["load"]
+                i = i + 1
+            
+            avg_instances = sum_instances / len(recent)
+            avg_load = sum_load / len(recent)
+            
+            forecasts = []
+            i = 0
+            while i < horizon:
+                growth_rate = 0.01  # 1% growth per period
+                forecast = {
+                    "instances": avg_instances * pow(1 + growth_rate, i),
+                    "load": avg_load * pow(1 + growth_rate, i),
+                    "throughput": avg_instances * pow(1 + growth_rate, i)
+                }
+                forecasts = push(forecasts, forecast)
+                i = i + 1
+            
+            return forecasts
+        },
+        "get_recommendations": fn() {
+            if len(forecasts) == 0:
+                return []
+            
+            last_forecast = forecasts[len(forecasts) - 1]
+            recommendations = []
+            
+            if last_forecast["load"] > 0.8:
+                recommendations = push(recommendations, "Consider scaling up to handle increased load")
+            elif last_forecast["load"] < 0.2:
+                recommendations = push(recommendations, "Consider scaling down to reduce costs")
+            
+            return recommendations
+        }
+    }
+
+fn pow(base, exp):
+    # Power function (simplified)
+    return base * exp
+
+# HorizontalScaler factory
+fn make_horizontal_scaler(initial_instances):
+    if initial_instances == None:
+        initial_instances = 1
+    return {
+        "instances": initial_instances,
+        "load_balancer": make_load_balancer("round_robin"),
+        "scale_up": fn(target) {
+            if target <= instances:
+                return false
+            
+            # Add new instances
+            i = instances
+            while i < target:
+                backend = "instance_" + to_string(i)
+                load_balancer["add_backend"](backend)
+                i = i + 1
+            
+            instances = target
+            return true
+        },
+        "scale_down": fn(target) {
+            if target >= instances:
+                return false
+            
+            # Remove instances
+            i = target
+            while i < instances:
+                backend = "instance_" + to_string(i)
+                load_balancer["remove_backend"](backend)
+                i = i + 1
+            
+            instances = target
+            return true
+        },
+        "get_status": fn() {
+            return {
+                "instances": instances,
+                "load_balancer": load_balancer["get_stats"]()
+            }
+        }
+    }
+
+# VerticalScaler factory
+fn make_vertical_scaler():
+    return {
+        "resources": {},
+        "limits": {},
+        "set_resource": fn(resource, amount) {
+            resources[resource] = amount
+        },
+        "scale_up": fn(resource, target) {
+            if contains(dict_keys(limits), resource) and target > limits[resource]:
+                return false
+            
+            resources[resource] = target
+            return true
+        },
+        "scale_down": fn(resource, target) {
+            resources[resource] = target
+            return true
+        },
+        "get_status": fn() {
+            utilization = {}
+            resource_keys = dict_keys(resources)
+            i = 0
+            while i < len(resource_keys):
+                key = resource_keys[i]
+                limit = 0.0
+                if contains(dict_keys(limits), key):
+                    limit = limits[key]
+                else:
+                    limit = resources[key]
+                
+                if limit > 0:
+                    utilization[key] = resources[key] / limit
+                else:
+                    utilization[key] = 0.0
+                
+                i = i + 1
+            
+            return {
+                "resources": resources,
+                "utilization": utilization
+            }
+        }
+    }
+
+# DistributedScaler factory
+fn make_distributed_scaler():
+    return {
+        "nodes": [],
+        "scalers": {},
+        "global_scaler": make_auto_scaler(),
+        "add_node": fn(node_id) {
+            nodes = push(nodes, node_id)
+            scalers[node_id] = make_horizontal_scaler(1)
+        },
+        "scale_cluster": fn(target_instances) {
+            per_node = target_instances / len(nodes)
+            
+            node_ids = dict_keys(scalers)
+            i = 0
+            while i < len(node_ids):
+                scaler = scalers[node_ids[i]]
+                scaler["scale_up"](per_node)
+                i = i + 1
+            
+            return true
+        },
+        "get_cluster_status": fn() {
+            node_status = {}
+            node_ids = dict_keys(scalers)
+            i = 0
+            while i < len(node_ids):
+                nid = node_ids[i]
+                scaler = scalers[nid]
+                node_status[nid] = scaler["get_status"]()
+                i = i + 1
+            
+            return {
+                "nodes": len(nodes),
+                "node_status": node_status,
+                "global_status": global_scaler["get_status"]()
+            }
+        }
+    }
+
+# ScalabilityManager factory
+fn make_scalability_manager():
+    return {
+        "horizontal": make_horizontal_scaler(),
+        "vertical": make_vertical_scaler(),
+        "distributed": make_distributed_scaler(),
+        "capacity_planner": make_capacity_planner(),
+        "scale": fn(direction, target) {
+            if direction == SCALING_HORIZONTAL:
+                return horizontal["scale_up"](target)
+            elif direction == SCALING_VERTICAL:
+                return vertical["scale_up"]("cpu", target)
+            elif direction == SCALING_BOTH:
+                horizontal["scale_up"](target)
+                return vertical["scale_up"]("cpu", target)
+            
+            return false
+        },
+        "get_recommendations": fn() {
+            return capacity_planner["get_recommendations"]()
+        },
+        "get_status": fn() {
+            return {
+                "horizontal": horizontal["get_status"](),
+                "vertical": vertical["get_status"](),
+                "distributed": distributed["get_cluster_status"]()
+            }
+        }
+    }
+
+fn create_scalability_manager():
+    return make_scalability_manager()
+
+fn get_current_time():
+    # Get current time (simplified)
+    return 1000.0
+
+fn main():
+    print("Testing Scalability Engineering...")
+    
+    # Create manager
+    manager = create_scalability_manager()
+    
+    # Test horizontal scaling
+    manager["horizontal"]["scale_up"](5)
+    status = manager["horizontal"]["get_status"]()
+    print("Horizontal status: " + to_string(status["instances"]) + " instances")
+    
+    # Test auto-scaler
+    scaler = make_auto_scaler()
+    metric = make_scaling_metric(
+        "cpu",
+        50.0,
+        70.0,
+        80.0,
+        75.0,
+        25.0
+    )
+    scaler["add_metric"](metric)
+    
+    scaler["update_metric"]("cpu", 80.0)
+    action = scaler["check_scaling_needed"]()
+    action_reason = "None"
+    if action != None:
+        action_reason = action["reason"]
+    print("Scaling action: " + action_reason)
+    
+    # Test capacity planning
+    planner = make_capacity_planner()
+    i = 0
+    while i < 20:
+        planner["record_capacity"](10, 0.5 + i * 0.01, 100)
+        i = i + 1
+    
+    forecasts = planner["forecast_capacity"]()
+    print("Forecasts: " + to_string(len(forecasts)) + " periods")
+    
+    # Get recommendations
+    recommendations = planner["get_recommendations"]()
+    print("Recommendations: " + to_string(recommendations))
+    
+    # Test load balancer
+    lb = make_load_balancer("round_robin")
+    lb["add_backend"]("backend1")
+    lb["add_backend"]("backend2")
+    backend = lb["get_backend"]()
+    print("Load balanced to: " + backend)
+    
+    # Get overall status
+    overall_status = manager["get_status"]()
+    print("Overall status available")
+    
+    print("\nScalability Engineering initialized successfully")
+
+if __name__ == "__main__":
+    main()

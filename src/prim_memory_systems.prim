@@ -1,0 +1,50 @@
+#mode slim
+# Prim Memory Systems
+# Provides working memory, long-term memory, episodic memory,
+# semantic memory, and memory management.
+
+# from typing import List, Dict, Any, Optional
+# from dataclasses import dataclass
+# from enum import Enum
+
+
+MemoryType_WORKING = "working"
+MemoryType_EPISODIC = "episodic"
+MemoryType_SEMANTIC = "semantic"
+MemoryType_PROCEDURAL = "procedural"class
+# Class Memory
+    # Memory
+    id: str
+    type
+    content
+    timestamp: float
+
+
+# Class MemorySystem
+    # Memory system
+
+    fn make_memorysystem():
+        obj = {}
+        obj["memories"] = {}
+
+    fn memorysystem_store(obj, memory):
+        # Store memory
+        obj["memories"][memory.id] = memory
+
+    def retrieve(self, id: str) :
+        # Retrieve memory
+        return obj["memories"].get(id)
+
+
+fn main():
+    print("Testing Memory Systems...")
+    system = MemorySystem()
+    memory = Memory(id="mem1", type=MemoryType.WORKING, content="data", timestamp=0.0)
+    system.store(memory)
+    retrieved = system.retrieve("mem1")
+    print("Retrieved: {retrieved.id if retrieved else 'null'}")
+    print("Memory Systems initialized successfully")
+
+
+if __name__ == "__main__":
+    main()

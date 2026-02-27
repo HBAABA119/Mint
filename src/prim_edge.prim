@@ -1,0 +1,44 @@
+#mode slim
+# Prim Edge Computing
+# Provides edge device management, edge processing, offline capability,
+# edge synchronization, and distributed edge computing
+
+# Device status constants
+DEVICE_ONLINE = "online"
+DEVICE_OFFLINE = "offline"
+DEVICE_SYNCING = "syncing"
+
+# Factory function for EdgeDevice
+fn make_edge_device(id, location, status):
+    return {
+        "id": id,
+        "location": location,
+        "status": status
+    }
+
+# EdgeManager factory
+fn make_edge_manager():
+    return {
+        "devices": {}
+    }
+
+fn edge_manager_register_device(manager, device):
+    manager["devices"][device["id"]] = device
+
+fn edge_manager_get_devices(manager):
+    devices = []
+    keys = dict_keys(manager["devices"])
+    for key in keys:
+        devices = push(devices, manager["devices"][key])
+    return devices
+
+fn main():
+    print("Testing Edge Computing...")
+    manager = make_edge_manager()
+    device = make_edge_device("edge1", "location1", DEVICE_ONLINE)
+    edge_manager_register_device(manager, device)
+    print("Devices: " + to_string(len(edge_manager_get_devices(manager))))
+    print("Edge Computing initialized successfully")
+
+if __name__ == "__main__":
+    main()

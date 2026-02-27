@@ -1,0 +1,270 @@
+#mode slim
+# Prim JIT Compiler
+# Provides just-in-time compilation, runtime code generation, native code execution,
+# and hot code swapping.
+
+# import ctypes
+# import sys
+# from typing import Dict, List, Optional, Any, Callable, TypeVar
+# from dataclasses import dataclass, field
+# from enum import Enum
+
+
+JITTarget_X86_64 = "x86_64"
+JITTarget_ARM64 = "arm64"
+JITTarget_WASM = "wasm"InstructionSet_X86 = "x86"
+InstructionSet_X86_64 = "x86_64"
+InstructionSet_ARM = "arm"
+InstructionSet_ARM64 = "arm64"class
+# Class CompiledCode
+    # Compiled native code
+    code: bytes
+    size: int
+    executable = null
+    entry_point = null
+
+
+# Class CodeBuffer
+    # Buffer for assembling machine code
+
+    fn make_codebuffer():
+        obj = {}
+        obj["buffer"] = bytearray()
+        obj["position"] = 0
+
+    fn codebuffer_emit_byte(obj, byte: int):
+        # Emit a single byte
+        obj["buffer"].append(byte & 0xFF)
+        obj["position"] += 1
+
+    fn codebuffer_emit_bytes(obj, *bytes: int):
+        # Emit multiple bytes
+        for byte in bytes:
+            codebuffer_emit_byte(obj, byte)
+
+    fn codebuffer_emit_int32(obj, value: int):
+        # Emit a 32-bit integer
+        for i in range(4):
+            codebuffer_emit_byte(obj, (value >> (i * 8)) & 0xFF)
+
+    fn codebuffer_emit_int64(obj, value: int):
+        # Emit a 64-bit integer
+        for i in range(8):
+            codebuffer_emit_byte(obj, (value >> (i * 8)) & 0xFF)
+
+    def get_code(self) -> bytes:
+        # Get the compiled code
+        return bytes(obj["buffer"])
+
+
+# Class JITCompiler
+    # Just-in-time compiler
+
+    fn make_jitcompiler(target = JITTarget.X86_64):
+        obj = {}
+        obj["target"] = target
+        obj["buffer"] = CodeBuffer()
+        obj["compiled_code"] = {}
+
+    def compile_function(self, name: str, bytecode: bytes) :
+        # Compile bytecode to native code
+        obj["buffer"] = CodeBuffer()
+
+        # Prologue
+        jitcompiler__emit_prologue(obj, )
+
+        # Compile bytecode instructions
+        # This is a simplified version
+        for byte in bytecode:
+            jitcompiler__compile_instruction(obj, byte)
+
+        # Epilogue
+        jitcompiler__emit_epilogue(obj, )
+
+        # Get compiled code
+        code = obj["buffer"].get_code()
+        compiled = CompiledCode(code=code, size=len(code))
+
+        # Make executable
+        jitcompiler__make_executable(obj, compiled)
+
+        obj["compiled_code"][name] = compiled
+        return compiled
+
+    fn jitcompiler__emit_prologue(obj):
+        # Emit function prologue
+        if obj["target"] == JITTarget.X86_64:
+            # push rbp
+            obj["buffer"].emit_bytes(0x55)
+            # mov rbp, rsp
+            obj["buffer"].emit_bytes(0x48, 0x89, 0xE5)
+
+    fn jitcompiler__emit_epilogue(obj):
+        # Emit function epilogue
+        if obj["target"] == JITTarget.X86_64:
+            # mov rsp, rbp
+            obj["buffer"].emit_bytes(0x48, 0x89, 0xEC)
+            # pop rbp
+            obj["buffer"].emit_bytes(0x5D)
+            # ret
+            obj["buffer"].emit_bytes(0xC3)
+
+    fn jitcompiler__compile_instruction(obj, byte: int):
+        # Compile a single bytecode instruction
+        # This is a simplified version
+        # In a real implementation, this would compile each bytecode instruction
+        pass
+
+    fn jitcompiler__make_executable(obj, compiled):
+        # Make code executable
+        # Allocate executable memory
+        size = compiled.size
+        buffer = ctypes.create_string_buffer(size)
+        ctypes.memmove(buffer, compiled.code, size)
+
+        # Make memory executable
+        # Note is platform-specific and would need proper implementation
+        compiled.executable = buffer
+        compiled.entry_point = ctypes.addressof(buffer)
+
+
+# Class CodeGenerator
+    # Code generator for Prim to native code
+
+    fn make_codegenerator(target = JITTarget.X86_64):
+        obj = {}
+        obj["target"] = target
+        obj["compiler"] = JITCompiler(target)
+
+    def generate_code(self, bytecode: bytes, name: str = "function") :
+        # Generate native code from bytecode
+        return obj["compiler"].compile_function(name, bytecode)
+
+    def get_function_pointer(self, compiled) :
+        # Get a callable function pointer
+        if compiled.executable and compiled.entry_point:
+            # Create function pointer
+            func_type = ctypes.CFUNCTYPE(ctypes.c_int)
+            return func_type(compiled.entry_point)
+        return null
+
+
+# Class HotSwapManager
+    # Manager for hot code swapping
+
+    fn make_hotswapmanager():
+        obj = {}
+        obj["active_code"] = {}
+        obj["pending_swaps"] = {}
+
+    fn hotswapmanager_swap_code(obj, name: str, new_code):
+        # Swap code for a function
+        obj["pending_swaps"][name] = new_code
+
+    fn hotswapmanager_commit_swaps(obj):
+        # Commit all pending swaps
+        for name, code in obj["pending_swaps"].items():
+            obj["active_code"][name] = code
+        obj["pending_swaps"].clear()
+
+    def get_active_code(self, name: str) :
+        # Get active code for a function
+        return obj["active_code"].get(name)
+
+
+# Class Profiler
+    # Profiler for JIT-compiled code
+
+    fn make_profiler():
+        obj = {}
+        obj["execution_times"] = {}
+        obj["call_counts"] = {}
+
+    fn profiler_profile_function(obj, name: str, func):
+        # Profile a function
+        import time
+
+        fn wrapper(*args, **kwargs):
+            start = time.time()
+            result = func(*args, **kwargs)
+            end = time.time()
+
+            if name not in obj["execution_times"]:
+                obj["execution_times"][name] = 0
+                obj["call_counts"][name] = 0
+
+            obj["execution_times"][name] += (end - start)
+            obj["call_counts"][name] += 1
+
+            return result
+
+        return wrapper
+
+    def get_stats(self, name: str) :
+        # Get profiling stats for a function
+        total_time = obj["execution_times"].get(name, 0)
+        call_count = obj["call_counts"].get(name, 0)
+        avg_time = total_time / call_count if call_count > 0 else 0
+
+        return {
+            'total_time': total_time,
+            'call_count': call_count,
+            'avg_time': avg_time
+        }
+
+
+# Class Optimizer
+    # Optimizer for JIT-compiled code
+
+    fn make_optimizer():
+        obj = {}
+        obj["optimizations"] = []
+
+    def optimize(self, code: bytes) -> bytes:
+        # Optimize bytecode
+        optimized = code
+
+        for opt in obj["optimizations"]:
+            optimized = opt(optimized)
+
+        return optimized
+
+    fn optimizer_add_optimization(obj, name: str, func):
+        # Add an optimization pass
+        obj["optimizations"].append(func)
+
+
+def create_jit_compiler(target = JITTarget.X86_64) :
+    # Create a JIT compiler
+    return JITCompiler(target)
+
+
+fn main():
+    # Main entry point for testing
+    print("Testing JIT compiler...")
+
+    # Create JIT compiler
+    jit = create_jit_compiler()
+
+    # Compile a simple function
+    bytecode = bytes([0x01, 0x02, 0x03])  # Example bytecode
+    compiled = jit.compile_function("test", bytecode)
+
+    print("Compiled function: {compiled.size} bytes")
+    print("Entry point: {compiled.entry_point}")
+
+    # Test code generator
+    generator = CodeGenerator()
+    code = generator.generate_code(bytecode, "test2")
+    print("Generated code: {code.size} bytes")
+
+    # Test hot swap manager
+    swap_manager = HotSwapManager()
+    swap_manager.swap_code("test", code)
+    swap_manager.commit_swaps()
+
+    print("\nJIT compiler initialized successfully")
+
+
+if __name__ == "__main__":
+    main()

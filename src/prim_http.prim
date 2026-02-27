@@ -1,0 +1,341 @@
+#mode slim
+# Prim HTTP Client
+# Provides HTTP/HTTPS support, request/response handling, connection pooling, and async HTTP.
+
+# import urllib.request
+# import urllib.parse
+# import urllib.error
+# import json
+# from typing import Dict, List, Optional, Any, Callable, Union
+# from dataclasses import dataclass, field
+# from enum import Enum
+# import asyncio
+
+
+HTTPMethod_GET = "GET"
+HTTPMethod_POST = "POST"
+HTTPMethod_PUT = "PUT"
+HTTPMethod_DELETE = "DELETE"
+HTTPMethod_PATCH = "PATCH"
+HTTPMethod_HEAD = "HEAD"
+HTTPMethod_OPTIONS = "OPTIONS"HTTPStatus_OK = 200
+HTTPStatus_CREATED = 201
+HTTPStatus_NO_CONTENT = 204
+HTTPStatus_BAD_REQUEST = 400
+HTTPStatus_UNAUTHORIZED = 401
+HTTPStatus_FORBIDDEN = 403
+HTTPStatus_NOT_FOUND = 404
+HTTPStatus_METHOD_NOT_ALLOWED = 405
+HTTPStatus_INTERNAL_SERVER_ERROR = 500
+HTTPStatus_SERVICE_UNAVAILABLE = 503class
+# Class HTTPRequest
+    # HTTP request
+    method
+    url: str
+    headers = field(default_factory=dict)
+    body = null
+    params] = null
+    timeout: float = 30.0
+
+
+fn make_httpresponse(status, headers):
+    return {"status": status, "headers": headers}default_factory=dict)
+    body = null
+    status_text: str = ""
+
+
+# Class HTTPClient
+    # HTTP client for making requests
+
+    fn make_httpclient(base_url = None):
+        obj = {}
+        obj["base_url"] = base_url
+        obj["default_headers"] = {
+            "User-Agent": "Prim/1.0"
+        }
+        obj["timeout"] = 30.0
+
+    def get(self, url: str, params] = null, headers] = null) :
+        # GET request
+        return obj["request"](
+            HTTPMethod.GET,
+            url,
+            params=params,
+            headers=headers
+        )
+
+    def post(self, url: str, body = null, headers] = null) :
+        # POST request
+        return obj["request"](
+            HTTPMethod.POST,
+            url,
+            body=body,
+            headers=headers
+        )
+
+    def put(self, url: str, body = null, headers] = null) :
+        # PUT request
+        return obj["request"](
+            HTTPMethod.PUT,
+            url,
+            body=body,
+            headers=headers
+        )
+
+    def delete(self, url: str, headers] = null) :
+        # DELETE request
+        return obj["request"](
+            HTTPMethod.DELETE,
+            url,
+            headers=headers
+        )
+
+    def patch(self, url: str, body = null, headers] = null) :
+        # PATCH request
+        return obj["request"](
+            HTTPMethod.PATCH,
+            url,
+            body=body,
+            headers=headers
+        )
+
+    def request(self, method, url: str, **kwargs) :
+        # Make an HTTP request
+        # Build full URL
+        full_url = httpclient__build_url(obj, url)
+
+        # Prepare request
+        request = HTTPRequest(method=method, url=full_url, **kwargs)
+
+        # Add query parameters
+        if request.params:
+            query_string = urllib.parse.urlencode(request.params)
+            if '?' in full_url:
+                full_url += '&' + query_string
+            else:
+                full_url += '?' + query_string
+            request.url = full_url
+
+        # Prepare body
+        body_data = null
+        if request.body is not null:
+            if isinstance(request.body, dict):
+                body_data = json.dumps(request.body).encode('utf-8')
+                request.headers['Content-Type'] = 'application/json'
+            elif isinstance(request.body, str):
+                body_data = request.body.encode('utf-8')
+            else:
+                body_data = request.body
+
+        # Create request object
+        req = urllib.request.Request(
+            request.url,
+            data=body_data,
+            method=request.method.value,
+            headers={**obj["default_headers"], **request.headers}
+        )
+
+        try:
+            # Make request
+            with urllib.request.urlopen(req, timeout=request.timeout) as response:
+                # Read response
+                response_data = response.read()
+
+                # Parse response
+                content_type = response.dict_get(headers, 'Content-Type', '')
+                if 'application/json' in content_type:
+                    body = json.loads(response_data.decode('utf-8'))
+                else:
+                    body = response_data.decode('utf-8')
+
+                return HTTPResponse(
+                    status=response.status,
+                    headers=dict(response.headers),
+                    body=body,
+                    status_text=response.reason
+                )
+
+        except urllib.error.HTTPError as e:
+            return HTTPResponse(
+                status=e.code,
+                body=null,
+                status_text=e.reason
+            )
+        except urllib.error.URLError as e:
+            return HTTPResponse(
+                status=0,
+                body=null,
+                status_text=str(e.reason)
+            )
+
+    def _build_url(self, url: str) -> str:
+        # Build full URL
+        if obj["base_url"] and not url.startswith('http'):
+            return "{obj["base_url"].rstrip('/')}/{url.lstrip('/')}"
+        return url
+
+
+# Class AsyncHTTPClient
+    # Async HTTP client
+
+    fn make_asynchttpclient(base_url = None):
+        obj = {}
+        obj["base_url"] = base_url
+        obj["default_headers"] = {
+            "User-Agent": "Prim/1.0"
+        }
+
+    async def get(self, url: str, params] = null, headers] = null) :
+        # Async GET request
+        return await obj["request"](
+            HTTPMethod.GET,
+            url,
+            params=params,
+            headers=headers
+        )
+
+    async def post(self, url: str, body = null, headers] = null) :
+        # Async POST request
+        return await obj["request"](
+            HTTPMethod.POST,
+            url,
+            body=body,
+            headers=headers
+        )
+
+    async def request(self, method, url: str, **kwargs) :
+        # Make an async HTTP request
+        # Run sync request in executor
+        client = HTTPClient(obj["base_url"])
+        client.default_headers = obj["default_headers"]
+
+        loop = asyncio.get_event_loop()
+        response = await loop.run_in_executor(
+            null,
+            client.request,
+            method,
+            url,
+            **kwargs
+        )
+
+        return response
+
+
+# Class HTTPClientPool
+    # Pool of HTTP clients
+
+    fn make_httpclientpool(max_clients: int = 5):
+        obj = {}
+        obj["max_clients"] = max_clients
+        obj["clients"] = []
+        obj["current"] = 0
+
+    def get_client(self) :
+        # Get a client from the pool
+        if obj["clients"]:
+            client = obj["clients"][obj["current"]]
+            obj["current"] = (obj["current"] + 1) % len(obj["clients"])
+            return client
+
+        if len(obj["clients"]) < obj["max_clients"]:
+            client = HTTPClient()
+            obj["clients"].append(client)
+            return client
+
+        return obj["clients"][0]
+
+    fn httpclientpool_close_all(obj):
+        # Close all clients
+        obj["clients"].clear()
+        obj["current"] = 0
+
+
+# Class HTTPClientBuilder
+    # Builder for HTTP clients
+
+    fn make_httpclientbuilder():
+        obj = {}
+        obj["base_url"] = null
+        obj["headers"] = {}
+        obj["timeout"]: float = 30.0
+        obj["follow_redirects"]: bool = true
+        obj["verify_ssl"]: bool = true
+
+    def base_url(self, url: str) -> 'HTTPClientBuilder':
+        # Set base URL
+        obj["base_url"] = url
+        return self
+
+    def header(self, name: str, value: str) -> 'HTTPClientBuilder':
+        # Add a header
+        obj["headers"][name] = value
+        return self
+
+    def timeout(self, seconds: float) -> 'HTTPClientBuilder':
+        # Set timeout
+        obj["timeout"] = seconds
+        return self
+
+    def no_redirects(self) -> 'HTTPClientBuilder':
+        # Disable redirects
+        obj["follow_redirects"] = false
+        return self
+
+    def no_ssl_verify(self) -> 'HTTPClientBuilder':
+        # Disable SSL verification
+        obj["verify_ssl"] = false
+        return self
+
+    def build(self) :
+        # Build the client
+        client = HTTPClient(obj["base_url"])
+        client.default_headers = {**client.default_headers, **obj["headers"]}
+        client.timeout = obj["timeout"]
+        return client
+
+
+def http_client(base_url = null) :
+    # Create an HTTP client
+    return HTTPClient(base_url)
+
+
+def async_http_client(base_url = null) :
+    # Create an async HTTP client
+    return AsyncHTTPClient(base_url)
+
+
+fn main():
+    # Main entry point for testing
+    print("Testing HTTP client...")
+
+    # Create client
+    client = http_client("https://httpbin.org")
+
+    # Test GET request
+    response = dict_get(client, "/get", params={"test": "value"})
+    print("GET response: {response.status}")
+    print("Response body: {response.body}")
+
+    # Test POST request
+    response = client.post("/post", body={"key": "value"})
+    print("POST response: {response.status}")
+
+    # Test builder
+    builder = HTTPClientBuilder()
+    builder.header("X-Custom", "value").timeout(10.0)
+    client2 = builder.build()
+    print("Built client with timeout: {client2.timeout}")
+
+    # Test async client
+    async def test_async():
+        async_client = async_http_client("https://httpbin.org")
+        response = await dict_get(async_client, "/get")
+        print("Async GET response: {response.status}")
+
+    asyncio.run(test_async())
+
+    print("\nHTTP client initialized successfully")
+
+
+if __name__ == "__main__":
+    main()

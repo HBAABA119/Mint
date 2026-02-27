@@ -1,0 +1,298 @@
+#mode slim
+# Prim Standard Library - Math Module
+# Provides essential mathematical operations for Prim
+
+use prim_interpreter
+
+# Mathematical constants
+MATH_PI = 3.141592653589793
+MATH_E = 2.718281828459045
+
+fn std_math_abs(interpreter, num_val):
+    # Absolute value
+    num = num_val
+    if is_runtime_value(num_val):
+        num = num_val["value"]
+    return prim_interpreter.make_runtime_value(abs(num))
+
+fn std_math_floor(interpreter, num_val):
+    # Floor function
+    num = num_val
+    if is_runtime_value(num_val):
+        num = num_val["value"]
+    return prim_interpreter.make_runtime_value(floor(num))
+
+fn std_math_ceil(interpreter, num_val):
+    # Ceiling function
+    num = num_val
+    if is_runtime_value(num_val):
+        num = num_val["value"]
+    return prim_interpreter.make_runtime_value(ceil(num))
+
+fn std_math_round(interpreter, num_val, digits_val):
+    # Round function
+    num = num_val
+    if is_runtime_value(num_val):
+        num = num_val["value"]
+    
+    digits = None
+    if digits_val:
+        digits = digits_val
+        if is_runtime_value(digits_val):
+            digits = digits_val["value"]
+    
+    if digits == None:
+        return prim_interpreter.make_runtime_value(round(num))
+    else:
+        return prim_interpreter.make_runtime_value(round(num, digits))
+
+fn std_math_sqrt(interpreter, num_val):
+    # Square root
+    num = num_val
+    if is_runtime_value(num_val):
+        num = num_val["value"]
+    return prim_interpreter.make_runtime_value(sqrt(num))
+
+fn std_math_pow(interpreter, base_val, exp_val):
+    # Power function
+    base = base_val
+    if is_runtime_value(base_val):
+        base = base_val["value"]
+    
+    exp = exp_val
+    if is_runtime_value(exp_val):
+        exp = exp_val["value"]
+    
+    return prim_interpreter.make_runtime_value(pow(base, exp))
+
+fn std_math_min(interpreter, args):
+    # Minimum of multiple values
+    values = []
+    for arg in args:
+        val = arg
+        if is_runtime_value(arg):
+            val = arg["value"]
+        values = push(values, val)
+    
+    # Find minimum
+    if len(values) == 0:
+        return prim_interpreter.make_runtime_value(None)
+    
+    min_val = values[0]
+    i = 1
+    while i < len(values):
+        if values[i] < min_val:
+            min_val = values[i]
+        i = i + 1
+    
+    return prim_interpreter.make_runtime_value(min_val)
+
+fn std_math_max(interpreter, args):
+    # Maximum of multiple values
+    values = []
+    for arg in args:
+        val = arg
+        if is_runtime_value(arg):
+            val = arg["value"]
+        values = push(values, val)
+    
+    # Find maximum
+    if len(values) == 0:
+        return prim_interpreter.make_runtime_value(None)
+    
+    max_val = values[0]
+    i = 1
+    while i < len(values):
+        if values[i] > max_val:
+            max_val = values[i]
+        i = i + 1
+    
+    return prim_interpreter.make_runtime_value(max_val)
+
+fn std_math_sin(interpreter, num_val):
+    # Sine function
+    num = num_val
+    if is_runtime_value(num_val):
+        num = num_val["value"]
+    return prim_interpreter.make_runtime_value(sin(num))
+
+fn std_math_cos(interpreter, num_val):
+    # Cosine function
+    num = num_val
+    if is_runtime_value(num_val):
+        num = num_val["value"]
+    return prim_interpreter.make_runtime_value(cos(num))
+
+fn std_math_tan(interpreter, num_val):
+    # Tangent function
+    num = num_val
+    if is_runtime_value(num_val):
+        num = num_val["value"]
+    return prim_interpreter.make_runtime_value(tan(num))
+
+fn std_math_log(interpreter, num_val, base_val):
+    # Logarithm function
+    num = num_val
+    if is_runtime_value(num_val):
+        num = num_val["value"]
+    
+    base = None
+    if base_val:
+        base = base_val
+        if is_runtime_value(base_val):
+            base = base_val["value"]
+    
+    if base == None:
+        return prim_interpreter.make_runtime_value(log(num))  # Natural log
+    else:
+        return prim_interpreter.make_runtime_value(log(num) / log(base))
+
+fn std_math_exp(interpreter, num_val):
+    # Exponential function
+    num = num_val
+    if is_runtime_value(num_val):
+        num = num_val["value"]
+    return prim_interpreter.make_runtime_value(exp(num))
+
+fn std_math_random(interpreter):
+    # Generate a random number between 0 and 1
+    # Note: This is a simplified random implementation
+    return prim_interpreter.make_runtime_value(0.5)
+
+fn is_runtime_value(val):
+    return is_dict(val) and contains(dict_keys(val), "value")
+
+# Helper math functions (built-in implementations)
+fn abs(x):
+    if x < 0:
+        return -x
+    return x
+
+fn floor(x):
+    # Simplified floor implementation
+    if x >= 0:
+        return float(int(x))
+    else:
+        return float(int(x) - 1)
+
+fn ceil(x):
+    # Simplified ceil implementation  
+    if x >= 0:
+        return float(int(x) + 1) if x != float(int(x)) else float(int(x))
+    else:
+        return float(int(x))
+
+fn round(x, digits):
+    # Simplified round implementation
+    if digits == None:
+        return float(int(x + 0.5)) if x >= 0 else float(int(x - 0.5))
+    else:
+        factor = pow(10, digits)
+        return round(x * factor) / factor
+
+fn sqrt(x):
+    # Newton's method for square root
+    if x < 0:
+        return 0
+    if x == 0:
+        return 0
+    guess = x
+    i = 0
+    while i < 20:
+        guess = (guess + x / guess) / 2
+        i = i + 1
+    return guess
+
+fn pow(base, exp):
+    # Power function
+    if exp == 0:
+        return 1
+    if exp < 0:
+        return 1 / pow(base, -exp)
+    result = 1
+    i = 0
+    while i < exp:
+        result = result * base
+        i = i + 1
+    return result
+
+fn sin(x):
+    # Taylor series approximation for sine
+    # sin(x) = x - x^3/3! + x^5/5! - x^7/7! + ...
+    x = x % (2 * MATH_PI)
+    result = 0
+    sign = 1
+    i = 1
+    while i <= 10:
+        term = pow(x, 2 * i - 1) / factorial(2 * i - 1)
+        result = result + sign * term
+        sign = -sign
+        i = i + 1
+    return result
+
+fn cos(x):
+    # cos(x) = sin(x + pi/2)
+    return sin(x + MATH_PI / 2)
+
+fn tan(x):
+    c = cos(x)
+    if c == 0:
+        return 0
+    return sin(x) / c
+
+fn log(x):
+    # Natural logarithm using Taylor series approximation
+    if x <= 0:
+        return 0
+    # ln(x) = 2 * [ (x-1)/(x+1) + (1/3)((x-1)/(x+1))^3 + (1/5)((x-1)/(x+1))^5 + ... ]
+    y = (x - 1) / (x + 1)
+    y2 = y * y
+    result = 0
+    i = 0
+    while i < 20:
+        term = pow(y, 2 * i + 1) / (2 * i + 1)
+        result = result + term
+        i = i + 1
+    return 2 * result
+
+fn exp(x):
+    # e^x using Taylor series: e^x = 1 + x + x^2/2! + x^3/3! + ...
+    result = 1
+    term = 1
+    i = 1
+    while i < 20:
+        term = term * x / i
+        result = result + term
+        i = i + 1
+    return result
+
+fn factorial(n):
+    if n <= 1:
+        return 1
+    result = 1
+    i = 2
+    while i <= n:
+        result = result * i
+        i = i + 1
+    return result
+
+fn register_math_functions(interpreter):
+    # Register math utility functions with the interpreter
+    env = interpreter["global_env"]
+    prim_interpreter.env_define(env, "abs", std_math_abs)
+    prim_interpreter.env_define(env, "floor", std_math_floor)
+    prim_interpreter.env_define(env, "ceil", std_math_ceil)
+    prim_interpreter.env_define(env, "round", std_math_round)
+    prim_interpreter.env_define(env, "sqrt", std_math_sqrt)
+    prim_interpreter.env_define(env, "pow", std_math_pow)
+    prim_interpreter.env_define(env, "min", std_math_min)
+    prim_interpreter.env_define(env, "max", std_math_max)
+    prim_interpreter.env_define(env, "sin", std_math_sin)
+    prim_interpreter.env_define(env, "cos", std_math_cos)
+    prim_interpreter.env_define(env, "tan", std_math_tan)
+    prim_interpreter.env_define(env, "log", std_math_log)
+    prim_interpreter.env_define(env, "exp", std_math_exp)
+    prim_interpreter.env_define(env, "random", std_math_random)
+    # Register constants as functions that return the value
+    prim_interpreter.env_define(env, "pi", prim_interpreter.make_runtime_value(MATH_PI))
+    prim_interpreter.env_define(env, "e", prim_interpreter.make_runtime_value(MATH_E))

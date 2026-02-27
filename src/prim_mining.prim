@@ -1,0 +1,416 @@
+#mode slim
+# Prim Data Mining
+# Provides clustering algorithms, association rule learning, feature selection,
+# dimensionality reduction, and text mining.
+
+# import numpy as np
+# from typing import List, Dict, Any, Optional, Tuple, Set
+# from dataclasses import dataclass
+# from enum import Enum
+# import math
+
+
+ClusteringAlgorithm_K_MEANS = "k_means"
+ClusteringAlgorithm_DBSCAN = "dbscan"
+ClusteringAlgorithm_HIERARCHICAL = "hierarchical"
+ClusteringAlgorithm_MEAN_SHIFT = "mean_shift"
+ClusteringAlgorithm_GAUSSIAN_MIXTURE = "gaussian_mixture"AssociationRuleMethod_APRIORI = "apriori"
+AssociationRuleMethod_FP_GROWTH = "fp_growth"
+AssociationRuleMethod_ECLAT = "eclat"DimensionalityReductionMethod_PCA = "pca"
+DimensionalityReductionMethod_T_SNE = "t_sne"
+DimensionalityReductionMethod_UMAP = "umap"
+DimensionalityReductionMethod_LDA = "lda"
+DimensionalityReductionMethod_AUTOENCODER = "autoencoder"class
+# Class Cluster
+    # Cluster
+    id: int
+    centroid
+    points]
+    label: str = ""
+
+
+fn make_associationrule(antecedent, consequent, support, confidence, lift):
+    return {"antecedent": antecedent, "consequent": consequent, "support": support, "confidence": confidence, "lift": lift}class KMeans:
+    # K-means clustering
+
+    fn make_cluster(k: int = 3, max_iterations: int = 100):
+        obj = {}
+        obj["k"] = k
+        obj["max_iterations"] = max_iterations
+        obj["centroids"]]] = null
+        obj["labels"]] = null
+
+    def fit(self, data]) -> 'KMeans':
+        # Fit k-means model
+        n_samples = len(data)
+        n_features = len(data[0])
+
+        # Initialize centroids randomly
+        indices = np.random.choice(n_samples, obj["k"], replace=false)
+        obj["centroids"] = [data[i] for i in indices]
+
+        for _ in range(obj["max_iterations"]):
+            # Assign points to clusters
+            labels = []
+            new_centroids = [[] for _ in range(obj["k"])]
+
+            for point in data:
+                distances = [cluster__distance(obj, point, centroid) for centroid in obj["centroids"]]
+                cluster_id = np.argmin(distances)
+                labels = push(labels, cluster_id)
+                new_centroids[cluster_id].append(point)
+
+            # Update centroids
+            new_centroids_list = []
+            for cluster_points in new_centroids:
+                if cluster_points:
+                    new_centroid = [sum(col) / len(col) for col in zip(*cluster_points)]
+                    new_centroids_list = push(new_centroids_list, new_centroid)
+                else:
+                    new_centroids_list = push(new_centroids_list, obj["centroids"][len(new_centroids_list)])
+
+            # Check for convergence
+            if all(np.allclose(old, new) for old, new in zip(obj["centroids"], new_centroids_list)):
+                break
+
+            obj["centroids"] = new_centroids_list
+
+        obj["labels"] = labels
+        return self
+
+    def predict(self, data]) :
+        # Predict cluster labels
+        labels = []
+        for point in data:
+            distances = [cluster__distance(obj, point, centroid) for centroid in obj["centroids"]]
+            labels = push(labels, np.argmin(distances))
+        return labels
+
+    def _distance(self, a, b) -> float:
+        # Calculate Euclidean distance
+        return math.sqrt(sum((x - y) ** 2 for x, y in zip(a, b)))
+
+
+# Class DBSCAN
+    # DBSCAN clustering
+
+    fn make_dbscan(eps: float = 0.5, min_samples: int = 5):
+        obj = {}
+        obj["eps"] = eps
+        obj["min_samples"] = min_samples
+        obj["labels"]] = null
+
+    def fit(self, data]) -> 'DBSCAN':
+        # Fit DBSCAN model
+        n_samples = len(data)
+        obj["labels"] = [-1] * n_samples  # -1 = noise
+        cluster_id = 0
+
+        for i in range(n_samples):
+            if obj["labels"][i] != -1:
+                continue
+
+            neighbors = dbscan__region_query(obj, data, i)
+
+            if len(neighbors) < obj["min_samples"]:
+                obj["labels"][i] = -1
+                continue
+
+            obj["labels"][i] = cluster_id
+            seeds = list(neighbors)
+
+            while seeds:
+                j = seeds.pop()
+
+                if obj["labels"][j] == -1:
+                    obj["labels"][j] = cluster_id
+
+                if obj["labels"][j] != 0:
+                    continue
+
+                obj["labels"][j] = cluster_id
+                j_neighbors = dbscan__region_query(obj, data, j)
+
+                if len(j_neighbors) >= obj["min_samples"]:
+                    seeds.extend(j_neighbors)
+
+            cluster_id += 1
+
+        return self
+
+    def _region_query(self, data], point_idx: int) :
+        # Query neighbors within epsilon
+        neighbors = []
+        for i, point in enumerate(data):
+            if dbscan__distance(obj, data[point_idx], point) <= obj["eps"]:
+                neighbors = push(neighbors, i)
+        return neighbors
+
+    def _distance(self, a, b) -> float:
+        # Calculate Euclidean distance
+        return math.sqrt(sum((x - y) ** 2 for x, y in zip(a, b)))
+
+
+# Class Apriori
+    # Apriori algorithm for association rules
+
+    fn make_apriori(min_support: float = 0.1, min_confidence: float = 0.5):
+        obj = {}
+        obj["min_support"] = min_support
+        obj["min_confidence"] = min_confidence
+
+    def fit(self, transactions]) -> 'Apriori':
+        # Fit Apriori model
+        obj["transactions"] = transactions
+        return self
+
+    def generate_rules(self) :
+        # Generate association rules
+        # Generate frequent itemsets
+        frequent_itemsets = apriori__generate_frequent_itemsets(obj, )
+
+        # Generate rules from frequent itemsets
+        rules = []
+        for itemset in frequent_itemsets:
+            if len(itemset) >= 2:
+                apriori__generate_rules_from_itemset(obj, itemset, rules)
+
+        return rules
+
+    def _generate_frequent_itemsets(self) ]:
+        # Generate frequent itemsets
+        frequent_itemsets = []
+        n_transactions = len(obj["transactions"])
+
+        # Get all unique items
+        all_items = set()
+        for transaction in obj["transactions"]:
+            all_items.update(transaction)
+
+        # Generate 1-itemsets
+        c1 = [{item} for item in all_items]
+        l1 = apriori__filter_itemsets(obj, c1, n_transactions)
+
+        frequent_itemsets.extend(l1)
+
+        # Generate k-itemsets
+        k = 2
+        while true:
+            ck = apriori__generate_candidates(obj, l1 if k == 2 else frequent_itemsets, k)
+            lk = apriori__filter_itemsets(obj, ck, n_transactions)
+
+            if not lk:
+                break
+
+            frequent_itemsets.extend(lk)
+            k += 1
+
+        return frequent_itemsets
+
+    def _generate_candidates(self, itemsets], k: int) ]:
+        # Generate candidate itemsets
+        candidates = []
+        n = len(itemsets)
+
+        for i in range(n):
+            for j in range(i + 1, n):
+                itemset1 = list(itemsets[i])
+                itemset2 = list(itemsets[j])
+
+                # Check if k-2 items are common
+                if len(set(itemset1) & set(itemset2)) == k - 2:
+                    candidate = set(itemset1) | set(itemset2)
+                    if len(candidate) == k:
+                        candidates = push(candidates, candidate)
+
+        return candidates
+
+    def _filter_itemsets(self, itemsets], n_transactions: int) ]:
+        # Filter itemsets by minimum support
+        frequent = []
+
+        for itemset in itemsets:
+            support = sum(1 for t in obj["transactions"] if itemset.issubset(set(t))) / n_transactions
+            if support >= obj["min_support"]:
+                frequent = push(frequent, itemset)
+
+        return frequent
+
+    fn apriori__generate_rules_from_itemset(obj, itemset, rules):
+        # Generate rules from itemset
+        itemset_list = list(itemset)
+
+        for i in range(len(itemset_list)):
+            for j in range(i + 1, len(itemset_list)):
+                antecedent = {itemset_list[i]}
+                consequent = {itemset_list[j]}
+
+                # Calculate support and confidence
+                support = apriori__calculate_support(obj, antecedent | consequent)
+                confidence = apriori__calculate_confidence(obj, antecedent, consequent)
+
+                if confidence >= obj["min_confidence"]:
+                    lift = apriori__calculate_lift(obj, antecedent, consequent)
+                    rules = push(rules, AssociationRule(antecedent, consequent, support, confidence, lift))
+
+    def _calculate_support(self, itemset) -> float:
+        # Calculate support
+        return sum(1 for t in obj["transactions"] if itemset.issubset(set(t))) / len(obj["transactions"])
+
+    def _calculate_confidence(self, antecedent, consequent) -> float:
+        # Calculate confidence
+        support_antecedent = apriori__calculate_support(obj, antecedent)
+        support_both = apriori__calculate_support(obj, antecedent | consequent)
+        return support_both / support_antecedent if support_antecedent > 0 else 0
+
+    def _calculate_lift(self, antecedent, consequent) -> float:
+        # Calculate lift
+        support_antecedent = apriori__calculate_support(obj, antecedent)
+        support_consequent = apriori__calculate_support(obj, consequent)
+        support_both = apriori__calculate_support(obj, antecedent | consequent)
+        return support_both / (support_antecedent * support_consequent) if support_antecedent * support_consequent > 0 else 0
+
+
+# Class FeatureSelector
+    # Feature selection
+
+    @staticmethod
+    def select_k_best(data], target, k: int) :
+        # Select top k features
+        from sklearn.feature_selection import SelectKBest, f_classif
+        selector = SelectKBest(f_classif, k=k)
+        selector.fit(data, target)
+        selected = selector.get_support(indices=true)
+        return list(selected)
+
+    @staticmethod
+    def variance_threshold(data], threshold: float = 0.0) :
+        # Select features with variance above threshold
+        variances = np.var(data, axis=0)
+        selected = [i for i, var in enumerate(variances) if var > threshold]
+        return selected
+
+
+# Class DimensionalityReducer
+    # Dimensionality reduction
+
+    @staticmethod
+    def pca(data], n_components: int = 2) ]:
+        # Principal Component Analysis
+        from sklearn.decomposition import PCA
+        pca = PCA(n_components=n_components)
+        reduced = pca.fit_transform(data)
+        return reduced.tolist()
+
+
+# Class TextMining
+    # Text mining
+
+    @staticmethod
+    def tokenize(text: str) :
+        # Tokenize text
+        import re
+        tokens = re.findall(r'\b\w+\b', text.lower())
+        return tokens
+
+    @staticmethod
+    def remove_stopwords(tokens, stopwords] = null) :
+        # Remove stopwords
+        if stopwords is null:
+            stopwords = {'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by'}
+        return [token for token in tokens if token not in stopwords]
+
+    @staticmethod
+    def stem(tokens) :
+        # Stem tokens
+        from nltk.stem import PorterStemmer
+        stemmer = PorterStemmer()
+        return [stemmer.stem(token) for token in tokens]
+
+    @staticmethod
+    def calculate_tf_idf(documents]) ]:
+        # Calculate TF-IDF scores
+        from sklearn.feature_extraction.text import TfidfVectorizer
+        vectorizer = TfidfVectorizer()
+        tfidf_matrix = vectorizer.fit_transform([' '.join(doc) for doc in documents])
+
+        feature_names = vectorizer.get_feature_names_out()
+        results = {}
+
+        for i, doc in enumerate(documents):
+            doc_scores = {}
+            for j, word in enumerate(feature_names):
+                score = tfidf_matrix[i, j]
+                if score > 0:
+                    doc_scores[word] = float(score)
+            results["doc_{i}"] = doc_scores
+
+        return results
+
+    @staticmethod
+    def sentiment_analysis(text: str) :
+        # Sentiment analysis
+        from textblob import TextBlob
+        blob = TextBlob(text)
+        sentiment = blob.sentiment
+
+        return {
+            "polarity": sentiment.polarity,
+            "subjectivity": sentiment.subjectivity
+        }
+
+
+fn main():
+    # Main entry point for testing
+    print("Testing Data Mining...")
+
+    # Test K-Means
+    kmeans = KMeans(k=3)
+    data = [[1, 1], [1, 2], [2, 1], [8, 8], [8, 9], [9, 8], [5, 5]]
+    kmeans.fit(data)
+    labels = kmeans.predict(data)
+    print("K-Means labels: {labels}")
+
+    # Test DBSCAN
+    dbscan = DBSCAN(eps=2, min_samples=2)
+    dbscan.fit(data)
+    print("DBSCAN labels: {dbscan.labels}")
+
+    # Test Apriori
+    apriori = Apriori(min_support=0.3, min_confidence=0.7)
+    transactions = [
+        ["milk", "bread", "eggs"],
+        ["bread", "butter", "cheese"],
+        ["milk", "bread", "butter"],
+        ["eggs", "cheese", "milk"]
+    ]
+    apriori.fit(transactions)
+    rules = apriori.generate_rules()
+    print("Association rules: {len(rules)}")
+
+    # Test Feature Selection
+    fs = FeatureSelector()
+    selected = fs.variance_threshold(data, threshold=0.5)
+    print("Selected features: {selected}")
+
+    # Test PCA
+    dr = DimensionalityReducer()
+    reduced = dr.pca(data, n_components=2)
+    print("PCA reduced: {len(reduced)} samples, {len(reduced[0])} dimensions")
+
+    # Test Text Mining
+    tm = TextMining()
+    text = "The quick brown fox jumps over the lazy dog."
+    tokens = tm.tokenize(text)
+    tokens = tm.remove_stopwords(tokens)
+    print("Tokens: {tokens[:5]}")
+
+    # Test Sentiment Analysis
+    sentiment = tm.sentiment_analysis("I love this product! It's amazing.")
+    print("Sentiment: polarity={sentiment['polarity']:.2f}, subjectivity={sentiment['subjectivity']:.2f}")
+
+    print("\nData Mining initialized successfully")
+
+
+if __name__ == "__main__":
+    main()

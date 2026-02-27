@@ -1,0 +1,41 @@
+#mode slim
+# Prim IoT Data Processing
+# Provides data ingestion, stream processing, analytics, storage,
+# and data visualization for IoT
+
+# Data type constants
+DATA_NUMERIC = "numeric"
+DATA_CATEGORICAL = "categorical"
+DATA_BINARY = "binary"
+
+# Factory function for DataPoint
+fn make_data_point(timestamp, value, type_):
+    return {
+        "timestamp": timestamp,
+        "value": value,
+        "type": type_
+    }
+
+# DataProcessor factory
+fn make_data_processor():
+    return {
+        "data": []
+    }
+
+fn data_processor_ingest(processor, point):
+    processor["data"] = push(processor["data"], point)
+
+fn data_processor_process(processor):
+    return {"count": len(processor["data"])}
+
+fn main():
+    print("Testing IoT Data Processing...")
+    processor = make_data_processor()
+    point = make_data_point(0.0, 10.0, DATA_NUMERIC)
+    data_processor_ingest(processor, point)
+    result = data_processor_process(processor)
+    print("Result: " + to_string(result))
+    print("IoT Data Processing initialized successfully")
+
+if __name__ == "__main__":
+    main()

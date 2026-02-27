@@ -1,0 +1,45 @@
+#mode slim
+# Prim Cloud Integration
+# Provides cloud provider abstraction, cloud resource management,
+# multi-cloud support, cloud monitoring, and cost optimization
+
+# Cloud provider constants
+CLOUD_AWS = "aws"
+CLOUD_AZURE = "azure"
+CLOUD_GCP = "gcp"
+CLOUD_ALIBABA = "alibaba"
+
+# Factory function for CloudResource
+fn make_cloud_resource(id, type_, provider):
+    return {
+        "id": id,
+        "type": type_,
+        "provider": provider
+    }
+
+# CloudManager factory
+fn make_cloud_manager():
+    return {
+        "resources": {}
+    }
+
+fn cloud_manager_create_resource(manager, resource):
+    manager["resources"][resource["id"]] = resource
+
+fn cloud_manager_get_resources(manager):
+    resources = []
+    keys = dict_keys(manager["resources"])
+    for key in keys:
+        resources = push(resources, manager["resources"][key])
+    return resources
+
+fn main():
+    print("Testing Cloud Integration...")
+    manager = make_cloud_manager()
+    resource = make_cloud_resource("res1", "vm", CLOUD_AWS)
+    cloud_manager_create_resource(manager, resource)
+    print("Resources: " + to_string(len(cloud_manager_get_resources(manager))))
+    print("Cloud Integration initialized successfully")
+
+if __name__ == "__main__":
+    main()

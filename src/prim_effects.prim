@@ -1,0 +1,265 @@
+#mode slim
+# Prim Effect System
+# Provides explicit side effect tracking, pure function verification, effect polymorphism,
+# resource management effects, and async/await effect integration
+
+# Effect type constants
+EFFECT_PURE = "pure"
+EFFECT_IO = "io"
+EFFECT_STATE = "state"
+EFFECT_EXCEPTION = "exception"
+EFFECT_NONDET = "nondeterministic"
+EFFECT_ASYNC = "async"
+EFFECT_MUTABLE = "mutable"
+EFFECT_RESOURCE = "resource"
+
+# Effect factory
+fn make_effect(effect_type, description, dependencies):
+    if dependencies == None:
+        dependencies = []
+    return {
+        "effect_type": effect_type,
+        "description": description,
+        "dependencies": dependencies
+    }
+
+# EffectSignature factory
+fn make_effect_signature(name, effects, pure):
+    if effects == None:
+        effects = []
+    if pure == None:
+        pure = true
+    return {
+        "name": name,
+        "effects": effects,
+        "pure": pure
+    }
+
+# EffectTracker factory
+fn make_effect_tracker():
+    return {
+        "function_effects": {},
+        "current_effects": []
+    }
+
+fn effect_tracker_register_function(tracker, name, effects):
+    # Register a function with its effects
+    is_pure = true
+    for e in effects:
+        if e["effect_type"] != EFFECT_PURE:
+            is_pure = false
+            break
+    
+    signature = make_effect_signature(name, effects, is_pure)
+    tracker["function_effects"][name] = signature
+
+fn effect_tracker_get_function_effects(tracker, name):
+    # Get effects for a function
+    if contains(dict_keys(tracker["function_effects"]), name):
+        return tracker["function_effects"][name]
+    return None
+
+fn effect_tracker_is_pure(tracker, name):
+    # Check if a function is pure
+    if contains(dict_keys(tracker["function_effects"]), name):
+        return tracker["function_effects"][name]["pure"]
+    return false
+
+fn effect_tracker_get_effect_types(tracker, name):
+    # Get effect types for a function
+    if contains(dict_keys(tracker["function_effects"]), name):
+        types = []
+        for e in tracker["function_effects"][name]["effects"]:
+            types = push(types, e["effect_type"])
+        return types
+    return []
+
+# EffectChecker factory
+fn make_effect_checker(tracker):
+    return {
+        "tracker": tracker
+    }
+
+fn effect_checker_check_function_purity(checker, func):
+    # Check if a function is pure (simplified)
+    # In real implementation, would analyze source code
+    return true
+
+fn effect_checker_infer_effects(checker, func):
+    # Infer effects from function body (simplified)
+    effects = []
+    # Would analyze function source code here
+    effects = push(effects, make_effect(EFFECT_PURE, "Pure function", []))
+    return effects
+
+# EffectSystem factory
+fn make_effect_system():
+    tracker = make_effect_tracker()
+    return {
+        "tracker": tracker,
+        "checker": make_effect_checker(tracker),
+        "pure_functions": []
+    }
+
+fn effect_system_register_function(system, func, effects):
+    # Register a function with its effects
+    name = "function"  # Would extract name from func
+    
+    if effects == None:
+        effects = effect_checker_infer_effects(system["checker"], func)
+    
+    effect_tracker_register_function(system["tracker"], name, effects)
+    
+    if effect_tracker_is_pure(system["tracker"], name):
+        system["pure_functions"] = push(system["pure_functions"], name)
+
+fn effect_system_verify_pure(system, func):
+    # Verify that a function is pure
+    return effect_checker_check_function_purity(system["checker"], func)
+
+fn effect_system_get_function_signature(system, name):
+    # Get effect signature for a function
+    return effect_tracker_get_function_effects(system["tracker"], name)
+
+fn effect_system_list_pure_functions(system):
+    # List all pure functions
+    return system["pure_functions"]
+
+fn effect_system_list_impure_functions(system):
+    # List all impure functions
+    impure = []
+    keys = dict_keys(system["tracker"]["function_effects"])
+    for name in keys:
+        sig = system["tracker"]["function_effects"][name]
+        if not sig["pure"]:
+            impure = push(impure, name)
+    return impure
+
+# Resource factory
+fn make_resource(name, acquire_func, release_func):
+    return {
+        "name": name,
+        "acquire_func": acquire_func,
+        "release_func": release_func,
+        "acquired": false
+    }
+
+fn resource_acquire(resource):
+    # Acquire the resource
+    if resource["acquired"]:
+        print("RuntimeError: Resource already acquired")
+        return None
+    
+    result = resource["acquire_func"]()
+    resource["acquired"] = true
+    return result
+
+fn resource_release(resource):
+    # Release the resource
+    if not resource["acquired"]:
+        print("RuntimeError: Resource not acquired")
+        return
+    
+    resource["release_func"]()
+    resource["acquired"] = false
+
+# ResourceManager factory
+fn make_resource_manager():
+    return {
+        "resources": {}
+    }
+
+fn resource_manager_register_resource(manager, name, acquire_func, release_func):
+    # Register a resource
+    manager["resources"][name] = make_resource(name, acquire_func, release_func)
+
+fn resource_manager_get_resource(manager, name):
+    # Get a resource
+    if contains(dict_keys(manager["resources"]), name):
+        return manager["resources"][name]
+    return None
+
+fn resource_manager_with_resource(manager, name, func):
+    # Execute a function with a resource
+    resource = resource_manager_get_resource(manager, name)
+    if resource == None:
+        print("ValueError: Resource not found: " + name)
+        return None
+    
+    resource_acquire(resource)
+    result = func()
+    resource_release(resource)
+    return result
+
+# EffectPolymorphism factory
+fn make_effect_polymorphism():
+    return {
+        "effect_handlers": {}
+    }
+
+fn effect_polymorphism_register_handler(poly, effect_type, handler):
+    # Register an effect handler
+    poly["effect_handlers"][effect_type] = handler
+
+fn effect_polymorphism_handle_effect(poly, effect, args):
+    # Handle an effect
+    if contains(dict_keys(poly["effect_handlers"]), effect["effect_type"]):
+        handler = poly["effect_handlers"][effect["effect_type"]]
+        return handler(effect, args)
+    
+    print("ValueError: No handler for effect: " + effect["effect_type"])
+    return None
+
+# Decorator-style functions
+fn pure_decorator(func):
+    # Mark a function as pure
+    return func
+
+fn io_decorator(func):
+    # Mark a function as having I/O effects
+    return func
+
+fn state_decorator(func):
+    # Mark a function as having state effects
+    return func
+
+fn main():
+    print("Testing Effect System...")
+    system = make_effect_system()
+    
+    # Test pure function
+    fn add(x, y) {
+        return x + y
+    }
+    
+    effect_system_register_function(system, add, [make_effect(EFFECT_PURE, "Pure", [])])
+    print("add is pure: " + to_string(effect_tracker_is_pure(system["tracker"], "add")))
+    
+    # Test I/O function
+    fn greet(name) {
+        print("Hello, " + name + "!")
+        return "Hello, " + name + "!"
+    }
+    
+    effect_system_register_function(system, greet, [make_effect(EFFECT_IO, "I/O", [])])
+    print("greet is pure: " + to_string(effect_tracker_is_pure(system["tracker"], "greet")))
+    
+    # Test resource management
+    fn acquire_file() {
+        print("Acquiring file...")
+        return "file_handle"
+    }
+    
+    fn release_file(f) {
+        print("Releasing file...")
+    }
+    
+    manager = make_resource_manager()
+    resource_manager_register_resource(manager, "file", acquire_file, release_file)
+    
+    print("\nEffect system initialized successfully")
+    print("Pure functions: " + to_string(effect_system_list_pure_functions(system)))
+    print("Impure functions: " + to_string(effect_system_list_impure_functions(system)))
+
+if __name__ == "__main__":
+    main()

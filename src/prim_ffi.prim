@@ -1,0 +1,320 @@
+#mode slim
+# Prim Foreign Function Interface (FFI)
+# Provides C interop, dynamic library loading, foreign type mapping, and callback support.
+
+# import ctypes
+# import os
+# from typing import Dict, List, Optional, Any, Callable, Union, TypeVar
+# from dataclasses import dataclass, field
+# from enum import Enum
+
+
+ForeignType_VOID = "void"
+ForeignType_INT = "int"
+ForeignType_INT8 = "int8"
+ForeignType_INT16 = "int16"
+ForeignType_INT32 = "int32"
+ForeignType_INT64 = "int64"
+ForeignType_UINT = "uint"
+ForeignType_UINT8 = "uint8"
+ForeignType_UINT16 = "uint16"
+ForeignType_UINT32 = "uint32"
+ForeignType_UINT64 = "uint64"
+ForeignType_FLOAT = "float"
+ForeignType_DOUBLE = "double"
+ForeignType_BOOL = "bool"
+ForeignType_CHAR = "char"
+ForeignType_POINTER = "pointer"
+ForeignType_STRING = "string"
+ForeignType_FUNCTION = "function"class
+# Class ForeignFunction
+    # Foreign function definition
+    name: str
+    return_type
+    arg_types
+    library = null
+    func_ptr = null
+
+
+fn make_foreignlibrary(name, path, handle, functions):
+    return {"name": name, "path": path, "handle": handle, "functions": functions}default_factory=dict)
+
+    fn foreignfunction_load(obj):
+        # Load the library
+        try:
+            obj["handle"] = ctypes.CDLL(obj["path"])
+            return true
+        except Exception as e:
+            print("Failed to load library {obj["path"]}: {e}")
+            return false
+
+    fn foreignfunction_unload(obj):
+        # Unload the library
+        if obj["handle"]:
+            # ctypes doesn't have a direct unload method
+            # The library will be unloaded when the handle is garbage collected
+            obj["handle"] = null
+
+    def get_function(self, name: str, return_type, arg_types) :
+        # Get a function from the library
+        if not obj["handle"]:
+            return null
+
+        try:
+            # Map foreign types to ctypes types
+            ctypes_return_type = foreignfunction__map_type(obj, return_type)
+            ctypes_arg_types = [foreignfunction__map_type(obj, t) for t in arg_types]
+
+            # Get function pointer
+            func_ptr = obj["handle"][name]
+            func_ptr.argtypes = ctypes_arg_types
+            func_ptr.restype = ctypes_return_type
+
+            # Create foreign function
+            foreign_func = ForeignFunction(
+                name=name,
+                return_type=return_type,
+                arg_types=arg_types,
+                library=self,
+                func_ptr=func_ptr
+            )
+
+            obj["functions"][name] = foreign_func
+            return foreign_func
+
+        except Exception as e:
+            print("Failed to get function {name}: {e}")
+            return null
+
+    def _map_type(self, foreign_type) :
+        # Map foreign type to ctypes type
+        type_map = {
+            ForeignType.VOID,
+            ForeignType.INT: ctypes.c_int,
+            ForeignType.INT8: ctypes.c_int8,
+            ForeignType.INT16: ctypes.c_int16,
+            ForeignType.INT32: ctypes.c_int32,
+            ForeignType.INT64: ctypes.c_int64,
+            ForeignType.UINT: ctypes.c_uint,
+            ForeignType.UINT8: ctypes.c_uint8,
+            ForeignType.UINT16: ctypes.c_uint16,
+            ForeignType.UINT32: ctypes.c_uint32,
+            ForeignType.UINT64: ctypes.c_uint64,
+            ForeignType.FLOAT: ctypes.c_float,
+            ForeignType.DOUBLE: ctypes.c_double,
+            ForeignType.BOOL: ctypes.c_bool,
+            ForeignType.CHAR: ctypes.c_char,
+            ForeignType.POINTER: ctypes.c_void_p,
+            ForeignType.STRING: ctypes.c_char_p,
+            ForeignType.FUNCTION: ctypes.CFUNCTYPE,
+        }
+        return dict_get(type_map, foreign_type, ctypes.c_void_p)
+
+
+# Class ForeignFunctionInterface
+    # Foreign Function Interface
+
+    fn make_foreignfunctioninterface():
+        obj = {}
+        obj["libraries"] = {}
+        obj["type_conversions"] = {}
+
+    def load_library(self, name: str, path: str) :
+        # Load a foreign library
+        library = ForeignLibrary(name=name, path=path)
+        if library.load():
+            obj["libraries"][name] = library
+            return library
+        return null
+
+    def get_library(self, name: str) :
+        # Get a loaded library
+        return obj["libraries"].get(name)
+
+    def call_function(self, func, *args) :
+        # Call a foreign function
+        if not func.func_ptr:
+            raise RuntimeError("Function {func.name} not loaded")
+
+        # Convert arguments
+        converted_args = []
+        for i, arg in enumerate(args):
+            arg_type = func.arg_types[i] if i < len(func.arg_types) else ForeignType.VOID
+            converted_args = push(converted_args, foreignfunctioninterface__convert_to_foreign(obj, arg, arg_type))
+
+        # Call function
+        result = func.func_ptr(*converted_args)
+
+        # Convert result
+        return foreignfunctioninterface__convert_from_foreign(obj, result, func.return_type)
+
+    def _convert_to_foreign(self, value, foreign_type) :
+        # Convert Python value to foreign type
+        if foreign_type == ForeignType.STRING:
+            if isinstance(value, str):
+                return value.encode('utf-8')
+            return value
+        elif foreign_type == ForeignType.BOOL:
+            return 1 if value else 0
+        return value
+
+    def _convert_from_foreign(self, value, foreign_type) :
+        # Convert foreign value to Python type
+        if foreign_type == ForeignType.STRING:
+            if isinstance(value, bytes):
+                return value.decode('utf-8')
+            return value
+        elif foreign_type == ForeignType.BOOL:
+            return bool(value)
+        return value
+
+
+# Class CallbackRegistry
+    # Registry for callbacks passed to foreign code
+
+    fn make_callbackregistry():
+        obj = {}
+        obj["callbacks"] = {}
+        obj["callback_wrappers"] = {}
+
+    fn callbackregistry_register(obj, name: str, callback, return_type, arg_types):
+        # Register a callback
+        obj["callbacks"][name] = callback
+
+        # Create ctypes callback wrapper
+        ffi = ForeignFunctionInterface()
+        ctypes_return_type = ffi._map_type(return_type)
+        ctypes_arg_types = [ffi._map_type(t) for t in arg_types]
+
+        callback_wrapper = ctypes.CFUNCTYPE(ctypes_return_type, *ctypes_arg_types)(callback)
+        obj["callback_wrappers"][name] = callback_wrapper
+
+        return callback_wrapper
+
+    def get(self, name: str) :
+        # Get a callback wrapper
+        return obj["callback_wrappers"].get(name)
+
+
+# Class StructBuilder
+    # Builder for foreign structs
+
+    fn make_structbuilder():
+        obj = {}
+        obj["structs"] = {}
+
+    def define_struct(self, name: str, fields) -> type:
+        # Define a foreign struct
+        field_types = {}
+        for field_name, field_type in fields.items():
+            ffi = ForeignFunctionInterface()
+            field_types[field_name] = ffi._map_type(field_type)
+
+        struct_class = type(name, (ctypes.Structure,), {'_fields_': list(field_types.items())})
+        obj["structs"][name] = struct_class
+        return struct_class
+
+    def get_struct(self, name: str) :
+        # Get a struct definition
+        return obj["structs"].get(name)
+
+
+# Class MemoryManager
+    # Memory manager for foreign allocations
+
+    fn make_memorymanager():
+        obj = {}
+        obj["allocations"] = {}
+
+    def alloc(self, size: int) -> int:
+        # Allocate foreign memory
+        ptr = ctypes.create_string_buffer(size)
+        address = ctypes.addressof(ptr)
+        obj["allocations"][address] = size
+        return address
+
+    fn memorymanager_free(obj, address: int):
+        # Free foreign memory
+        if address in obj["allocations"]:
+            del obj["allocations"][address]
+
+    def read_string(self, address: int) -> str:
+        # Read string from foreign memory
+        try:
+            ptr = ctypes.cast(address, ctypes.c_char_p)
+            return ptr.value.decode('utf-8')
+        except:
+            return ""
+
+    fn memorymanager_write_string(obj, address: int, string: str):
+        # Write string to foreign memory
+        try:
+            ptr = ctypes.cast(address, ctypes.c_char_p)
+            ptr.value = string.encode('utf-8')
+        except:
+            pass
+
+
+def load_library(name: str, path: str) :
+    # Load a foreign library
+    ffi = ForeignFunctionInterface()
+    return ffi.load_library(name, path)
+
+
+def call_foreign(func, *args) :
+    # Call a foreign function
+    ffi = ForeignFunctionInterface()
+    return ffi.call_function(func, *args)
+
+
+fn main():
+    # Main entry point for testing
+    ffi = ForeignFunctionInterface()
+
+    # Test loading a library (using system library for example)
+    print("Testing FFI...")
+
+    # Try loading libc on Unix or msvcrt on Windows
+    if os.name == 'nt':
+        lib_path = "msvcrt.dll"
+    else:
+        lib_path = "libc.so.6"
+
+    # This will likely fail on most systems, but demonstrates the API
+    lib = ffi.load_library("c_lib", lib_path)
+    if lib:
+        print("Loaded library: {lib.name}")
+
+        # Try to get a function
+        func = lib.get_function("printf", ForeignType.INT, [ForeignType.STRING])
+        if func:
+            print("Got function: {func.name}")
+
+            # Call the function
+            result = ffi.call_function(func, b"Hello from C!\n")
+            print("Result: {result}")
+    else:
+        print("Could not load library (expected on most systems)")
+
+    # Test struct builder
+    builder = StructBuilder()
+    point_struct = builder.define_struct("Point", {
+        "x".INT,
+        "y".INT
+    })
+    print("Created struct: {point_struct}")
+
+    # Test memory manager
+    memory = MemoryManager()
+    addr = memory.alloc(100)
+    print("Allocated memory at: {hex(addr)}")
+    memory.write_string(addr, "Test string")
+    value = memory.read_string(addr)
+    print("Read string: {value}")
+    memory.free(addr)
+
+    print("\nFFI initialized successfully")
+
+
+if __name__ == "__main__":
+    main()

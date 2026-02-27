@@ -1,0 +1,167 @@
+#mode slim
+# Prim Standard Library - Collections Module
+# Provides essential data structure operations for Prim
+
+use prim_interpreter
+
+fn std_list_map(interpreter, lst_val, fn_val):
+    # Map function for lists
+    lst = lst_val
+    if is_runtime_value(lst_val):
+        lst = lst_val["value"]
+    
+    fn = fn_val
+    if is_runtime_value(fn_val):
+        fn = fn_val["value"]
+    
+    result = []
+    for item in lst:
+        mapped_item = fn(interpreter, item)
+        if is_runtime_value(mapped_item):
+            mapped_item = mapped_item["value"]
+        result = push(result, mapped_item)
+    
+    return prim_interpreter.make_runtime_value(result)
+
+fn std_list_filter(interpreter, lst_val, fn_val):
+    # Filter function for lists
+    lst = lst_val
+    if is_runtime_value(lst_val):
+        lst = lst_val["value"]
+    
+    fn = fn_val
+    if is_runtime_value(fn_val):
+        fn = fn_val["value"]
+    
+    result = []
+    for item in lst:
+        keep = fn(interpreter, item)
+        if is_runtime_value(keep):
+            keep = keep["value"]
+        if keep:
+            result = push(result, item)
+    
+    return prim_interpreter.make_runtime_value(result)
+
+fn std_list_reduce(interpreter, lst_val, fn_val, initial_val):
+    # Reduce function for lists
+    lst = lst_val
+    if is_runtime_value(lst_val):
+        lst = lst_val["value"]
+    
+    fn = fn_val
+    if is_runtime_value(fn_val):
+        fn = fn_val["value"]
+    
+    if len(lst) == 0 and initial_val == None:
+        print("Cannot reduce empty list without initial value")
+        return prim_interpreter.make_runtime_value(None)
+    
+    accumulator = None
+    start_idx = 0
+    
+    if initial_val == None:
+        accumulator = lst[0]
+        start_idx = 1
+    else:
+        accumulator = initial_val
+        if is_runtime_value(initial_val):
+            accumulator = initial_val["value"]
+    
+    i = start_idx
+    while i < len(lst):
+        item = lst[i]
+        accumulator = fn(interpreter, accumulator, item)
+        if is_runtime_value(accumulator):
+            accumulator = accumulator["value"]
+        i = i + 1
+    
+    return prim_interpreter.make_runtime_value(accumulator)
+
+fn std_list_length(interpreter, lst_val):
+    # Get length of a list
+    lst = lst_val
+    if is_runtime_value(lst_val):
+        lst = lst_val["value"]
+    return prim_interpreter.make_runtime_value(len(lst))
+
+fn std_list_push(interpreter, lst_val, item_val):
+    # Add an item to the end of a list
+    lst = lst_val
+    if is_runtime_value(lst_val):
+        lst = lst_val["value"]
+    
+    item = item_val
+    if is_runtime_value(item_val):
+        item = item_val["value"]
+    
+    return prim_interpreter.make_runtime_value(push(lst, item))
+
+fn std_dict_get(interpreter, dict_val, key_val):
+    # Get a value from a dictionary
+    dict_obj = dict_val
+    if is_runtime_value(dict_val):
+        dict_obj = dict_val["value"]
+    
+    key = key_val
+    if is_runtime_value(key_val):
+        key = key_val["value"]
+    
+    if contains(dict_keys(dict_obj), key):
+        return prim_interpreter.make_runtime_value(dict_obj[key])
+    else:
+        return prim_interpreter.make_runtime_value(None)
+
+fn std_dict_set(interpreter, dict_val, key_val, value_val):
+    # Set a value in a dictionary
+    dict_obj = dict_val
+    if is_runtime_value(dict_val):
+        dict_obj = dict_val["value"]
+    
+    key = key_val
+    if is_runtime_value(key_val):
+        key = key_val["value"]
+    
+    value = value_val
+    if is_runtime_value(value_val):
+        value = value_val["value"]
+    
+    dict_obj[key] = value
+    return prim_interpreter.make_runtime_value(dict_obj)
+
+fn std_dict_keys(interpreter, dict_val):
+    # Get all keys from a dictionary
+    dict_obj = dict_val
+    if is_runtime_value(dict_val):
+        dict_obj = dict_val["value"]
+    
+    return prim_interpreter.make_runtime_value(dict_keys(dict_obj))
+
+fn std_dict_values(interpreter, dict_val):
+    # Get all values from a dictionary
+    dict_obj = dict_val
+    if is_runtime_value(dict_val):
+        dict_obj = dict_val["value"]
+    
+    values = []
+    keys = dict_keys(dict_obj)
+    for key in keys:
+        values = push(values, dict_obj[key])
+    
+    return prim_interpreter.make_runtime_value(values)
+
+fn is_runtime_value(val):
+    return is_dict(val) and contains(dict_keys(val), "value")
+
+fn register_collections_functions(interpreter):
+    # Register collection utility functions with the interpreter
+    env = interpreter["global_env"]
+    prim_interpreter.env_define(env, "map", std_list_map)
+    prim_interpreter.env_define(env, "filter", std_list_filter)
+    prim_interpreter.env_define(env, "reduce", std_list_reduce)
+    prim_interpreter.env_define(env, "len", std_list_length)
+    prim_interpreter.env_define(env, "push", std_list_push)
+    prim_interpreter.env_define(env, "dict_get", std_dict_get)
+    prim_interpreter.env_define(env, "dict_set", std_dict_set)
+    prim_interpreter.env_define(env, "dict_keys", std_dict_keys)
+    prim_interpreter.env_define(env, "dict_values", std_dict_values)

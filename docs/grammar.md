@@ -36,7 +36,63 @@ Examples: `myVariable`, `_private`, `camelCase`, `PascalCase`
 ```
 let, const, fn, return, if, else, while, for, break, continue,
 class, extends, this, super, import, from, as, export, type, interface,
-implements, match, case, default, try, catch, finally, throw, async, await, yield
+implements, match, case, default, try, catch, finally, throw, async, await, yield,
+use, mode
+```
+
+## Syntax Modes
+
+Prim supports three distinct syntax modes, which can be toggled using the `#mode` directive.
+
+### 1. Slim Mode (`#mode slim`)
+Python-inspired, indentation-based syntax.
+- **Functions**: `fn name(args):`
+- **Blocks**: Defined by indentation.
+- **Assignments**: `name = value`
+
+### 2. Block Mode (`#mode block`)
+C/JavaScript-inspired, brace-based syntax.
+- **Functions**: `fn name(args) { ... }`
+- **Blocks**: Defined by `{ }`.
+- **Assignments**: `var name = value;` or `const name = value;`
+- **Statements**: Must end with `;`.
+
+### 3. Flow Mode (`#mode flow`)
+Functional, pipe-based syntax.
+- **Functions**: `name = |args| -> expression`
+- **Assignments**: `name := value`
+- **Piping**: `value |> function(#)` where `#` is the placeholder for the piped value.
+
+## Module System
+
+### Importing
+```prim
+use prim_math
+use prim_std_collections as collections
+
+// Selective import
+from prim_math import sin, cos
+```
+
+### Exporting
+In Slim and Block modes:
+```prim
+export fn my_function():
+    return 42
+```
+
+## Advanced Types
+
+### Interfaces
+```prim
+interface Shape:
+    fn area() -> number
+    fn perimeter() -> number
+```
+
+### Type Aliases
+```prim
+type ID = string | number
 ```
 
 ### Literals

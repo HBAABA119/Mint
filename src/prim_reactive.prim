@@ -1,0 +1,491 @@
+#mode slim
+# Prim Reactive Programming
+# Provides reactive streams, event handlers, observable patterns,
+# backpressure handling, and reactive operators
+
+# Stream state constants
+STREAM_ACTIVE = "active"
+STREAM_PAUSED = "paused"
+STREAM_COMPLETED = "completed"
+STREAM_ERROR = "error"
+
+# Event factory
+fn make_event(type_, data, timestamp):
+    if timestamp == None:
+        timestamp = get_current_time()
+    return {
+        "type": type_,
+        "data": data,
+        "timestamp": timestamp
+    }
+
+# Observable factory
+fn make_observable():
+    return {
+        "subscribers": [],
+        "state": STREAM_ACTIVE,
+        "buffer": [],
+        "buffer_size": 1000,
+        "error": None,
+        "subscribe": fn(observer) {
+            subscribers = push(subscribers, observer)
+            
+            # Emit buffered values
+            i = 0
+            while i < len(buffer):
+                observer(buffer[i])
+                i = i + 1
+            
+            return make_subscription(observable, observer)
+        },
+        "next": fn(value) {
+            if state != STREAM_ACTIVE:
+                return
+            
+            buffer = push(buffer, value)
+            
+            # Maintain buffer size
+            if len(buffer) > buffer_size:
+                buffer = slice(buffer, len(buffer) - buffer_size, len(buffer))
+            
+            # Notify subscribers
+            i = 0
+            while i < len(subscribers):
+                subscriber = subscribers[i]
+                try:
+                    subscriber(value)
+                catch e:
+                    error = e
+                    state = STREAM_ERROR
+                i = i + 1
+        },
+        "complete": fn() {
+            state = STREAM_COMPLETED
+        },
+        "emit_error": fn(exception) {
+            error = exception
+            state = STREAM_ERROR
+        },
+        "map": fn(transform) {
+            result = make_observable()
+            
+            fn observer(value) {
+                transformed = transform(value)
+                result["next"](transformed)
+            }
+            
+            subscribe(observer)
+            return result
+        },
+        "filter": fn(predicate) {
+            result = make_observable()
+            
+            fn observer(value) {
+                if predicate(value):
+                    result["next"](value)
+            }
+            
+            subscribe(observer)
+            return result
+        },
+        "reduce": fn(accumulator, initial) {
+            result = make_observable()
+            acc = initial
+            
+            fn observer(value) {
+                acc = accumulator(acc, value)
+                result["next"](acc)
+            }
+            
+            subscribe(observer)
+            return result
+        },
+        "scan": fn(accumulator, initial) {
+            result = make_observable()
+            acc = initial
+            
+            fn observer(value) {
+                acc = accumulator(acc, value)
+                result["next"](acc)
+            }
+            
+            subscribe(observer)
+            return result
+        },
+        "debounce": fn(delay) {
+            result = make_observable()
+            last_value = None
+            last_time = 0
+            
+            fn observer(value) {
+                last_value = value
+                last_time = get_current_time()
+                
+                fn delayed_emit() {
+                    if get_current_time() - last_time >= delay:
+                        result["next"](last_value)
+                }
+                
+                # Simplified delay
+                delayed_emit()
+            }
+            
+            subscribe(observer)
+            return result
+        },
+        "throttle": fn(interval) {
+            result = make_observable()
+            last_emit = 0
+            
+            fn observer(value) {
+                now = get_current_time()
+                
+                if now - last_emit >= interval:
+                    result["next"](value)
+                    last_emit = now
+            }
+            
+            subscribe(observer)
+            return result
+        }
+    }
+
+# Subscription factory
+fn make_subscription(observable, observer):
+    return {
+        "observable": observable,
+        "observer": observer,
+        "active": true,
+        "unsubscribe": fn() {
+            if active:
+                # Remove observer from subscribers
+                new_subscribers = []
+                i = 0
+                while i < len(observable["subscribers"]):
+                    if observable["subscribers"][i] != observer:
+                        new_subscribers = push(new_subscribers, observable["subscribers"][i])
+                    i = i + 1
+                observable["subscribers"] = new_subscribers
+                active = false
+        }
+    }
+
+# Subject factory
+fn make_subject():
+    return {
+        "current_value": None,
+        "subscribers": [],
+        "state": STREAM_ACTIVE,
+        "buffer": [],
+        "buffer_size": 1000,
+        "error": None,
+        "subscribe": fn(observer) {
+            subscribers = push(subscribers, observer)
+            
+            # Emit buffered values
+            i = 0
+            while i < len(buffer):
+                observer(buffer[i])
+                i = i + 1
+            
+            return make_subscription(subject, observer)
+        },
+        "next": fn(value) {
+            current_value = value
+            # Call parent next
+            if state != STREAM_ACTIVE:
+                return
+            
+            buffer = push(buffer, value)
+            
+            # Maintain buffer size
+            if len(buffer) > buffer_size:
+                buffer = slice(buffer, len(buffer) - buffer_size, len(buffer))
+            
+            # Notify subscribers
+            i = 0
+            while i < len(subscribers):
+                subscriber = subscribers[i]
+                try:
+                    subscriber(value)
+                catch e:
+                    error = e
+                    state = STREAM_ERROR
+                i = i + 1
+        },
+        "complete": fn() {
+            state = STREAM_COMPLETED
+        },
+        "emit_error": fn(exception) {
+            error = exception
+            state = STREAM_ERROR
+        },
+        "as_observable": fn() {
+            return subject
+        }
+    }
+
+# BehaviorSubject factory
+fn make_behavior_subject(initial_value):
+    return {
+        "current_value": initial_value,
+        "subscribers": [],
+        "state": STREAM_ACTIVE,
+        "buffer": [],
+        "buffer_size": 1000,
+        "error": None,
+        "subscribe": fn(observer) {
+            subscribers = push(subscribers, observer)
+            
+            # Emit current value first
+            if current_value != None:
+                observer(current_value)
+            
+            # Emit buffered values
+            i = 0
+            while i < len(buffer):
+                observer(buffer[i])
+                i = i + 1
+            
+            return make_subscription(behavior_subject, observer)
+        },
+        "next": fn(value) {
+            current_value = value
+            # Call parent next
+            if state != STREAM_ACTIVE:
+                return
+            
+            buffer = push(buffer, value)
+            
+            # Maintain buffer size
+            if len(buffer) > buffer_size:
+                buffer = slice(buffer, len(buffer) - buffer_size, len(buffer))
+            
+            # Notify subscribers
+            i = 0
+            while i < len(subscribers):
+                subscriber = subscribers[i]
+                try:
+                    subscriber(value)
+                catch e:
+                    error = e
+                    state = STREAM_ERROR
+                i = i + 1
+        },
+        "get_value": fn() {
+            return current_value
+        }
+    }
+
+# ReplaySubject factory
+fn make_replay_subject(buffer_size):
+    if buffer_size == None:
+        buffer_size = 10
+    return {
+        "buffer_size": buffer_size,
+        "current_value": None,
+        "subscribers": [],
+        "state": STREAM_ACTIVE,
+        "buffer": [],
+        "error": None,
+        "subscribe": fn(observer) {
+            subscribers = push(subscribers, observer)
+            
+            # Emit buffered values
+            i = 0
+            while i < len(buffer):
+                observer(buffer[i])
+                i = i + 1
+            
+            return make_subscription(replay_subject, observer)
+        },
+        "next": fn(value) {
+            current_value = value
+            
+            # Add to buffer
+            buffer = push(buffer, value)
+            
+            # Maintain buffer size
+            if len(buffer) > buffer_size:
+                buffer = slice(buffer, 1, len(buffer))
+            
+            if state != STREAM_ACTIVE:
+                return
+            
+            # Notify subscribers
+            i = 0
+            while i < len(subscribers):
+                subscriber = subscribers[i]
+                try:
+                    subscriber(value)
+                catch e:
+                    error = e
+                    state = STREAM_ERROR
+                i = i + 1
+        }
+    }
+
+# EventStream factory
+fn make_event_stream(name):
+    if name == None:
+        name = "stream"
+    return {
+        "name": name,
+        "observable": make_observable(),
+        "handlers": {},
+        "on": fn(event_type, handler) {
+            if not contains(dict_keys(handlers), event_type):
+                handlers[event_type] = []
+            handlers[event_type] = push(handlers[event_type], handler)
+        },
+        "emit": fn(event) {
+            if contains(dict_keys(handlers), event["type"]):
+                event_handlers = handlers[event["type"]]
+                i = 0
+                while i < len(event_handlers):
+                    event_handlers[i](event)
+                    i = i + 1
+        },
+        "to_observable": fn() {
+            return observable
+        }
+    }
+
+# BackpressureHandler factory
+fn make_backpressure_handler(buffer_size):
+    if buffer_size == None:
+        buffer_size = 1000
+    return {
+        "buffer_size": buffer_size,
+        "buffer": [],
+        "dropped": 0,
+        "push": fn(value) {
+            if len(buffer) < buffer_size:
+                buffer = push(buffer, value)
+                return true
+            else:
+                dropped = dropped + 1
+                return false
+        },
+        "pull": fn() {
+            if len(buffer) > 0:
+                value = buffer[0]
+                buffer = slice(buffer, 1, len(buffer))
+                return value
+            return None
+        },
+        "get_stats": fn() {
+            return {
+                "buffer_size": len(buffer),
+                "dropped": dropped
+            }
+        }
+    }
+
+# ReactivePipeline factory
+fn make_reactive_pipeline():
+    return {
+        "stages": [],
+        "observable": None,
+        "add_stage": fn(stage) {
+            stages = push(stages, stage)
+        },
+        "build": fn() {
+            if len(stages) == 0:
+                print("RuntimeError: No stages defined")
+                return None
+            
+            observable = make_observable()
+            
+            # Connect stages
+            current = observable
+            i = 0
+            while i < len(stages):
+                stage = stages[i]
+                current = stage(current)
+                i = i + 1
+            
+            observable = current
+            return observable
+        },
+        "execute": fn(source) {
+            pipeline = build()
+            
+            fn observer(value) {
+                pipeline["next"](value)
+            }
+            
+            source["subscribe"](observer)
+            return pipeline
+        }
+    }
+
+fn create_observable():
+    return make_observable()
+
+fn create_subject():
+    return make_subject()
+
+fn get_current_time():
+    # Get current time (simplified)
+    return 1000.0
+
+fn main():
+    print("Testing Reactive Programming...")
+    
+    # Test Observable
+    observable = create_observable()
+    
+    fn observer(value) {
+        print("Received: " + to_string(value))
+    }
+    
+    subscription = observable["subscribe"](observer)
+    
+    observable["next"](1)
+    observable["next"](2)
+    observable["next"](3)
+    
+    # Test operators
+    mapped = observable["map"](fn(x) { return x * 2 })
+    filtered = mapped["filter"](fn(x) { return x > 2 })
+    
+    filtered["subscribe"](observer)
+    
+    filtered["next"](1)
+    filtered["next"](2)
+    filtered["next"](3)
+    
+    subscription["unsubscribe"]()
+    
+    # Test Subject
+    subject = create_subject()
+    subject["subscribe"](observer)
+    
+    subject["next"](10)
+    subject["next"](20)
+    
+    # Test Event Stream
+    event_stream = make_event_stream("test_stream")
+    
+    fn handler(event) {
+        print("Event: " + event["type"])
+    }
+    
+    event_stream["on"]("test", handler)
+    event_stream["emit"](make_event("test", "data"))
+    
+    # Test Backpressure
+    bp = make_backpressure_handler(10)
+    i = 0
+    while i < 15:
+        bp["push"](i)
+        i = i + 1
+    
+    stats = bp["get_stats"]()
+    print("Backpressure: " + to_string(stats))
+    
+    print("\nReactive Programming initialized successfully")
+
+if __name__ == "__main__":
+    main()

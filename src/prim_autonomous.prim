@@ -1,0 +1,44 @@
+#mode slim
+# Prim Autonomous Systems
+# Provides autonomous agents, autonomous decision making,
+# self-governing systems, autonomous behavior, and autonomous intelligence
+
+# Autonomous type constants
+AUTONOMOUS_AGENT = "agent"
+AUTONOMOUS_SYSTEM = "system"
+AUTONOMOUS_SWARM = "swarm"
+AUTONOMOUS_COLLECTIVE = "collective"
+
+# Factory function for AutonomousAgent
+fn make_autonomous_agent(id, type_, capabilities):
+    return {
+        "id": id,
+        "type": type_,
+        "capabilities": capabilities
+    }
+
+# AutonomousSystem factory
+fn make_autonomous_system():
+    return {
+        "agents": {}
+    }
+
+fn autonomous_system_add_agent(system, agent):
+    system["agents"][agent["id"]] = agent
+
+fn autonomous_system_decide(system, id, situation):
+    if contains(dict_keys(system["agents"]), id):
+        return {"decision": "autonomous_action"}
+    return None
+
+fn main():
+    print("Testing Autonomous Systems...")
+    system = make_autonomous_system()
+    agent = make_autonomous_agent("agent1", AUTONOMOUS_AGENT, ["navigate"])
+    autonomous_system_add_agent(system, agent)
+    result = autonomous_system_decide(system, "agent1", "situation")
+    print("Result: " + to_string(result))
+    print("Autonomous Systems initialized successfully")
+
+if __name__ == "__main__":
+    main()

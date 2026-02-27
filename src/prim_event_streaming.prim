@@ -1,0 +1,50 @@
+#mode slim
+# Prim Event Streaming
+# Provides event streaming, message brokers, stream processing,
+# event sourcing, and real-time analytics
+
+# Event type constants
+EVENT_COMMAND = "command"
+EVENT_QUERY = "query"
+EVENT_EVENT = "event"
+EVENT_NOTIFICATION = "notification"
+
+# Factory function for Event
+fn make_event(type_, topic, data, timestamp):
+    return {
+        "type": type_,
+        "topic": topic,
+        "data": data,
+        "timestamp": timestamp
+    }
+
+# EventStream factory
+fn make_event_stream():
+    return {
+        "events": [],
+        "subscribers": {}
+    }
+
+fn event_stream_publish(stream, event):
+    stream["events"] = push(stream["events"], event)
+    
+    if contains(dict_keys(stream["subscribers"]), event["topic"]):
+        handlers = stream["subscribers"][event["topic"]]
+        for handler in handlers:
+            handler(event)
+
+fn event_stream_subscribe(stream, topic, handler):
+    if not contains(dict_keys(stream["subscribers"]), topic):
+        stream["subscribers"][topic] = []
+    stream["subscribers"][topic] = push(stream["subscribers"][topic], handler)
+
+fn main():
+    print("Testing Event Streaming...")
+    stream = make_event_stream()
+    event = make_event(EVENT_EVENT, "test", "test", 0.0)
+    event_stream_publish(stream, event)
+    print("Events: " + to_string(len(stream["events"])))
+    print("Event Streaming initialized successfully")
+
+if __name__ == "__main__":
+    main()

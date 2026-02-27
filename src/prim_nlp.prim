@@ -1,0 +1,514 @@
+#mode slim
+# Prim Natural Language Processing
+# Provides text processing, tokenization, language models, sentiment analysis,
+# text classification, and machine translation
+
+# Tokenizer type constants
+TOKENIZER_WHITESPACE = "whitespace"
+TOKENIZER_WORD_PIECE = "word_piece"
+TOKENIZER_BPE = "bpe"
+TOKENIZER_SENTENCE_PIECE = "sentence_piece"
+
+# Model type constants
+MODEL_BERT = "bert"
+MODEL_GPT = "gpt"
+MODEL_T5 = "t5"
+MODEL_LSTM = "lstm"
+MODEL_TRANSFORMER = "transformer"
+
+# Token factory
+fn make_token(text, id, position, attention_mask):
+    if attention_mask == None:
+        attention_mask = 1
+    return {
+        "text": text,
+        "id": id,
+        "position": position,
+        "attention_mask": attention_mask
+    }
+
+# Sequence factory
+fn make_sequence(tokens, text, metadata):
+    return {
+        "tokens": tokens,
+        "text": text,
+        "metadata": metadata
+    }
+
+# Tokenizer factory
+fn make_tokenizer(tokenizer_type):
+    if tokenizer_type == None:
+        tokenizer_type = TOKENIZER_WHITESPACE
+    return {
+        "tokenizer_type": tokenizer_type,
+        "vocab": {},
+        "vocab_size": 0,
+        "build_vocab": fn(texts) {
+            # Build vocabulary from texts
+            word_counts = {}
+            
+            for text in texts:
+                tokens = tokenize_text(text, tokenizer_type)
+                for token in tokens:
+                    if contains(dict_keys(word_counts), token):
+                        word_counts[token] = word_counts[token] + 1
+                    else:
+                        word_counts[token] = 1
+            
+            # Build vocabulary
+            vocab = {"<PAD>": 0, "<UNK>": 1, "<CLS>": 2, "<SEP>": 3}
+            keys = dict_keys(word_counts)
+            i = 0
+            while i < len(keys):
+                key = keys[i]
+                vocab[key] = i + 4
+                i = i + 1
+            
+            vocab_size = len(dict_keys(vocab))
+        },
+        "encode": fn(text) {
+            # Encode text to token IDs
+            tokens = tokenize_text(text, tokenizer_type)
+            token_ids = []
+            for token in tokens:
+                if contains(dict_keys(vocab), token):
+                    token_ids = push(token_ids, vocab[token])
+                else:
+                    token_ids = push(token_ids, vocab["<UNK>"])
+            return token_ids
+        },
+        "decode": fn(token_ids) {
+            # Decode token IDs to text
+            reverse_vocab = {}
+            keys = dict_keys(vocab)
+            for key in keys:
+                reverse_vocab[vocab[key]] = key
+            
+            tokens = []
+            for token_id in token_ids:
+                if contains(dict_keys(reverse_vocab), token_id):
+                    tokens = push(tokens, reverse_vocab[token_id])
+                else:
+                    tokens = push(tokens, "<UNK>")
+            
+            # Join tokens with spaces
+            result = ""
+            i = 0
+            while i < len(tokens):
+                if i > 0:
+                    result = result + " "
+                result = result + tokens[i]
+                i = i + 1
+            return result
+        },
+        "tokenize": fn(text) {
+            # Tokenize text with metadata
+            tokens = tokenize_text(text, tokenizer_type)
+            
+            sequence_tokens = []
+            i = 0
+            while i < len(tokens):
+                token_text = tokens[i]
+                if contains(dict_keys(vocab), token_text):
+                    token_id = vocab[token_text]
+                else:
+                    token_id = vocab["<UNK>"]
+                
+                sequence_tokens = push(sequence_tokens, make_token(token_text, token_id, i, 1))
+                i = i + 1
+            
+            return make_sequence(sequence_tokens, text, {"token_count": len(tokens)})
+        }
+    }
+
+fn tokenize_text(text, tokenizer_type):
+    # Tokenize text based on type
+    if tokenizer_type == TOKENIZER_WHITESPACE:
+        return split_string(text, " ")
+    elif tokenizer_type == TOKENIZER_WORD_PIECE:
+        return word_piece_tokenize(text)
+    else:
+        return split_string(text, " ")
+
+fn split_string(text, separator):
+    # Simple string split (conceptual)
+    result = []
+    word = ""
+    i = 0
+    while i < len(text):
+        char = text[i]
+        if char == separator:
+            if len(word) > 0:
+                result = push(result, word)
+                word = ""
+        else:
+            word = word + char
+        i = i + 1
+    if len(word) > 0:
+        result = push(result, word)
+    return result
+
+fn word_piece_tokenize(text):
+    # WordPiece tokenization (simplified)
+    tokens = []
+    words = split_string(text, " ")
+    
+    for word in words:
+        # Simplified - just return the word
+        tokens = push(tokens, word)
+    
+    return tokens
+
+# LanguageModel factory
+fn make_language_model(model_type):
+    if model_type == None:
+        model_type = MODEL_TRANSFORMER
+    return {
+        "model_type": model_type,
+        "embeddings": None,
+        "vocab_size": 0,
+        "load_embeddings": fn(embeddings_data) {
+            embeddings = embeddings_data
+            vocab_size = len(embeddings_data)
+        },
+        "generate": fn(prompt, max_length, temperature) {
+            if max_length == None:
+                max_length = 100
+            if temperature == None:
+                temperature = 1.0
+            
+            # Simplified generation
+            words = split_string(prompt, " ")
+            generated = words
+            
+            i = len(words)
+            while i < max_length:
+                next_word = sample_next_word(generated, temperature)
+                generated = push(generated, next_word)
+                
+                if next_word == "<EOS>":
+                    break
+                i = i + 1
+            
+            # Join words
+            result = ""
+            j = 0
+            while j < len(generated):
+                if j > 0:
+                    result = result + " "
+                result = result + generated[j]
+                j = j + 1
+            return result
+        }
+    }
+
+fn sample_next_word(context, temperature):
+    # Sample next word from context (simplified)
+    return "the"
+
+# SentimentAnalyzer factory
+fn make_sentiment_analyzer():
+    return {
+        "model": None,
+        "classes": ["negative", "neutral", "positive"],
+        "analyze": fn(text) {
+            # Simplified sentiment analysis
+            positive_words = ["good", "great", "excellent", "amazing", "wonderful"]
+            negative_words = ["bad", "terrible", "awful", "horrible", "poor"]
+            
+            words = split_string(lowercase(text), " ")
+            positive_count = 0
+            negative_count = 0
+            
+            for word in words:
+                if contains(positive_words, word):
+                    positive_count = positive_count + 1
+                elif contains(negative_words, word):
+                    negative_count = negative_count + 1
+            
+            total = positive_count + negative_count + 1
+            
+            positive_score = positive_count / total
+            negative_score = negative_count / total
+            neutral_score = 1.0 - positive_score - negative_score
+            
+            return {
+                "positive": positive_score,
+                "neutral": neutral_score,
+                "negative": negative_score
+            }
+        },
+        "classify": fn(text) {
+            scores = analyze(text)
+            # Find max score
+            max_score = scores["positive"]
+            best_class = "positive"
+            
+            if scores["neutral"] > max_score:
+                max_score = scores["neutral"]
+                best_class = "neutral"
+            
+            if scores["negative"] > max_score:
+                max_score = scores["negative"]
+                best_class = "negative"
+            
+            return best_class
+        }
+    }
+
+fn lowercase(s):
+    # Convert to lowercase (simplified)
+    return s
+
+fn contains(list, item):
+    # Check if list contains item
+    i = 0
+    while i < len(list):
+        if list[i] == item:
+            return true
+        i = i + 1
+    return false
+
+# TextClassifier factory
+fn make_text_classifier():
+    return {
+        "model": None,
+        "classes": [],
+        "train": fn(texts, labels) {
+            # Build class list
+            classes = []
+            for label in labels:
+                if not contains(classes, label):
+                    classes = push(classes, label)
+            
+            # Simplified training
+            model = {"classes": classes}
+        },
+        "predict": fn(text) {
+            if model == None:
+                print("RuntimeError: Model not trained")
+                return None, 0.0
+            
+            # Simplified prediction
+            predicted_class = classes[0]
+            confidence = 0.8
+            return predicted_class, confidence
+        },
+        "predict_proba": fn(text) {
+            if model == None:
+                print("RuntimeError: Model not trained")
+                return {}
+            
+            # Simplified prediction
+            probs = {}
+            for cls in classes:
+                probs[cls] = 0.5
+            
+            return probs
+        }
+    }
+
+# NamedEntityRecognizer factory
+fn make_named_entity_recognizer():
+    return {
+        "model": None,
+        "entity_types": ["PERSON", "ORG", "LOC", "MISC"],
+        "recognize": fn(text) {
+            # Simplified NER
+            entities = []
+            words = split_string(text, " ")
+            
+            i = 0
+            while i < len(words):
+                word = words[i]
+                # Simple pattern matching
+                if len(word) > 1 and uppercase(word[0]) == word[0]:
+                    entities = push(entities, {
+                        "text": word,
+                        "label": "ORG",
+                        "start": i,
+                        "end": i + 1
+                    })
+                i = i + 1
+            
+            return entities
+        }
+    }
+
+fn uppercase(c):
+    # Convert to uppercase (simplified)
+    return c
+
+# MachineTranslator factory
+fn make_machine_translator(source_lang, target_lang):
+    if source_lang == None:
+        source_lang = "en"
+    if target_lang == None:
+        target_lang = "fr"
+    return {
+        "source_lang": source_lang,
+        "target_lang": target_lang,
+        "model": None,
+        "translate": fn(text) {
+            # Simplified translation
+            return "[" + target_lang + "] " + text
+        }
+    }
+
+# TextSummarizer factory
+fn make_text_summarizer():
+    return {
+        "model": None,
+        "summarize": fn(text, max_length) {
+            if max_length == None:
+                max_length = 100
+            
+            # Simplified summarization - extract first few sentences
+            sentences = split_string(text, ".")
+            summary = ""
+            
+            i = 0
+            while i < len(sentences) and i < 3:
+                if i > 0:
+                    summary = summary + ". "
+                summary = summary + sentences[i]
+                i = i + 1
+            
+            if len(summary) > max_length:
+                summary = slice(summary, 0, max_length) + "..."
+            
+            return summary
+        },
+        "abstractive_summarize": fn(text, max_length) {
+            if max_length == None:
+                max_length = 100
+            
+            # Simplified abstractive summarization
+            sentences = split_string(text, ".")
+            
+            important_sentences = []
+            for sentence in sentences:
+                if len(sentence) > 10:
+                    important_sentences = push(important_sentences, sentence)
+            
+            summary = ""
+            i = 0
+            while i < len(important_sentences) and i < 2:
+                if i > 0:
+                    summary = summary + ". "
+                summary = summary + important_sentences[i]
+                i = i + 1
+            
+            if len(summary) > max_length:
+                summary = slice(summary, 0, max_length) + "..."
+            
+            return summary
+        }
+    }
+
+fn slice(s, start, end):
+    # Slice string (simplified)
+    result = ""
+    i = start
+    while i < end and i < len(s):
+        result = result + s[i]
+        i = i + 1
+    return result
+
+# QuestionAnswering factory
+fn make_question_answering():
+    return {
+        "model": None,
+        "answer": fn(question, context) {
+            # Simplified QA - extract relevant sentence
+            sentences = split_string(context, ".")
+            
+            question_words = split_string(lowercase(question), " ")
+            best_sentence = ""
+            best_score = 0
+            
+            for sentence in sentences:
+                sentence_words = split_string(lowercase(sentence), " ")
+                common_words = 0
+                
+                for q_word in question_words:
+                    if contains(sentence_words, q_word):
+                        common_words = common_words + 1
+                
+                if common_words > best_score:
+                    best_score = common_words
+                    best_sentence = sentence
+            
+            confidence = best_score / len(question_words)
+            if confidence > 1.0:
+                confidence = 1.0
+            
+            return best_sentence, confidence
+        }
+    }
+
+fn create_tokenizer(tokenizer_type):
+    return make_tokenizer(tokenizer_type)
+
+fn create_language_model(model_type):
+    return make_language_model(model_type)
+
+fn main():
+    print("Testing Natural Language Processing...")
+    
+    # Test Tokenizer
+    tokenizer = create_tokenizer()
+    texts = ["hello world", "this is a test", "another example"]
+    tokenizer["build_vocab"](texts)
+    
+    encoded = tokenizer["encode"]("hello world test")
+    decoded = tokenizer["decode"](encoded)
+    print("Encoded: " + to_string(encoded))
+    print("Decoded: " + decoded)
+    
+    # Test Language Model
+    lm = create_language_model()
+    embeddings = []
+    lm["load_embeddings"](embeddings)
+    
+    generated = lm["generate"]("hello", 10)
+    print("Generated: " + generated)
+    
+    # Test Sentiment Analyzer
+    sentiment_analyzer = make_sentiment_analyzer()
+    scores = sentiment_analyzer["analyze"]("This is a great product!")
+    print("Sentiment scores: " + to_string(scores))
+    classification = sentiment_analyzer["classify"]("This is a great product!")
+    print("Classification: " + classification)
+    
+    # Test Text Classifier
+    classifier = make_text_classifier()
+    classifier["train"](texts, ["positive", "negative", "neutral"])
+    pred_class, confidence = classifier["predict"]("This is good")
+    print("Prediction: " + pred_class + " (" + to_string(confidence) + ")")
+    
+    # Test Named Entity Recognizer
+    ner = make_named_entity_recognizer()
+    entities = ner["recognize"]("John works at Google in California")
+    print("Entities: " + to_string(len(entities)))
+    
+    # Test Machine Translator
+    translator = make_machine_translator("en", "fr")
+    translated = translator["translate"]("Hello world")
+    print("Translated: " + translated)
+    
+    # Test Text Summarizer
+    summarizer = make_text_summarizer()
+    text = "This is a long text. It has multiple sentences. Each sentence contains information. The summary should be shorter."
+    summary = summarizer["summarize"](text)
+    print("Summary: " + summary)
+    
+    # Test Question Answering
+    qa = make_question_answering()
+    answer, confidence = qa["answer"]("What is the capital?", "The capital of France is Paris. Paris is beautiful.")
+    print("Answer: " + answer + " (" + to_string(confidence) + ")")
+    
+    print("\nNatural Language Processing initialized successfully")
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,62 @@
+#mode slim
+# Prim Container Management
+# Provides container orchestration, image management, container networking,
+# container storage, and container lifecycle management
+
+# Container status constants
+CONTAINER_CREATED = "created"
+CONTAINER_RUNNING = "running"
+CONTAINER_PAUSED = "paused"
+CONTAINER_STOPPED = "stopped"
+CONTAINER_EXITED = "exited"
+
+# Factory function for Container
+fn make_container(id, name, image, status):
+    return {
+        "id": id,
+        "name": name,
+        "image": image,
+        "status": status
+    }
+
+# ContainerManager factory
+fn make_container_manager():
+    return {
+        "containers": {},
+        "images": {}
+    }
+
+fn container_manager_create_container(manager, name, image):
+    container = make_container("cont1", name, image, CONTAINER_CREATED)
+    manager["containers"][name] = container
+    return container
+
+fn container_manager_start_container(manager, name):
+    if contains(dict_keys(manager["containers"]), name):
+        manager["containers"][name]["status"] = CONTAINER_RUNNING
+        return true
+    return false
+
+fn container_manager_stop_container(manager, name):
+    if contains(dict_keys(manager["containers"]), name):
+        manager["containers"][name]["status"] = CONTAINER_STOPPED
+        return true
+    return false
+
+fn container_manager_get_containers(manager):
+    containers = []
+    keys = dict_keys(manager["containers"])
+    for key in keys:
+        containers = push(containers, manager["containers"][key])
+    return containers
+
+fn main():
+    print("Testing Container Management...")
+    manager = make_container_manager()
+    container = container_manager_create_container(manager, "test", "test_image")
+    container_manager_start_container(manager, "test")
+    print("Containers: " + to_string(len(container_manager_get_containers(manager))))
+    print("Container Management initialized successfully")
+
+if __name__ == "__main__":
+    main()

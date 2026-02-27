@@ -1,0 +1,388 @@
+#mode slim
+# Prim Web Framework
+# Provides routing, middleware, request/response handling, and template engine
+
+# HTTP method constants
+HTTP_GET = "GET"
+HTTP_POST = "POST"
+HTTP_PUT = "PUT"
+HTTP_DELETE = "DELETE"
+HTTP_PATCH = "PATCH"
+HTTP_HEAD = "HEAD"
+HTTP_OPTIONS = "OPTIONS"
+
+# HTTP status constants
+STATUS_OK = 200
+STATUS_CREATED = 201
+STATUS_NO_CONTENT = 204
+STATUS_BAD_REQUEST = 400
+STATUS_UNAUTHORIZED = 401
+STATUS_FORBIDDEN = 403
+STATUS_NOT_FOUND = 404
+STATUS_METHOD_NOT_ALLOWED = 405
+STATUS_INTERNAL_SERVER_ERROR = 500
+
+# Request factory
+fn make_request(method, path, headers, query_params, body, path_params):
+    if headers == None:
+        headers = {}
+    if query_params == None:
+        query_params = {}
+    if path_params == None:
+        path_params = {}
+    return {
+        "method": method,
+        "path": path,
+        "headers": headers,
+        "query_params": query_params,
+        "body": body,
+        "path_params": path_params
+    }
+
+# Response factory
+fn make_response(status, headers, body):
+    if status == None:
+        status = STATUS_OK
+    if headers == None:
+        headers = {}
+    return {
+        "status": status,
+        "headers": headers,
+        "body": body,
+        "json": fn(data) {
+            body = to_string(data)  # Simplified JSON
+            headers["Content-Type"] = "application/json"
+            return response
+        },
+        "text": fn(text) {
+            body = text
+            headers["Content-Type"] = "text/plain"
+            return response
+        },
+        "html": fn(html) {
+            body = html
+            headers["Content-Type"] = "text/html"
+            return response
+        }
+    }
+
+# Route factory
+fn make_route(method, path, handler):
+    return {
+        "method": method,
+        "path": path,
+        "handler": handler,
+        "path_parts": parse_path(path),
+        "match": fn(req_method, req_path) {
+            if method != req_method:
+                return None
+            
+            req_path_parts = parse_path(req_path)
+            
+            if len(path_parts) != len(req_path_parts):
+                return None
+            
+            params = {}
+            i = 0
+            while i < len(path_parts):
+                route_part = path_parts[i]
+                req_part = req_path_parts[i]
+                
+                if starts_with(route_part, ":"):
+                    param_name = substring(route_part, 1, len(route_part))
+                    params[param_name] = req_part
+                elif route_part != req_part:
+                    return None
+                
+                i = i + 1
+            
+            return params
+        }
+    }
+
+fn parse_path(path):
+    # Parse path into parts
+    parts = split_string(path, "/")
+    result = []
+    i = 0
+    while i < len(parts):
+        part = parts[i]
+        if len(part) > 0:
+            result = push(result, part)
+        i = i + 1
+    return result
+
+fn starts_with(s, prefix):
+    if len(s) < len(prefix):
+        return false
+    i = 0
+    while i < len(prefix):
+        if s[i] != prefix[i]:
+            return false
+        i = i + 1
+    return true
+
+fn substring(s, start, end):
+    result = ""
+    i = start
+    while i < end and i < len(s):
+        result = result + s[i]
+        i = i + 1
+    return result
+
+fn split_string(s, separator):
+    result = []
+    current = ""
+    i = 0
+    while i < len(s):
+        if s[i] == separator:
+            if len(current) > 0:
+                result = push(result, current)
+            current = ""
+        else:
+            current = current + s[i]
+        i = i + 1
+    if len(current) > 0:
+        result = push(result, current)
+    return result
+
+# Router factory
+fn make_router():
+    return {
+        "routes": [],
+        "middleware": [],
+        "get": fn(path) {
+            return fn(handler) {
+                routes = push(routes, make_route(HTTP_GET, path, handler))
+                return handler
+            }
+        },
+        "post": fn(path) {
+            return fn(handler) {
+                routes = push(routes, make_route(HTTP_POST, path, handler))
+                return handler
+            }
+        },
+        "put": fn(path) {
+            return fn(handler) {
+                routes = push(routes, make_route(HTTP_PUT, path, handler))
+                return handler
+            }
+        },
+        "delete": fn(path) {
+            return fn(handler) {
+                routes = push(routes, make_route(HTTP_DELETE, path, handler))
+                return handler
+            }
+        },
+        "patch": fn(path) {
+            return fn(handler) {
+                routes = push(routes, make_route(HTTP_PATCH, path, handler))
+                return handler
+            }
+        },
+        "use": fn(middleware) {
+            middleware = push(middleware, middleware)
+        },
+        "match": fn(request) {
+            i = 0
+            while i < len(routes):
+                route = routes[i]
+                params = route["match"](request["method"], request["path"])
+                if params != None:
+                    request["path_params"] = params
+                    return route
+                i = i + 1
+            return None
+        }
+    }
+
+# Middleware factory
+fn make_middleware(app):
+    return {
+        "app": app,
+        "process_request": fn(request) {
+            return None
+        },
+        "process_response": fn(request, response) {
+            return response
+        }
+    }
+
+# CORS factory
+fn make_cors(app, origins):
+    if origins == None:
+        origins = ["*"]
+    
+    middleware = make_middleware(app)
+    middleware["process_response"] = fn(request, response) {
+        response["headers"]["Access-Control-Allow-Origin"] = join(origins, ",")
+        response["headers"]["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, PATCH, OPTIONS"
+        response["headers"]["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
+        return response
+    }
+    return middleware
+}
+
+fn join(list, separator):
+    result = ""
+    i = 0
+    while i < len(list):
+        if i > 0:
+            result = result + separator
+        result = result + to_string(list[i])
+        i = i + 1
+    return result
+
+# Logging factory
+fn make_logging(app):
+    middleware = make_middleware(app)
+    middleware["process_request"] = fn(request) {
+        print(request["method"] + " " + request["path"])
+        return None
+    }
+    return middleware
+}
+
+# Application factory
+fn make_application():
+    return {
+        "router": make_router(),
+        "middleware": [],
+        "route": fn(method, path) {
+            if method == HTTP_GET:
+                return router["get"](path)
+            elif method == HTTP_POST:
+                return router["post"](path)
+            elif method == HTTP_PUT:
+                return router["put"](path)
+            elif method == HTTP_DELETE:
+                return router["delete"](path)
+            elif method == HTTP_PATCH:
+                return router["patch"](path)
+        },
+        "use": fn(middleware) {
+            middleware = push(middleware, middleware)
+        },
+        "handle": fn(request) {
+            # Apply request middleware
+            i = 0
+            while i < len(middleware):
+                mw = middleware[i]
+                response = mw["process_request"](request)
+                if response != None:
+                    return response
+                i = i + 1
+            
+            # Match route
+            route = router["match"](request)
+            
+            if route == None:
+                return make_response(STATUS_NOT_FOUND, {}, "Not Found")
+            
+            # Call handler
+            try:
+                result = route["handler"](request)
+                if result["status"] != None:
+                    response = result
+                else:
+                    response = make_response().json(result)
+            catch e:
+                response = make_response(STATUS_INTERNAL_SERVER_ERROR, {}, to_string(e))
+            
+            # Apply response middleware
+            i = 0
+            while i < len(middleware):
+                mw = middleware[i]
+                response = mw["process_response"](request, response)
+                i = i + 1
+            
+            return response
+        },
+        "run": fn(host, port) {
+            if host == None:
+                host = "localhost"
+            if port == None:
+                port = 8000
+            print("Running on http://" + host + ":" + to_string(port))
+            print("Server started (simulated)")
+        }
+    }
+
+# TemplateEngine factory
+fn make_template_engine():
+    return {
+        "templates": {},
+        "load_template": fn(name, template) {
+            templates[name] = template
+        },
+        "render": fn(name, context) {
+            if context == None:
+                context = {}
+            
+            template = templates[name]
+            if template == None:
+                return ""
+            
+            # Simple template rendering
+            result = template
+            keys = dict_keys(context)
+            i = 0
+            while i < len(keys):
+                key = keys[i]
+                value = context[key]
+                placeholder = "{{" + key + "}}"
+                result = replace_string(result, placeholder, to_string(value))
+                i = i + 1
+            
+            return result
+        }
+    }
+
+fn replace_string(s, old, new):
+    # Simplified string replacement
+    return s  # Placeholder
+
+fn create_app():
+    return make_application()
+
+fn main():
+    print("Testing Web Framework...")
+    
+    # Create app
+    app = create_app()
+    
+    # Add middleware
+    app["use"](make_logging(app))
+    app["use"](make_cors(app))
+    
+    # Define routes (simplified)
+    fn index(request) {
+        return make_response(STATUS_OK, {}, "<h1>Hello World</h1>")
+    }
+    
+    fn hello(request) {
+        name = request["path_params"]["name"]
+        if name == None:
+            name = "World"
+        return make_response(STATUS_OK, {}, "Hello, " + name + "!")
+    }
+    
+    fn create_data(request) {
+        return make_response(STATUS_CREATED, {}, to_string({"id": 1}))
+    }
+    
+    # Register routes (simplified)
+    app["router"]["routes"] = push(app["router"]["routes"], make_route(HTTP_GET, "/", index))
+    app["router"]["routes"] = push(app["router"]["routes"], make_route(HTTP_GET, "/hello/:name", hello))
+    app["router"]["routes"] = push(app["router"]["routes"], make_route(HTTP_POST, "/api/data", create_data))
+    
+    # Test request handling
+    request = make_request(HTTP_GET, "/", {}, {}, None, {})
+    response = app["handle"](request)
+    print("Response: " + to_string(response["status"]) + " - " + to_string(response["body"]))
+    
+    print("\nWeb framework initialized successfully")
+
+if __name__ == "__main__":
+    main()

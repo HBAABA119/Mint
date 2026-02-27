@@ -1,0 +1,422 @@
+#mode slim
+# Prim Big Data Integration
+# Provides distributed computing framework, stream processing, data pipeline management,
+# cluster resource management, and fault tolerance
+
+# Task status constants
+TASK_PENDING = "pending"
+TASK_RUNNING = "running"
+TASK_COMPLETED = "completed"
+TASK_FAILED = "failed"
+
+# Task priority constants
+PRIORITY_LOW = 1
+PRIORITY_MEDIUM = 2
+PRIORITY_HIGH = 3
+PRIORITY_CRITICAL = 4
+
+# Task factory
+fn make_task(id, name, func, args, kwargs):
+    if args == None:
+        args = []
+    if kwargs == None:
+        kwargs = {}
+    return {
+        "id": id,
+        "name": name,
+        "function": func,
+        "args": args,
+        "kwargs": kwargs,
+        "status": TASK_PENDING,
+        "priority": PRIORITY_MEDIUM,
+        "result": None,
+        "error": None,
+        "node_id": None
+    }
+
+fn task_execute(task):
+    # Execute the task
+    try:
+        task["status"] = TASK_RUNNING
+        task["result"] = task["function"](task["args"])
+        task["status"] = TASK_COMPLETED
+    catch e:
+        task["status"] = TASK_FAILED
+        task["error"] = to_string(e)
+
+# Node factory
+fn make_node(id, address, port):
+    return {
+        "id": id,
+        "address": address,
+        "port": port,
+        "status": "active",
+        "cpu_usage": 0.0,
+        "memory_usage": 0.0,
+        "tasks": []
+    }
+
+fn node_add_task(node, task):
+    # Add task to node
+    node["tasks"] = push(node["tasks"], task)
+    task["node_id"] = node["id"]
+
+fn node_remove_task(node, task_id):
+    # Remove task from node
+    new_tasks = []
+    for t in node["tasks"]:
+        if t["id"] != task_id:
+            new_tasks = push(new_tasks, t)
+    node["tasks"] = new_tasks
+
+# Cluster factory
+fn make_cluster(name):
+    if name == None:
+        name = "cluster"
+    return {
+        "name": name,
+        "nodes": {},
+        "tasks": {},
+        "task_queue": [],
+        "running": false
+    }
+
+fn cluster_add_node(cluster, node):
+    # Add node to cluster
+    cluster["nodes"][node["id"]] = node
+
+fn cluster_remove_node(cluster, node_id):
+    # Remove node from cluster
+    if contains(dict_keys(cluster["nodes"]), node_id):
+        del cluster["nodes"][node_id]
+
+fn cluster_submit_task(cluster, task):
+    # Submit task to cluster
+    cluster["tasks"][task["id"]] = task
+    cluster["task_queue"] = push(cluster["task_queue"], task)
+
+fn cluster_get_task(cluster, task_id):
+    # Get task by ID
+    if contains(dict_keys(cluster["tasks"]), task_id):
+        return cluster["tasks"][task_id]
+    return None
+
+fn cluster_get_status(cluster):
+    # Get cluster status
+    pending = 0
+    running = 0
+    completed = 0
+    failed = 0
+    
+    task_keys = dict_keys(cluster["tasks"])
+    for key in task_keys:
+        t = cluster["tasks"][key]
+        if t["status"] == TASK_PENDING:
+            pending = pending + 1
+        elif t["status"] == TASK_RUNNING:
+            running = running + 1
+        elif t["status"] == TASK_COMPLETED:
+            completed = completed + 1
+        elif t["status"] == TASK_FAILED:
+            failed = failed + 1
+    
+    return {
+        "name": cluster["name"],
+        "nodes": len(dict_keys(cluster["nodes"])),
+        "tasks": len(dict_keys(cluster["tasks"])),
+        "pending": pending,
+        "running": running,
+        "completed": completed,
+        "failed": failed
+    }
+
+# StreamProcessor factory
+fn make_stream_processor(name):
+    if name == None:
+        name = "stream"
+    return {
+        "name": name,
+        "sources": [],
+        "transformations": [],
+        "sinks": [],
+        "running": false
+    }
+
+fn stream_processor_add_source(processor, source):
+    processor["sources"] = push(processor["sources"], source)
+
+fn stream_processor_add_transformation(processor, transform):
+    processor["transformations"] = push(processor["transformations"], transform)
+
+fn stream_processor_add_sink(processor, sink):
+    processor["sinks"] = push(processor["sinks"], sink)
+
+fn stream_processor_process(processor):
+    # Process stream (conceptual)
+    while processor["running"]:
+        for source in processor["sources"]:
+            data = source()
+            if data == None:
+                continue
+            
+            # Apply transformations
+            for transform in processor["transformations"]:
+                data = transform(data)
+            
+            # Send to sinks
+            for sink in processor["sinks"]:
+                sink(data)
+
+# Pipeline factory
+fn make_pipeline(name):
+    if name == None:
+        name = "pipeline"
+    return {
+        "name": name,
+        "stages": [],
+        "status": "idle"
+    }
+
+fn pipeline_add_stage(pipeline, stage):
+    pipeline["stages"] = push(pipeline["stages"], stage)
+
+fn pipeline_execute(pipeline, data):
+    # Execute pipeline
+    pipeline["status"] = "running"
+    result = data
+    
+    i = 0
+    while i < len(pipeline["stages"]):
+        stage = pipeline["stages"][i]
+        try:
+            result = stage(result)
+            print("Stage " + to_string(i + 1) + "/" + to_string(len(pipeline["stages"])) + " completed")
+        catch e:
+            pipeline["status"] = "failed"
+            print("Pipeline failed at stage " + to_string(i + 1) + ": " + to_string(e))
+            return None
+        i = i + 1
+    
+    pipeline["status"] = "completed"
+    return result
+
+fn pipeline_get_status(pipeline):
+    return pipeline["status"]
+
+# ResourceManager factory
+fn make_resource_manager():
+    return {
+        "resources": {},
+        "allocations": {}
+    }
+
+fn resource_manager_register_resource(manager, resource_id, capacity):
+    manager["resources"][resource_id] = {
+        "capacity": capacity,
+        "available": capacity,
+        "allocated": 0
+    }
+
+fn resource_manager_allocate(manager, resource_id, amount, task_id):
+    # Allocate resource
+    if not contains(dict_keys(manager["resources"]), resource_id):
+        return false
+    
+    resource = manager["resources"][resource_id]
+    if resource["available"] >= amount:
+        resource["available"] = resource["available"] - amount
+        resource["allocated"] = resource["allocated"] + amount
+        
+        if not contains(dict_keys(manager["allocations"]), task_id):
+            manager["allocations"][task_id] = {}
+        manager["allocations"][task_id][resource_id] = amount
+        return true
+    
+    return false
+
+fn resource_manager_release(manager, resource_id, task_id):
+    # Release resource
+    if contains(dict_keys(manager["allocations"]), task_id):
+        if contains(dict_keys(manager["allocations"][task_id]), resource_id):
+            amount = manager["allocations"][task_id][resource_id]
+            manager["resources"][resource_id]["available"] = manager["resources"][resource_id]["available"] + amount
+            manager["resources"][resource_id]["allocated"] = manager["resources"][resource_id]["allocated"] - amount
+            del manager["allocations"][task_id][resource_id]
+
+fn resource_manager_get_usage(manager):
+    # Get resource usage
+    usage = {}
+    resource_keys = dict_keys(manager["resources"])
+    for rid in resource_keys:
+        r = manager["resources"][rid]
+        utilization = 0.0
+        if r["capacity"] > 0:
+            utilization = r["allocated"] / r["capacity"]
+        usage[rid] = {
+            "capacity": r["capacity"],
+            "available": r["available"],
+            "allocated": r["allocated"],
+            "utilization": utilization
+        }
+    return usage
+
+# FaultTolerance factory
+fn make_fault_tolerance():
+    return {
+        "checkpoints": {},
+        "recovery_log": []
+    }
+
+fn fault_tolerance_create_checkpoint(ft, task_id, state):
+    ft["checkpoints"][task_id] = {
+        "state": state,
+        "timestamp": 0.0
+    }
+
+fn fault_tolerance_restore_checkpoint(ft, task_id):
+    if contains(dict_keys(ft["checkpoints"]), task_id):
+        return ft["checkpoints"][task_id]["state"]
+    return None
+
+fn fault_tolerance_log_recovery(ft, task_id, action, details):
+    ft["recovery_log"] = push(ft["recovery_log"], {
+        "task_id": task_id,
+        "action": action,
+        "details": details,
+        "timestamp": 0.0
+    })
+
+fn fault_tolerance_retry_task(ft, task, max_retries):
+    if max_retries == None:
+        max_retries = 3
+    
+    attempt = 0
+    while attempt < max_retries:
+        try:
+            task_execute(task)
+            if task["status"] == TASK_COMPLETED:
+                fault_tolerance_log_recovery(ft, task["id"], "retry_success", "Attempt " + to_string(attempt + 1))
+                return true
+        catch e:
+            fault_tolerance_log_recovery(ft, task["id"], "retry_failed", "Attempt " + to_string(attempt + 1) + ": " + to_string(e))
+        attempt = attempt + 1
+    
+    return false
+
+# DistributedMapReduce factory
+fn make_distributed_map_reduce(cluster):
+    return {
+        "cluster": cluster
+    }
+
+fn map_reduce_map(mr, data, mapper):
+    # Map phase
+    results = []
+    for item in data:
+        mapped = mapper(item)
+        for m in mapped:
+            results = push(results, m)
+    return results
+
+fn map_reduce_shuffle(mr, mapped):
+    # Shuffle phase
+    shuffled = {}
+    for item in mapped:
+        key = item[0]
+        value = item[1]
+        if not contains(dict_keys(shuffled), key):
+            shuffled[key] = []
+        shuffled[key] = push(shuffled[key], value)
+    return shuffled
+
+fn map_reduce_reduce(mr, shuffled, reducer):
+    # Reduce phase
+    results = []
+    keys = dict_keys(shuffled)
+    for key in keys:
+        values = shuffled[key]
+        result = reducer(key, values)
+        results = push(results, [key, result])
+    return results
+
+fn map_reduce_execute(mr, data, mapper, reducer):
+    # Execute MapReduce
+    mapped = map_reduce_map(mr, data, mapper)
+    shuffled = map_reduce_shuffle(mr, mapped)
+    reduced = map_reduce_reduce(mr, shuffled, reducer)
+    return reduced
+
+fn create_cluster(name):
+    return make_cluster(name)
+
+fn create_stream(name):
+    return make_stream_processor(name)
+
+fn create_pipeline(name):
+    return make_pipeline(name)
+
+fn main():
+    print("Testing Big Data Integration...")
+    
+    # Test Cluster
+    cluster = create_cluster("test_cluster")
+    node1 = make_node("node1", "localhost", 8000)
+    node2 = make_node("node2", "localhost", 8001)
+    cluster_add_node(cluster, node1)
+    cluster_add_node(cluster, node2)
+    
+    # Submit tasks
+    task1 = make_task("task1", "test_task", fn(args) { sum_range(100) }, [], {})
+    task2 = make_task("task2", "test_task2", fn(args) { args[0] * 2 }, [10], {})
+    
+    cluster_submit_task(cluster, task1)
+    cluster_submit_task(cluster, task2)
+    
+    status = cluster_get_status(cluster)
+    print("Cluster status: " + to_string(status))
+    
+    # Test Pipeline
+    pipeline = create_pipeline("test_pipeline")
+    
+    fn stage1(data):
+        result = []
+        for x in data:
+            result = push(result, x * 2)
+        return result
+    
+    fn stage2(data):
+        total = 0
+        for x in data:
+            total = total + x
+        return total
+    
+    pipeline_add_stage(pipeline, stage1)
+    pipeline_add_stage(pipeline, stage2)
+    
+    result = pipeline_execute(pipeline, [1, 2, 3, 4, 5])
+    print("Pipeline result: " + to_string(result))
+    
+    # Test MapReduce
+    mr = make_distributed_map_reduce(cluster)
+    data = ["hello world", "hello prim", "world programming"]
+    
+    fn mapper(text):
+        words = split(text, " ")
+        result = []
+        for word in words:
+            result = push(result, [word, 1])
+        return result
+    
+    fn reducer(key, values):
+        total = 0
+        for v in values:
+            total = total + v
+        return total
+    
+    results = map_reduce_execute(mr, data, mapper, reducer)
+    print("MapReduce results: " + to_string(results))
+    
+    print("\nBig Data Integration initialized successfully")
+
+if __name__ == "__main__":
+    main()

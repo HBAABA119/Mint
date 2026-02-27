@@ -1,0 +1,45 @@
+#mode slim
+# Prim Memory Management
+# Provides virtual memory, paging, segmentation, memory protection,
+# and memory allocation
+
+# Memory type constants
+MEMORY_CODE = "code"
+MEMORY_DATA = "data"
+MEMORY_STACK = "stack"
+MEMORY_HEAP = "heap"
+
+# Factory function for MemoryRegion
+fn make_memory_region(start, size, type_):
+    return {
+        "start": start,
+        "size": size,
+        "type": type_
+    }
+
+# MemoryManager factory
+fn make_memory_manager():
+    return {
+        "regions": {},
+        "page_size": 4096
+    }
+
+fn memory_manager_allocate(manager, size, mem_type):
+    address = len(dict_keys(manager["regions"])) * manager["page_size"]
+    region = make_memory_region(address, size, mem_type)
+    manager["regions"][address] = region
+    return address
+
+fn memory_manager_free(manager, address):
+    if contains(dict_keys(manager["regions"]), address):
+        del manager["regions"][address]
+
+fn main():
+    print("Testing Memory Management...")
+    manager = make_memory_manager()
+    address = memory_manager_allocate(manager, 1024, MEMORY_HEAP)
+    print("Allocated: " + to_string(address))
+    print("Memory Management initialized successfully")
+
+if __name__ == "__main__":
+    main()

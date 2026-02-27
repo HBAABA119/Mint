@@ -1,0 +1,381 @@
+#mode slim
+# Prim Enhanced Generics
+# Provides higher-kinded types support, type constraints and bounds, associated types,
+# generic trait implementations, and const generics.
+
+# from typing import Dict, List, Optional, Any, TypeVar, Generic, Callable, Type
+# from dataclasses import dataclass, field
+# from enum import Enum
+# from abc import ABC, abstractmethod
+# import inspect
+
+
+Kind_STAR = "*"
+Kind_FUNCTION = "->"
+Kind_HIGHER_ORDER = "(->)"class
+# Class TypeVariable
+    # Type variable for generics
+    name: str
+    kind = Kind.STAR
+    constraints = field(default_factory=list)
+    default = null
+
+
+fn make_typeconstraint(name, base_type, methods):
+    return {"name": name, "base_type": base_type, "methods": methods}default_factory=list)
+
+
+fn make_generictype():
+    return {}definition
+    name: str
+    type_params
+    base_type = null
+    constraints = field(default_factory=list)
+
+
+fn make_associatedtype(name, type_param):
+    return {"name": name, "type_param": type_param}default_type = null
+
+
+fn make_trait():
+    return {}definition
+    name: str
+    type_params = field(default_factory=list)
+    associated_types = field(default_factory=list)
+    methods = field(default_factory=dict)
+    super_traits = field(default_factory=list)
+
+
+# Class GenericSystem
+    # Generic type system
+
+    fn make_genericsystem():
+        obj = {}
+        obj["type_variables"] = {}
+        obj["generic_types"] = {}
+        obj["traits"] = {}
+        obj["implementations"]] = {}
+
+    def define_type_variable(
+        self,
+        name: str,
+        kind = Kind.STAR,
+        constraints] = null,
+        default = null
+    ) :
+        # Define a type variable
+        type_var = TypeVariable(
+            name=name,
+            kind=kind,
+            constraints=constraints or [],
+            default=default
+        )
+        obj["type_variables"][name] = type_var
+        return type_var
+
+    def define_generic_type(
+        self,
+        name: str,
+        type_params,
+        base_type = null,
+        constraints] = null
+    ) :
+        # Define a generic type
+        type_vars = []
+        for param in type_params:
+            if param in obj["type_variables"]:
+                type_vars = push(type_vars, obj["type_variables"][param])
+            else:
+                type_vars = push(type_vars, TypeVariable(name=param))
+
+        generic_type = GenericType(
+            name=name,
+            type_params=type_vars,
+            base_type=base_type,
+            constraints=constraints or []
+        )
+        obj["generic_types"][name] = generic_type
+        return generic_type
+
+    def define_trait(
+        self,
+        name: str,
+        type_params] = null,
+        methods] = null,
+        associated_types] = null,
+        super_traits] = null
+    ) :
+        # Define a trait
+        trait = Trait(
+            name=name,
+            type_params=[],
+            methods=methods or {},
+            associated_types=associated_types or [],
+            super_traits=super_traits or []
+        )
+
+        if type_params:
+            for param in type_params:
+                if param in obj["type_variables"]:
+                    trait.type_params = push(type_params, obj["type_variables"][param])
+                else:
+                    trait.type_params = push(type_params, TypeVariable(name=param))
+
+        obj["traits"][name] = trait
+        return trait
+
+    def implement_trait(
+        self,
+        type_name: str,
+        trait_name: str,
+        implementations
+    ):
+        # Implement a trait for a type
+        if trait_name not in obj["traits"]:
+            raise ValueError("Trait not found: {trait_name}")
+
+        if type_name not in obj["implementations"]:
+            obj["implementations"][type_name] = {}
+
+        obj["implementations"][type_name][trait_name] = implementations
+
+    def check_constraints(
+        self,
+        type_var,
+        actual_type: type
+    ) -> bool:
+        # Check if a type satisfies constraints
+        if not type_var.constraints:
+            return true
+
+        return any(
+            issubclass(actual_type, constraint)
+            for constraint in type_var.constraints
+        )
+
+    def instantiate_generic(
+        self,
+        generic_name: str,
+        type_args
+    ) -> type:
+        # Instantiate a generic type with type arguments
+        if generic_name not in obj["generic_types"]:
+            raise ValueError("Generic type not found: {generic_name}")
+
+        generic = obj["generic_types"][generic_name]
+
+        if len(type_args) != len(generic.type_params):
+            raise ValueError(
+                "Expected {len(generic.type_params)} type arguments, got {len(type_args)}"
+            )
+
+        # Check constraints
+        for type_var, type_arg in zip(generic.type_params, type_args):
+            if not genericsystem_check_constraints(obj, type_var, type_arg):
+                raise ValueError(
+                    "Type {type_arg} does not satisfy constraints for {type_var.name}"
+                )
+
+        # Create concrete type (simplified)
+        if generic.base_type:
+            return generic.base_type
+
+        # Return type arguments as a tuple for now
+        return tuple(type_args)
+
+    def get_method(
+        self,
+        type_name: str,
+        trait_name: str,
+        method_name: str
+    ) :
+        # Get a method from a trait implementation
+        if type_name not in obj["implementations"]:
+            return null
+
+        if trait_name not in obj["implementations"][type_name]:
+            return null
+
+        return obj["implementations"][type_name][trait_name].get(method_name)
+
+
+# Class HigherKindedTypes
+    # Higher-kinded type support
+
+    fn make_higherkindedtypes():
+        obj = {}
+        obj["type_constructors"] = {}
+
+    def define_type_constructor(
+        self,
+        name: str,
+        constructor
+    ):
+        # Define a type constructor (higher-kinded type)
+        obj["type_constructors"][name] = constructor
+
+    def apply_type_constructor(
+        self,
+        name: str,
+        type_arg: type
+    ) -> type:
+        # Apply a type constructor to a type argument
+        if name not in obj["type_constructors"]:
+            raise ValueError("Type constructor not found: {name}")
+
+        return obj["type_constructors"][name](type_arg)
+
+
+# Class ConstGenerics
+    # Const generics support
+
+    fn make_constgenerics():
+        obj = {}
+        obj["const_generics"] = {}
+
+    def define_const_generic(
+        self,
+        name: str,
+        value,
+        value_type: type
+    ):
+        # Define a const generic
+        if not isinstance(value, value_type):
+            raise TypeError(
+                "Const generic {name} must be of type {value_type}"
+            )
+
+        obj["const_generics"][name] = (value, value_type)
+
+    def get_const_generic(self, name: str) :
+        # Get a const generic value and type
+        return obj["const_generics"].get(name)
+
+
+# Class GenericTypeChecker
+    # Type checker for generic types
+
+    fn make_generictypechecker(generic_system):
+        obj = {}
+        obj["generic_system"] = generic_system
+        obj["type_env"] = {}
+
+    def unify(
+        self,
+        type1: type,
+        type2: type
+    ) ]:
+        # Unify two types and return substitutions
+        substitutions = {}
+
+        if type1 == type2:
+            return substitutions
+
+        # Handle type variables
+        if isinstance(type1, str) and type1 in obj["generic_system"].type_variables:
+            substitutions[type1] = type2
+            return substitutions
+
+        if isinstance(type2, str) and type2 in obj["generic_system"].type_variables:
+            substitutions[type2] = type1
+            return substitutions
+
+        # Handle generic types
+        if hasattr(type1, '__origin__') and hasattr(type2, '__origin__'):
+            if type1.__origin__ == type2.__origin__:
+                # Unify type arguments
+                args1 = type1.__args__ if hasattr(type1, '__args__') else ()
+                args2 = type2.__args__ if hasattr(type2, '__args__') else ()
+
+                for arg1, arg2 in zip(args1, args2):
+                    sub = generictypechecker_unify(obj, arg1, arg2)
+                    if sub is null:
+                        return null
+                    substitutions.update(sub)
+
+                return substitutions
+
+        return null
+
+    def check_generic_constraints(
+        self,
+        generic_name: str,
+        type_args
+    ) -> bool:
+        # Check if type arguments satisfy generic constraints
+        if generic_name not in obj["generic_system"].generic_types:
+            return false
+
+        generic = obj["generic_system"].generic_types[generic_name]
+
+        for type_var, type_arg in zip(generic.type_params, type_args):
+            if not obj["generic_system"].check_constraints(type_var, type_arg):
+                return false
+
+        return true
+
+
+# Convenience decorators
+
+fn generic(*type_params):
+    # Decorator for generic functions
+    fn decorator(func):
+        func._generic = true
+        func._type_params = type_params
+        return func
+    return decorator
+
+
+fn trait(name: str):
+    # Decorator to define a trait
+    fn decorator(cls):
+        cls._trait = true
+        cls._trait_name = name
+        return cls
+    return decorator
+
+
+fn impl(trait_name: str):
+    # Decorator to implement a trait
+    fn decorator(cls):
+        cls._impl = trait_name
+        return cls
+    return decorator
+
+
+fn main():
+    # Main entry point for testing
+    generic_system = GenericSystem()
+    hkt = HigherKindedTypes()
+    const_gen = ConstGenerics()
+
+    # Define type variables
+    T = generic_system.define_type_variable('T')
+    U = generic_system.define_type_variable('U', constraints=[object])
+
+    # Define generic type
+    Box = generic_system.define_generic_type('Box', ['T'])
+
+    # Define trait
+    Show = generic_system.define_trait(
+        'Show',
+        methods={
+            'show': lambda self: str(self)
+        }
+    )
+
+    # Implement trait
+    generic_system.implement_trait(
+        'int',
+        'Show',
+        {'show': lambda self: str(self)}
+    )
+
+    print("Enhanced Generics system initialized")
+    print("Type variables: {list(generic_system.type_variables.keys())}")
+    print("Generic types: {list(generic_system.generic_types.keys())}")
+    print("Traits: {list(generic_system.traits.keys())}")
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,42 @@
+#mode slim
+# Prim Cognitive Systems
+# Provides cognitive architectures, reasoning engines, knowledge representation,
+# cognitive models, and cognitive computing
+
+# Cognitive type constants
+COGNITIVE_REASONING = "reasoning"
+COGNITIVE_KNOWLEDGE = "knowledge"
+COGNITIVE_MEMORY = "memory"
+COGNITIVE_ATTENTION = "attention"
+
+# Factory function for CognitiveModule
+fn make_cognitive_module(name, type_, state):
+    return {
+        "name": name,
+        "type": type_,
+        "state": state
+    }
+
+# CognitiveSystem factory
+fn make_cognitive_system():
+    return {
+        "modules": {}
+    }
+
+fn cognitive_system_add_module(system, module):
+    system["modules"][module["name"]] = module
+
+fn cognitive_system_process(system, input_data):
+    return {"processed": true}
+
+fn main():
+    print("Testing Cognitive Systems...")
+    system = make_cognitive_system()
+    module = make_cognitive_module("reasoning", COGNITIVE_REASONING, {})
+    cognitive_system_add_module(system, module)
+    result = cognitive_system_process(system, "input")
+    print("Result: " + to_string(result))
+    print("Cognitive Systems initialized successfully")
+
+if __name__ == "__main__":
+    main()

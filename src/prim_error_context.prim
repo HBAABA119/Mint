@@ -1,0 +1,230 @@
+#mode slim
+# Prim Enhanced Error Reporting System
+# Provides context-aware error messages with precise line numbers,
+# intelligent suggestions, and multi-language support
+
+# Error severity constants
+SEVERITY_ERROR = "error"
+SEVERITY_WARNING = "warning"
+SEVERITY_INFO = "info"
+SEVERITY_HINT = "hint"
+
+# Error category constants
+CATEGORY_SYNTAX = "syntax"
+CATEGORY_TYPE = "type"
+CATEGORY_RUNTIME = "runtime"
+CATEGORY_IMPORT = "import"
+CATEGORY_SEMANTIC = "semantic"
+CATEGORY_DEPRECATED = "deprecated"
+
+# ErrorSuggestion factory
+fn make_error_suggestion(message, code_snippet, priority):
+    if priority == None:
+        priority = 1
+    return {
+        "message": message,
+        "code_snippet": code_snippet,
+        "priority": priority
+    }
+
+# ErrorContext factory
+fn make_error_context(file_path, line_number, column_number, code_line, surrounding_lines):
+    return {
+        "file_path": file_path,
+        "line_number": line_number,
+        "column_number": column_number,
+        "code_line": code_line,
+        "surrounding_lines": surrounding_lines
+    }
+
+# PrimError factory
+fn make_prim_error(message, severity, category, context, suggestions, error_code):
+    if suggestions == None:
+        suggestions = []
+    return {
+        "message": message,
+        "severity": severity,
+        "category": category,
+        "context": context,
+        "suggestions": suggestions,
+        "error_code": error_code,
+        "related_errors": []
+    }
+
+# ErrorReporter factory
+fn make_error_reporter():
+    return {
+        "errors": [],
+        "warnings": [],
+        "language": "en",
+        "error_database": {},
+        "suggestion_database": {}
+    }
+
+fn error_reporter_set_language(reporter, language):
+    if contains(dict_keys(reporter["error_database"]), language):
+        reporter["language"] = language
+
+fn error_reporter_get_error_message(reporter, key, args):
+    # Get localized error message (simplified)
+    return key
+
+fn error_reporter_get_suggestions(reporter, error_type):
+    # Get intelligent suggestions for an error type
+    suggestions = []
+    if contains(dict_keys(reporter["suggestion_database"]), error_type):
+        for msg in reporter["suggestion_database"][error_type]:
+            suggestions = push(suggestions, make_error_suggestion(msg, None, 1))
+    return suggestions
+
+fn error_reporter_create_error_context(reporter, file_path, line_number, column_number, code_lines):
+    # Create error context with surrounding code
+    code_line = None
+    surrounding_lines = None
+    
+    if code_lines != None and line_number >= 1 and line_number <= len(code_lines):
+        code_line = code_lines[line_number - 1]
+        start = line_number - 3
+        if start < 0:
+            start = 0
+        end = line_number + 2
+        if end > len(code_lines):
+            end = len(code_lines)
+        surrounding_lines = slice(code_lines, start, end)
+    
+    return make_error_context(file_path, line_number, column_number, code_line, surrounding_lines)
+
+fn error_reporter_report_error(reporter, message, category, severity, file_path, line_number, column_number, code_lines, error_code, suggestions):
+    # Report an error with full context
+    context = None
+    if file_path != None and line_number != None:
+        context = error_reporter_create_error_context(reporter, file_path, line_number, column_number, code_lines)
+    
+    error = make_prim_error(message, severity, category, context, suggestions, error_code)
+    
+    if severity == SEVERITY_ERROR:
+        reporter["errors"] = push(reporter["errors"], error)
+    elif severity == SEVERITY_WARNING:
+        reporter["warnings"] = push(reporter["warnings"], error)
+    
+    return error
+
+fn error_reporter_format_error(reporter, error):
+    # Format an error for display
+    lines = []
+    
+    severity_symbol = "X"
+    if error["severity"] == SEVERITY_ERROR:
+        severity_symbol = "X"
+    elif error["severity"] == SEVERITY_WARNING:
+        severity_symbol = "!"
+    elif error["severity"] == SEVERITY_INFO:
+        severity_symbol = "i"
+    elif error["severity"] == SEVERITY_HINT:
+        severity_symbol = "->"
+    
+    lines = push(lines, severity_symbol + " " + upper(error["category"]) + ": " + error["message"])
+    
+    if error["context"] != None:
+        loc = error["context"]["file_path"] + ":" + to_string(error["context"]["line_number"])
+        if error["context"]["column_number"] != None:
+            loc = loc + ":" + to_string(error["context"]["column_number"])
+        lines = push(lines, "  Location: " + loc)
+        
+        if error["context"]["code_line"] != None:
+            lines = push(lines, "")
+            lines = push(lines, "  " + error["context"]["code_line"])
+    
+    if error["error_code"] != None:
+        lines = push(lines, "  Error Code: " + error["error_code"])
+    
+    return join_strings(lines, "\n")
+
+fn upper(s):
+    # Convert to uppercase (simplified)
+    return s
+
+fn join_strings(strings, separator):
+    result = ""
+    i = 0
+    while i < len(strings):
+        if i > 0:
+            result = result + separator
+        result = result + strings[i]
+        i = i + 1
+    return result
+
+fn error_reporter_format_all_errors(reporter):
+    # Format all errors and warnings
+    output = []
+    
+    if len(reporter["errors"]) > 0:
+        output = push(output, "============================================================")
+        output = push(output, "ERRORS")
+        output = push(output, "============================================================")
+        for error in reporter["errors"]:
+            output = push(output, error_reporter_format_error(reporter, error))
+            output = push(output, "")
+    
+    if len(reporter["warnings"]) > 0:
+        output = push(output, "============================================================")
+        output = push(output, "WARNINGS")
+        output = push(output, "============================================================")
+        for warning in reporter["warnings"]:
+            output = push(output, error_reporter_format_error(reporter, warning))
+            output = push(output, "")
+    
+    return join_strings(output, "\n")
+
+fn error_reporter_clear_errors(reporter):
+    reporter["errors"] = []
+    reporter["warnings"] = []
+
+fn error_reporter_has_errors(reporter):
+    return len(reporter["errors"]) > 0
+
+fn error_reporter_has_warnings(reporter):
+    return len(reporter["warnings"]) > 0
+
+fn error_reporter_get_error_count(reporter):
+    return len(reporter["errors"])
+
+fn error_reporter_get_warning_count(reporter):
+    return len(reporter["warnings"])
+
+fn report_syntax_error(reporter, message, file_path, line_number, column_number, code_lines):
+    return error_reporter_report_error(reporter, message, CATEGORY_SYNTAX, SEVERITY_ERROR, file_path, line_number, column_number, code_lines, "E001", None)
+
+fn report_type_error(reporter, message, file_path, line_number, expected_type, actual_type, code_lines):
+    suggestions = [
+        make_error_suggestion("Convert the value to " + expected_type, None, 1),
+        make_error_suggestion("Check if the variable type is correct", None, 2),
+        make_error_suggestion("Review the type annotations", None, 3)
+    ]
+    return error_reporter_report_error(reporter, message, CATEGORY_TYPE, SEVERITY_ERROR, file_path, line_number, None, code_lines, "E002", suggestions)
+
+fn report_runtime_error(reporter, message, file_path, line_number, code_lines):
+    return error_reporter_report_error(reporter, message, CATEGORY_RUNTIME, SEVERITY_ERROR, file_path, line_number, None, code_lines, "E003", None)
+
+fn report_undefined_variable(reporter, variable_name, file_path, line_number, code_lines):
+    return error_reporter_report_error(reporter, "Variable '" + variable_name + "' is not defined", CATEGORY_SEMANTIC, SEVERITY_ERROR, file_path, line_number, None, code_lines, "E004", None)
+
+fn report_type_mismatch(reporter, expected, actual, file_path, line_number, code_lines):
+    return error_reporter_report_error(reporter, "Type mismatch: expected " + expected + ", got " + actual, CATEGORY_TYPE, SEVERITY_ERROR, file_path, line_number, None, code_lines, "E005", None)
+
+fn main():
+    print("Testing Enhanced Error Reporting...")
+    reporter = make_error_reporter()
+    
+    # Report various errors
+    code_lines = ["x = 42", "y = x + z", "print(y)"]
+    
+    report_undefined_variable(reporter, "z", "example.prim", 2, code_lines)
+    
+    # Format and display errors
+    print(error_reporter_format_all_errors(reporter))
+    
+    print("Enhanced Error Reporting initialized successfully")
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,477 @@
+#mode slim
+# Prim Computer Vision
+# Provides image processing, object detection, image segmentation,
+# feature extraction, and video analysis.
+
+# import numpy as np
+# from typing import List, Dict, Any, Optional, Tuple
+# from dataclasses import dataclass
+# from enum import Enum
+
+
+ImageFilter_GRAYSCALE = "grayscale"
+ImageFilter_BLUR = "blur"
+ImageFilter_SHARPEN = "sharpen"
+ImageFilter_EDGE_DETECTION = "edge_detection"
+ImageFilter_EMBOSS = "emboss"ObjectDetectionMethod_YOLO = "yolo"
+ObjectDetectionMethod_SSD = "ssd"
+ObjectDetectionMethod_FASTER_RCNN = "faster_rcnn"
+ObjectDetectionMethod_MASK_RCNN = "mask_rcnn"SegmentationMethod_THRESHOLD = "threshold"
+SegmentationMethod_WATERSHED = "watershed"
+SegmentationMethod_K_MEANS = "k_means"
+SegmentationMethod_DEEP_LAB = "deep_lab"class
+# Class BoundingBox
+    # Bounding box for object detection
+    x: int
+    y: int
+    width: int
+    height: int
+    label: str = ""
+    confidence: float = 0.0
+
+
+fn make_image(data, width, height, channels, format):
+    return {"data": data, "width": width, "height": height, "channels": channels, "format": format}class ImageProcessor:
+    # Image processing utilities
+
+    @staticmethod
+    def load_image(filepath: str) :
+        # Load image from file
+        from PIL import Image as PILImage
+        img = PILImage.open(filepath)
+        data = np.array(img)
+
+        return Image(
+            data=data,
+            width=img.width,
+            height=img.height,
+            channels=len(data.shape) if len(data.shape) == 3 else 1,
+            format=img.format or "RGB"
+        )
+
+    @staticmethod
+    fn save_image(image, filepath: str):
+        # Save image to file
+        from PIL import Image as PILImage
+        img = PILImage.fromarray(image.data)
+        img.save(filepath)
+
+    @staticmethod
+    def resize(image, width: int, height: int) :
+        # Resize image
+        from PIL import Image as PILImage
+        img = PILImage.fromarray(image.data)
+        resized = img.resize((width, height))
+        data = np.array(resized)
+
+        return Image(
+            data=data,
+            width=width,
+            height=height,
+            channels=image.channels,
+            format=image.format
+        )
+
+    @staticmethod
+    def crop(image, x: int, y: int, width: int, height: int) :
+        # Crop image
+        cropped_data = image.data[y:y+height, x:x+width]
+
+        return Image(
+            data=cropped_data,
+            width=width,
+            height=height,
+            channels=image.channels,
+            format=image.format
+        )
+
+    @staticmethod
+    def rotate(image, angle: float) :
+        # Rotate image
+        from PIL import Image as PILImage
+        img = PILImage.fromarray(image.data)
+        rotated = img.rotate(angle)
+        data = np.array(rotated)
+
+        return Image(
+            data=data,
+            width=image.width,
+            height=image.height,
+            channels=image.channels,
+            format=image.format
+        )
+
+    @staticmethod
+    def flip_horizontal(image) :
+        # Flip image horizontally
+        flipped_data = np.fliplr(image.data)
+
+        return Image(
+            data=flipped_data,
+            width=image.width,
+            height=image.height,
+            channels=image.channels,
+            format=image.format
+        )
+
+    @staticmethod
+    def flip_vertical(image) :
+        # Flip image vertically
+        flipped_data = np.flipud(image.data)
+
+        return Image(
+            data=flipped_data,
+            width=image.width,
+            height=image.height,
+            channels=image.channels,
+            format=image.format
+        )
+
+    @staticmethod
+    def apply_filter(image, filter_type) :
+        # Apply filter to image
+        from PIL import Image as PILImage, ImageFilter as PILFilter
+        img = PILImage.fromarray(image.data)
+
+        if filter_type == ImageFilter.GRAYSCALE:
+            filtered = img.convert('L')
+        elif filter_type == ImageFilter.BLUR:
+            filtered = img.filter(PILFilter.BLUR)
+        elif filter_type == ImageFilter.SHARPEN:
+            filtered = img.filter(PILFilter.SHARPEN)
+        elif filter_type == ImageFilter.EDGE_DETECTION:
+            filtered = img.filter(PILFilter.FIND_EDGES)
+        else:
+            filtered = img
+
+        data = np.array(filtered)
+
+        return Image(
+            data=data,
+            width=image.width,
+            height=image.height,
+            channels=len(data.shape) if len(data.shape) == 3 else 1,
+            format=image.format
+        )
+
+
+# Class ObjectDetector
+    # Object detection
+
+    fn make_objectdetector(method = ObjectDetectionMethod.YOLO):
+        obj = {}
+        obj["method"] = method
+        obj["model"] = null
+        obj["classes"] = []
+
+    fn objectdetector_load_model(obj, model_path: str, classes_path = None):
+        # Load detection model
+        # Simplified - would load actual model in practice
+        obj["model"] = {"path": model_path}
+
+        if classes_path:
+            with open(classes_path, 'r') as f:
+                obj["classes"] = [line.strip() for line in f.readlines()]
+
+    def detect(self, image, confidence_threshold: float = 0.5) :
+        # Detect objects in image
+        if not obj["model"]:
+            raise RuntimeError("Model not loaded")
+
+        # Simplified detection - would use actual model in practice
+        detections = []
+
+        # Mock detection for testing
+        if obj["method"] == ObjectDetectionMethod.YOLO:
+            # Simulate YOLO detection
+            detections.append(BoundingBox(
+                x=100, y=100, width=200, height=200,
+                label="person", confidence=0.95
+            ))
+            detections.append(BoundingBox(
+                x=300, y=150, width=150, height=150,
+                label="car", confidence=0.88
+            ))
+
+        # Filter by confidence
+        detections = [d for d in detections if d.confidence >= confidence_threshold]
+
+        return detections
+
+    def draw_boxes(self, image, boxes) :
+        # Draw bounding boxes on image
+        from PIL import Image as PILImage, ImageDraw
+        img = PILImage.fromarray(image.data)
+        draw = ImageDraw.Draw(img)
+
+        for box in boxes:
+            draw.rectangle(
+                [(box.x, box.y), (box.x + box.width, box.y + box.height)],
+                outline="red",
+                width=3
+            )
+
+            if box.label:
+                draw.text((box.x, box.y - 20), "{box.label}: {box.confidence:.2f}", fill="red")
+
+        data = np.array(img)
+
+        return Image(
+            data=data,
+            width=image.width,
+            height=image.height,
+            channels=image.channels,
+            format=image.format
+        )
+
+
+# Class ImageSegmenter
+    # Image segmentation
+
+    fn make_imagesegmenter(method = SegmentationMethod.THRESHOLD):
+        obj = {}
+        obj["method"] = method
+
+    def segment(self, image) -> np.ndarray:
+        # Segment image
+        if obj["method"] == SegmentationMethod.THRESHOLD:
+            return imagesegmenter__threshold_segmentation(obj, image)
+        elif obj["method"] == SegmentationMethod.K_MEANS:
+            return imagesegmenter__kmeans_segmentation(obj, image)
+        else:
+            return np.zeros_like(image.data)
+
+    def _threshold_segmentation(self, image) -> np.ndarray:
+        # Threshold-based segmentation
+        # Convert to grayscale
+        if image.channels > 1:
+            gray = np.mean(image.data, axis=2)
+        else:
+            gray = image.data
+
+        # Apply threshold
+        threshold = 128
+        segmented = (gray > threshold).astype(np.uint8) * 255
+
+        return segmented
+
+    def _kmeans_segmentation(self, image) -> np.ndarray:
+        # K-means segmentation
+        from sklearn.cluster import KMeans
+
+        # Reshape image for clustering
+        pixels = image.data.reshape(-1, image.channels)
+
+        # Apply k-means
+        kmeans = KMeans(n_clusters=3, random_state=42)
+        labels = kmeans.fit_predict(pixels)
+
+        # Reshape back to image
+        segmented = labels.reshape(image.height, image.width)
+
+        return segmented
+
+
+# Class FeatureExtractor
+    # Feature extraction
+
+    @staticmethod
+    def extract_color_histogram(image, bins: int = 256) :
+        # Extract color histogram
+        histograms = {}
+
+        if image.channels == 1:
+            histograms["gray"] = np.histogram(image.data, bins=bins)[0]
+        else:
+            histograms["red"] = np.histogram(image.data[:, :, 0], bins=bins)[0]
+            histograms["green"] = np.histogram(image.data[:, :, 1], bins=bins)[0]
+            histograms["blue"] = np.histogram(image.data[:, :, 2], bins=bins)[0]
+
+        return histograms
+
+    @staticmethod
+    def extract_edges(image) :
+        # Extract edges using Canny edge detection
+        from skimage import feature
+
+        if image.channels > 1:
+            gray = np.mean(image.data, axis=2)
+        else:
+            gray = image.data
+
+        edges = feature.canny(gray, sigma=1)
+
+        return Image(
+            data=edges,
+            width=image.width,
+            height=image.height,
+            channels=1,
+            format=image.format
+        )
+
+    @staticmethod
+    def extract_corners(image) ]:
+        # Extract corners using Harris corner detection
+        from skimage.feature import corner_harris, corner_peaks
+
+        if image.channels > 1:
+            gray = np.mean(image.data, axis=2)
+        else:
+            gray = image.data
+
+        corners = corner_harris(gray)
+        coords = corner_peaks(corners, min_distance=5)
+
+        return [(int(x), int(y)) for y, x in coords]
+
+
+# Class VideoAnalyzer
+    # Video analysis
+
+    fn make_videoanalyzer():
+        obj = {}
+        obj["frames"] = []
+
+    fn videoanalyzer_load_video(obj, filepath: str):
+        # Load video file
+        from cv2 import VideoCapture
+        cap = VideoCapture(filepath)
+
+        while true:
+            ret, frame = cap.read()
+            if not ret:
+                break
+
+            obj["frames"].append(Image(
+                data=frame,
+                width=frame.shape[1],
+                height=frame.shape[0],
+                channels=frame.shape[2] if len(frame.shape) == 3 else 1
+            ))
+
+        cap.release()
+
+    def extract_frames(self, frame_rate: int = 30) :
+        # Extract frames at specified rate
+        if not obj["frames"]:
+            return []
+
+        step = len(obj["frames"]) // frame_rate
+        return obj["frames"][::step]
+
+    def detect_motion(self, threshold: float = 30.0) ]:
+        # Detect motion in video
+        if len(obj["frames"]) < 2:
+            return []
+
+        motion_frames = []
+
+        for i in range(1, len(obj["frames"])):
+            # Calculate frame difference
+            diff = np.abs(obj["frames"][i].data.astype(float) - obj["frames"][i-1].data.astype(float))
+            motion_score = np.mean(diff)
+
+            if motion_score > threshold:
+                motion_frames = push(motion_frames, (i, motion_score))
+
+        return motion_frames
+
+    def track_objects(self, detector) ]:
+        # Track objects across frames
+        tracks = []
+
+        for frame in obj["frames"]:
+            detections = detector.detect(frame)
+            tracks = push(tracks, detections)
+
+        return tracks
+
+
+def create_image_processor() :
+    # Create image processor
+    return ImageProcessor()
+
+
+def create_object_detector(method = ObjectDetectionMethod.YOLO) :
+    # Create object detector
+    return ObjectDetector(method)
+
+
+def create_image_segmenter(method = SegmentationMethod.THRESHOLD) :
+    # Create image segmenter
+    return ImageSegmenter(method)
+
+
+fn main():
+    # Main entry point for testing
+    print("Testing Computer Vision...")
+
+    # Test Image Processor
+    processor = create_image_processor()
+
+    # Create a test image
+    test_data = np.random.randint(0, 255, (100, 100, 3), dtype=np.uint8)
+    test_image = Image(
+        data=test_data,
+        width=100,
+        height=100,
+        channels=3,
+        format="RGB"
+    )
+
+    # Test resize
+    resized = processor.resize(test_image, 50, 50)
+    print("Resized image: {resized.width}x{resized.height}")
+
+    # Test crop
+    cropped = processor.crop(test_image, 10, 10, 50, 50)
+    print("Cropped image: {cropped.width}x{cropped.height}")
+
+    # Test filter
+    grayscale = processor.apply_filter(test_image, ImageFilter.GRAYSCALE)
+    print("Grayscale image: {grayscale.channels} channels")
+
+    # Test Object Detector
+    detector = create_object_detector()
+    detections = detector.detect(test_image)
+    print("Detected objects: {len(detections)}")
+
+    # Test drawing boxes
+    with_boxes = detector.draw_boxes(test_image, detections)
+    print("Drew boxes on image")
+
+    # Test Image Segmenter
+    segmenter = create_image_segmenter()
+    segmented = segmenter.segment(test_image)
+    print("Segmented image: {segmented.shape}")
+
+    # Test Feature Extractor
+    histograms = FeatureExtractor.extract_color_histogram(test_image)
+    print("Color histograms: {len(histograms)} channels")
+
+    edges = FeatureExtractor.extract_edges(test_image)
+    print("Edge image: {edges.width}x{edges.height}")
+
+    # Test Video Analyzer
+    video_analyzer = VideoAnalyzer()
+    # Create mock frames
+    for i in range(10):
+        frame_data = np.random.randint(0, 255, (100, 100, 3), dtype=np.uint8)
+        video_analyzer.frames.append(Image(
+            data=frame_data,
+            width=100,
+            height=100,
+            channels=3
+        ))
+
+    frames = video_analyzer.extract_frames(frame_rate=5)
+    print("Extracted frames: {len(frames)}")
+
+    motion = video_analyzer.detect_motion(threshold=50.0)
+    print("Motion detected: {len(motion)} frames")
+
+    print("\nComputer Vision initialized successfully")
+
+
+if __name__ == "__main__":
+    main()

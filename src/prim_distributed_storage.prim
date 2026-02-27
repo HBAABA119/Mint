@@ -1,0 +1,48 @@
+#mode slim
+# Prim Distributed Storage
+# Provides distributed file storage, data replication, consistency models,
+# storage nodes, and data retrieval.
+
+# from typing import List, Dict, Any, Optional
+# from dataclasses import dataclass
+# from enum import Enum
+
+
+StorageStatus_AVAILABLE = "available"
+StorageStatus_UNAVAILABLE = "unavailable"
+StorageStatus_REPLICATING = "replicating"class
+# Class StorageNode
+    # Storage node
+    id: str
+    capacity: int
+    used: int
+    status
+
+
+# Class DistributedStorage
+    # Distributed storage
+
+    fn make_distributedstorage():
+        obj = {}
+        obj["nodes"] = {}
+
+    fn distributedstorage_add_node(obj, node):
+        # Add storage node
+        obj["nodes"][node.id] = node
+
+    def get_nodes(self) :
+        # Get all nodes
+        return list(obj["nodes"].values())
+
+
+fn main():
+    print("Testing Distributed Storage...")
+    storage = DistributedStorage()
+    node = StorageNode(id="node1", capacity=1024, used=512, status=StorageStatus.AVAILABLE)
+    storage.add_node(node)
+    print("Nodes: {len(storage.get_nodes())}")
+    print("Distributed Storage initialized successfully")
+
+
+if __name__ == "__main__":
+    main()

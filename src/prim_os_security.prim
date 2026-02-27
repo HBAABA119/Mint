@@ -1,0 +1,43 @@
+#mode slim
+# Prim OS Security
+# Provides authentication, authorization, access control,
+# security policies, and audit logging
+
+# Permission constants
+PERMISSION_READ = "read"
+PERMISSION_WRITE = "write"
+PERMISSION_EXECUTE = "execute"
+
+# Factory function for User
+fn make_user(id, name, permissions):
+    return {
+        "id": id,
+        "name": name,
+        "permissions": permissions
+    }
+
+# SecurityManager factory
+fn make_security_manager():
+    return {
+        "users": {}
+    }
+
+fn security_manager_add_user(manager, user):
+    manager["users"][user["id"]] = user
+
+fn security_manager_check_permission(manager, user_id, permission):
+    if contains(dict_keys(manager["users"]), user_id):
+        user = manager["users"][user_id]
+        return contains(user["permissions"], permission)
+    return false
+
+fn main():
+    print("Testing OS Security...")
+    manager = make_security_manager()
+    user = make_user("user1", "admin", [PERMISSION_READ, PERMISSION_WRITE])
+    security_manager_add_user(manager, user)
+    print("User: " + user["name"])
+    print("OS Security initialized successfully")
+
+if __name__ == "__main__":
+    main()

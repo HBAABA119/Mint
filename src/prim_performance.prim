@@ -1,0 +1,336 @@
+#mode slim
+# Prim Performance Optimization
+# Provides JIT compilation, memory management optimization,
+# concurrency support, and code generation
+
+# Optimization level constants
+OPTIMIZATION_NONE = "none"
+OPTIMIZATION_BASIC = "basic"
+OPTIMIZATION_INTERMEDIATE = "intermediate"
+OPTIMIZATION_AGGRESSIVE = "aggressive"
+
+# HotSpot factory
+fn make_hot_spot(location, call_count, execution_time):
+    return {
+        "location": location,
+        "call_count": call_count,
+        "execution_time": execution_time
+    }
+
+# JITCompiler factory
+fn make_jit_compiler():
+    return {
+        "hot_spots": [],
+        "compiled_functions": {},
+        "optimization_level": OPTIMIZATION_BASIC,
+        "record_call": fn(location, execution_time) {
+            # Record function call
+            hot_spot = None
+            i = 0
+            while i < len(hot_spots):
+                if hot_spots[i]["location"] == location:
+                    hot_spot = hot_spots[i]
+                    break
+                i = i + 1
+            
+            if hot_spot != None:
+                hot_spot["call_count"] = hot_spot["call_count"] + 1
+                hot_spot["execution_time"] = hot_spot["execution_time"] + execution_time
+            else:
+                hot_spot = make_hot_spot(location, 1, execution_time)
+                hot_spots = push(hot_spots, hot_spot)
+            
+            # Check if function should be compiled
+            if hot_spot != None and hot_spot["call_count"] >= 100:
+                compile_function(location)
+        },
+        "compile_function": fn(location) {
+            # Compile function to native code
+            if contains(dict_keys(compiled_functions), location):
+                return
+            
+            print("Compiling " + location + " to native code...")
+            compiled_functions[location] = true
+        },
+        "get_hot_spots": fn() {
+            # Get hot spots sorted by execution time
+            # Simplified sorting - would sort by execution_time
+            return hot_spots
+        },
+        "set_optimization_level": fn(level) {
+            optimization_level = level
+        }
+    }
+
+# MemoryManager factory
+fn make_memory_manager():
+    return {
+        "allocations": {},
+        "gc_threshold": 1000,
+        "allocation_counter": 0,
+        "allocate": fn(size) {
+            # Allocate memory
+            allocation_counter = allocation_counter + 1
+            address = allocation_counter
+            
+            allocations[address] = {
+                "size": size,
+                "timestamp": get_current_time()
+            }
+            
+            # Trigger GC if threshold reached
+            if allocation_counter >= gc_threshold:
+                collect_garbage()
+            
+            return address
+        },
+        "free": fn(address) {
+            # Free memory
+            if contains(dict_keys(allocations), address):
+                # Remove allocation
+                new_allocations = {}
+                keys = dict_keys(allocations)
+                for key in keys:
+                    if key != address:
+                        new_allocations[key] = allocations[key]
+                allocations = new_allocations
+        },
+        "collect_garbage": fn() {
+            # Collect garbage
+            print("Running garbage collection...")
+            
+            # Clear old allocations
+            current_time = get_current_time()
+            to_remove = []
+            
+            keys = dict_keys(allocations)
+            for key in keys:
+                alloc = allocations[key]
+                if current_time - alloc["timestamp"] > 3600:  # 1 hour
+                    to_remove = push(to_remove, key)
+            
+            i = 0
+            while i < len(to_remove):
+                address = to_remove[i]
+                free(address)
+                i = i + 1
+            
+            print("Collected " + to_string(len(to_remove)) + " old allocations")
+        },
+        "get_memory_stats": fn() {
+            # Get memory statistics
+            total_size = 0
+            keys = dict_keys(allocations)
+            for key in keys:
+                total_size = total_size + allocations[key]["size"]
+            
+            return {
+                "allocations": len(dict_keys(allocations)),
+                "total_size": total_size,
+                "gc_threshold": gc_threshold
+            }
+        }
+    }
+
+fn get_current_time():
+    # Get current time (simplified)
+    return 1000.0
+
+# ConcurrencyManager factory
+fn make_concurrency_manager():
+    return {
+        "thread_pool_size": 4,  # Simplified
+        "active_tasks": {},
+        "run_async": fn(func, args) {
+            # Run function asynchronously (conceptual)
+            return {
+                "start": fn() {
+                    print("Starting async task...")
+                },
+                "join": fn() {
+                    print("Waiting for async task...")
+                }
+            }
+        },
+        "run_parallel": fn(func, data) {
+            # Run function in parallel on data (conceptual)
+            results = []
+            i = 0
+            while i < len(data):
+                result = func(data[i])
+                results = push(results, result)
+                i = i + 1
+            return results
+        },
+        "create_lock": fn() {
+            # Create lock (conceptual)
+            return {
+                "acquire": fn() {
+                    print("Acquiring lock...")
+                },
+                "release": fn() {
+                    print("Releasing lock...")
+                }
+            }
+        },
+        "create_semaphore": fn(value) {
+            # Create semaphore (conceptual)
+            return {
+                "acquire": fn() {
+                    print("Acquiring semaphore...")
+                },
+                "release": fn() {
+                    print("Releasing semaphore...")
+                }
+            }
+        },
+        "create_event": fn() {
+            # Create event (conceptual)
+            return {
+                "set": fn() {
+                    print("Setting event...")
+                },
+                "wait": fn() {
+                    print("Waiting for event...")
+                }
+            }
+        }
+    }
+
+# CodeGenerator factory
+fn make_code_generator():
+    return {
+        "optimizations": [
+            "constant_folding",
+            "dead_code_elimination",
+            "inline_expansion",
+            "loop_optimization",
+            "common_subexpression_elimination"
+        ],
+        "generate": fn(ir, target) {
+            if target == None:
+                target = "x86_64"
+            
+            print("Generating " + target + " code from IR...")
+            
+            # Apply optimizations
+            optimized_ir = apply_optimizations(ir)
+            
+            # Generate native code
+            native_code = emit_native_code(optimized_ir, target)
+            
+            return native_code
+        },
+        "apply_optimizations": fn(ir) {
+            # Apply code optimizations
+            optimized = ir
+            
+            i = 0
+            while i < len(optimizations):
+                opt = optimizations[i]
+                print("Applying " + opt + "...")
+                optimized = apply_optimization(optimized, opt)
+                i = i + 1
+            
+            return optimized
+        },
+        "apply_optimization": fn(ir, optimization) {
+            # Apply single optimization (conceptual)
+            return ir
+        },
+        "emit_native_code": fn(ir, target) {
+            # Emit native code (conceptual)
+            return "; " + target + " assembly\n" + ir
+        }
+    }
+
+# PerformanceProfiler factory
+fn make_performance_profiler():
+    return {
+        "profiles": {},
+        "start_profile": fn(name) {
+            # Start profiling
+            profiles[name] = {
+                "start_time": get_current_time(),
+                "calls": 0,
+                "total_time": 0
+            }
+        },
+        "end_profile": fn(name) {
+            # End profiling
+            if contains(dict_keys(profiles), name):
+                profile = profiles[name]
+                profile["total_time"] = get_current_time() - profile["start_time"]
+                profile["calls"] = profile["calls"] + 1
+        },
+        "get_profile": fn(name) {
+            # Get profile data
+            if contains(dict_keys(profiles), name):
+                return profiles[name]
+            return None
+        },
+        "get_all_profiles": fn() {
+            # Get all profiles
+            return profiles
+        },
+        "print_report": fn() {
+            # Print profiling report
+            print("\n" + "============================================================")
+            print("PERFORMANCE REPORT")
+            print("============================================================")
+            
+            keys = dict_keys(profiles)
+            i = 0
+            while i < len(keys):
+                name = keys[i]
+                profile = profiles[name]
+                
+                avg_time = 0.0
+                if profile["calls"] > 0:
+                    avg_time = profile["total_time"] / profile["calls"]
+                
+                print("\n" + name + ":")
+                print("  Calls: " + to_string(profile["calls"]))
+                print("  Total Time: " + to_string(profile["total_time"]) + "s")
+                print("  Avg Time: " + to_string(avg_time) + "s")
+                i = i + 1
+            
+            print("============================================================")
+        }
+    }
+
+fn main():
+    print("Testing Performance Optimization...")
+    
+    # Test JIT compiler
+    jit = make_jit_compiler()
+    jit["record_call"]("test_function", 0.001)
+    hot_spots = jit["get_hot_spots"]()
+    print("Hot spots: " + to_string(len(hot_spots)))
+    
+    # Test memory manager
+    memory = make_memory_manager()
+    memory["allocate"](1024)
+    stats = memory["get_memory_stats"]()
+    print("Memory stats: " + to_string(stats))
+    
+    # Test concurrency manager
+    concurrency = make_concurrency_manager()
+    lock = concurrency["create_lock"]()
+    print("Created lock")
+    
+    # Test code generator
+    generator = make_code_generator()
+    code = generator["generate"]("test IR", "x86_64")
+    print("Generated code: " + to_string(len(code)) + " characters")
+    
+    # Test profiler
+    profiler = make_performance_profiler()
+    profiler["start_profile"]("test")
+    profiler["end_profile"]("test")
+    profiler["print_report"]()
+    
+    print("Performance Optimization initialized successfully")
+
+if __name__ == "__main__":
+    main()

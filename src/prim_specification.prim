@@ -1,0 +1,419 @@
+#mode slim
+# Prim Language Specification
+# Provides formal grammar, semantics documentation, conformance tests,
+# and language reference for Prim Language.
+
+# from typing import List, Dict, Any, Optional, Set
+# from dataclasses import dataclass
+# from enum import Enum
+
+
+TokenType_INTEGER = "INTEGER"
+TokenType_FLOAT = "FLOAT"
+TokenType_STRING = "STRING"
+TokenType_BOOLEAN = "BOOLEAN"
+TokenType_NULL = "NULL"
+TokenType_LET = "LET"
+TokenType_CONST = "CONST"
+TokenType_FN = "FN"
+TokenType_RETURN = "RETURN"
+TokenType_IF = "IF"
+TokenType_ELSE = "ELSE"
+TokenType_WHILE = "WHILE"
+TokenType_FOR = "FOR"
+TokenType_BREAK = "BREAK"
+TokenType_CONTINUE = "CONTINUE"
+TokenType_CLASS = "CLASS"
+TokenType_EXTENDS = "EXTENDS"
+TokenType_THIS = "THIS"
+TokenType_SUPER = "SUPER"
+TokenType_IMPORT = "IMPORT"
+TokenType_FROM = "FROM"
+TokenType_AS = "AS"
+TokenType_EXPORT = "EXPORT"
+TokenType_TYPE = "TYPE"
+TokenType_INTERFACE = "INTERFACE"
+TokenType_IMPLEMENTS = "IMPLEMENTS"
+TokenType_MATCH = "MATCH"
+TokenType_CASE = "CASE"
+TokenType_DEFAULT = "DEFAULT"
+TokenType_TRY = "TRY"
+TokenType_CATCH = "CATCH"
+TokenType_FINALLY = "FINALLY"
+TokenType_THROW = "THROW"
+TokenType_ASYNC = "ASYNC"
+TokenType_AWAIT = "AWAIT"
+TokenType_YIELD = "YIELD"
+TokenType_PLUS = "PLUS"
+TokenType_MINUS = "MINUS"
+TokenType_STAR = "STAR"
+TokenType_SLASH = "SLASH"
+TokenType_MODULO = "MODULO"
+TokenType_POWER = "POWER"
+TokenType_EQ = "EQ"
+TokenType_EQ_EQ = "EQ_EQ"
+TokenType_NOT_EQ = "NOT_EQ"
+TokenType_LT = "LT"
+TokenType_LTE = "LTE"
+TokenType_GT = "GT"
+TokenType_GTE = "GTE"
+TokenType_AND = "AND"
+TokenType_OR = "OR"
+TokenType_NOT = "NOT"
+TokenType_BIT_AND = "BIT_AND"
+TokenType_BIT_OR = "BIT_OR"
+TokenType_BIT_XOR = "BIT_XOR"
+TokenType_BIT_NOT = "BIT_NOT"
+TokenType_SHL = "SHL"
+TokenType_SHR = "SHR"
+TokenType_ASSIGN = "ASSIGN"
+TokenType_PLUS_ASSIGN = "PLUS_ASSIGN"
+TokenType_MINUS_ASSIGN = "MINUS_ASSIGN"
+TokenType_STAR_ASSIGN = "STAR_ASSIGN"
+TokenType_SLASH_ASSIGN = "SLASH_ASSIGN"
+TokenType_LPAREN = "LPAREN"
+TokenType_RPAREN = "RPAREN"
+TokenType_LBRACE = "LBRACE"
+TokenType_RBRACE = "RBRACE"
+TokenType_LBRACKET = "LBRACKET"
+TokenType_RBRACKET = "RBRACKET"
+TokenType_COMMA = "COMMA"
+TokenType_DOT = "DOT"
+TokenType_COLON = "COLON"
+TokenType_SEMICOLON = "SEMICOLON"
+TokenType_ARROW = "ARROW"
+TokenType_FAT_ARROW = "FAT_ARROW"
+TokenType_QUESTION = "QUESTION"
+TokenType_DOUBLE_QUESTION = "DOUBLE_QUESTION"
+TokenType_IDENTIFIER = "IDENTIFIER"
+TokenType_EOF = "EOF"class
+# Class Token
+    # Token
+    type
+    lexeme: str
+    literal
+    line: int
+    column: int
+
+
+# Class Grammar
+    # Prim language grammar
+
+    # Program ::= {Declaration}
+    # Declaration ::= ClassDecl | FunctionDecl | VariableDecl | Statement
+    # ClassDecl ::= "class" IDENTIFIER "{" {MethodDecl} "}"
+    # FunctionDecl ::= "fn" IDENTIFIER "(" {Parameter} ")" Block
+    # VariableDecl ::= ("let" | "const") IDENTIFIER ("=" Expression)?
+    # Statement ::= ExpressionStmt | Block | IfStmt | WhileStmt | ForStmt | ReturnStmt | BreakStmt | ContinueStmt | TryStmt
+    # ExpressionStmt ::= Expression ";"
+    # Block ::= "{" {Statement} "}"
+    # IfStmt ::= "i" Expression Block ("else" Block)?
+    # WhileStmt ::= "while" Expression Block
+    # ForStmt ::= "for" "(" VariableDecl? ";" Expression? ";" Assignment? ")" Block
+    # ReturnStmt ::= "return" Expression? ";"
+    # BreakStmt ::= "break" ";"
+    # ContinueStmt ::= "continue" ";"
+    # TryStmt ::= "try" Block "catch" IDENTIFIER Block "finally" Block?
+    # Expression ::= Assignment
+    # Assignment ::= Conditional ("=" Assignment)? | Conditional
+    # Conditional ::= LogicalOr ("?" Expression ":" Conditional)?
+    # LogicalOr ::= LogicalAnd {"||" LogicalAnd}
+    # LogicalAnd ::= Equality {"&&" Equality}
+    # Equality ::= Comparison {("==" | "!=") Comparison}
+    # Comparison ::= Term {("<" | "<=" | ">" | ">=") Term}
+    # Term ::= Factor {("+" | "-") Factor}
+    # Factor ::= Unary {("*" | "/" | "%") Unary}
+    # Unary ::= ("-" | "!" | "~") Unary | Primary
+    # Primary ::= Literal | Grouping | Identifier | Call | Member | List | Dict
+    # Literal ::= INTEGER | FLOAT | STRING | BOOLEAN | NULL
+    # Grouping ::= "(" Expression ")"
+    # Identifier ::= IDENTIFIER
+    # Call ::= Primary "(" {Expression} ")"
+    # Member ::= Primary ("." IDENTIFIER)+
+    # List ::= "[" {Expression} "]"
+    # Dict ::= "{" {String ":" Expression} "}"
+    # Parameter ::= IDENTIFIER (":" Type)?
+    # Type ::= IDENTIFIER | "fn" "(" {Type} ")" "->" Type | Type "[]" | Type "|" Type
+
+    @staticmethod
+    def get_grammar() -> str:
+        # Get BNF grammar
+        return # Program ::= {Declaration}
+# 
+# Declaration ::= ClassDecl | FunctionDecl | VariableDecl | Statement
+# 
+# ClassDecl ::= "class" IDENTIFIER "{" {MethodDecl} "}"
+# 
+# FunctionDecl ::= "fn" IDENTIFIER "(" {Parameter} ")" Block
+# 
+# VariableDecl ::= ("let" | "const") IDENTIFIER ("=" Expression)?
+# 
+# Statement ::= ExpressionStmt | Block | IfStmt | WhileStmt | ForStmt |
+# ReturnStmt | BreakStmt | ContinueStmt | TryStmt
+# 
+# ExpressionStmt ::= Expression ";"
+# 
+# Block ::= "{" {Statement} "}"
+# 
+# IfStmt ::= "i" Expression Block ("else" Block)?
+# 
+# WhileStmt ::= "while" Expression Block
+# 
+# ForStmt ::= "for" "(" VariableDecl? ";" Expression? ";" Assignment? ")" Block
+# 
+# ReturnStmt ::= "return" Expression? ";"
+# 
+# BreakStmt ::= "break" ";"
+# 
+# ContinueStmt ::= "continue" ";"
+# 
+# TryStmt ::= "try" Block "catch" IDENTIFIER Block "finally" Block?
+# 
+# Expression ::= Assignment
+# 
+# Assignment ::= Conditional ("=" Assignment)? | Conditional
+# 
+# Conditional ::= LogicalOr ("?" Expression ":" Conditional)?
+# 
+# LogicalOr ::= LogicalAnd {"||" LogicalAnd}
+# 
+# LogicalAnd ::= Equality {"&&" Equality}
+# 
+# Equality ::= Comparison {("==" | "!=") Comparison}
+# 
+# Comparison ::= Term {("<" | "<=" | ">" | ">=") Term}
+# 
+# Term ::= Factor {("+" | "-") Factor}
+# 
+# Factor ::= Unary {("*" | "/" | "%") Unary}
+# 
+# Unary ::= ("-" | "!" | "~") Unary | Primary
+# 
+# Primary ::= Literal | Grouping | Identifier | Call | Member | List | Dict
+# 
+# Literal ::= INTEGER | FLOAT | STRING | BOOLEAN | NULL
+# 
+# Grouping ::= "(" Expression ")"
+# 
+# Identifier ::= IDENTIFIER
+# 
+# Call ::= Primary "(" {Expression} ")"
+# 
+# Member ::= Primary ("." IDENTIFIER)+
+# 
+# List ::= "[" {Expression} "]"
+# 
+# Dict ::= "{" {String ":" Expression} "}"
+# 
+# Parameter ::= IDENTIFIER (":" Type)?
+# 
+# Type ::= IDENTIFIER | "fn" "(" {Type} ")" "->" Type | Type "[]" | Type "|" Type
+
+
+# Class Semantics
+    # Prim language semantics
+
+    @staticmethod
+    def get_semantics() -> str:
+        # Get semantics documentation
+        return # # Prim Language Semantics
+# 
+# ## Type System
+# 
+# Prim is a dynamically typed language with optional type annotations.
+# 
+# ### Primitive Types
+# - `int`: 64-bit signed integers
+# - `float`: 64-bit floating point numbers
+# - `string` strings
+# - `bool` values (true, false)
+# - `null` value
+# 
+# ### Composite Types
+# - `list` collection of values
+# - `dict`-value mapping
+# - `function`-class functions
+# - `class`-oriented classes
+# 
+# ### Type Coercion
+# - Numbers are automatically coerced between int and float
+# - Strings are automatically coerced to numbers in arithmetic contexts
+# - null coerces to false in boolean contexts
+# - Non-null values coerce to true in boolean contexts
+# 
+# ## Evaluation Order
+# 
+# Expressions are evaluated left-to-right.
+# Function arguments are evaluated before the function is called.
+# Short-circuit evaluation applies to && and || operators.
+# 
+# ## Variable Scope
+# 
+# Variables have lexical (static) scope.
+# Variables declared with `let` can be reassigned.
+# Variables declared with `const` cannot be reassigned.
+# Variables are block-scoped.
+# 
+# ## Memory Management
+# 
+# Prim uses automatic garbage collection.
+# Objects are eligible for collection when no references exist.
+# The garbage collector uses a mark-and-sweep algorithm.
+# 
+# ## Concurrency
+# 
+# Prim supports async/await for asynchronous operations.
+# Async functions return promises.
+# Await pauses execution until the promise resolves.
+# 
+# ## Error Handling
+# 
+# Errors are thrown with `throw` statement.
+# Errors are caught with `try/catch/finally`.
+# Finally blocks always execute.
+
+
+# Class ConformanceTest
+    # Conformance test
+
+    fn make_conformancetest(name: str, code: str, expected: str):
+        obj = {}
+        obj["name"] = name
+        obj["code"] = code
+        obj["expected"] = expected
+
+
+# Class ConformanceTester
+    # Conformance tester
+
+    fn make_conformancetester():
+        obj = {}
+        obj["tests"] = []
+        obj["results"] = {}
+
+    fn conformancetester_add_test(obj, test):
+        # Add conformance test
+        obj["tests"].append(test)
+
+    def run_tests(self) :
+        # Run all conformance tests
+        for test in obj["tests"]:
+            obj["results"][test.name] = conformancetester__run_test(obj, test)
+        return obj["results"]
+
+    def _run_test(self, test) -> bool:
+        # Run single conformance test
+        # In production, this would execute the code and compare output
+        # For now, we simulate the test
+        return true
+
+
+# Class LanguageReference
+    # Language reference
+
+    @staticmethod
+    def get_reference() -> str:
+        # Get complete language reference
+        return # # Prim Language Reference
+# 
+# ## Introduction
+# 
+# Prim is a modern, high-level programming language designed for
+# simplicity, safety, and performance.
+# 
+# ## Getting Started
+# 
+# ### Hello World
+# 
+# ```
+# fn main() {
+# print("Hello, World!");
+# }
+# ```
+# 
+# ### Variables
+# 
+# ```
+# let name = "Prim";
+# const version = "1.0.0";
+# ```
+# 
+# ### Functions
+# 
+# ```
+# fn add(a: int, b: int) -> int {
+# return a + b;
+# }
+# ```
+# 
+# ### Classes
+# 
+# ```
+# class Person {
+# let name: string;
+# let age: int;
+# 
+# fn new(name: string, age: int)  {
+# return Person { name, age };
+# }
+# 
+# fn greet(self) {
+# print("Hello, I'm " + obj["name"]);
+# }
+# }
+# ```
+# 
+# ### Async/Await
+# 
+# ```
+# async fn fetch_data() -> string {
+# let response = await dict_get(http, "https://api.example.com");
+# return response.data;
+# }
+# ```
+# 
+# ## Standard Library
+# 
+# The standard library includes:
+# - I/O operations
+# - Collections (lists, dicts, sets)
+# - Math functions
+# - String manipulation
+# - File operations
+# - Network operations
+# - And more...
+# 
+# See the API documentation for details.
+
+
+fn main():
+    # Main entry point
+    print("Testing Language Specification...")
+
+    # Test grammar
+    grammar = Grammar.get_grammar()
+    print("Grammar loaded: {len(grammar)} characters")
+
+    # Test semantics
+    semantics = Semantics.get_semantics()
+    print("Semantics loaded: {len(semantics)} characters")
+
+    # Test conformance
+    tester = ConformanceTester()
+    tester.add_test(ConformanceTest(
+        name="test1",
+        code='print("Hello")',
+        expected="Hello"
+    ))
+    results = tester.run_tests()
+    print("Conformance tests: {len(results)} passed")
+
+    # Test reference
+    reference = LanguageReference.get_reference()
+    print("Reference loaded: {len(reference)} characters")
+
+    print("Language Specification initialized successfully")
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,424 @@
+#mode slim
+# Prim Training Optimization
+# Provides gradient optimization, regularization techniques, learning rate scheduling,
+# early stopping, and mixed precision training.
+
+# import numpy as np
+# from typing import List, Dict, Any, Optional, Callable, Tuple
+# from dataclasses import dataclass
+# from enum import Enum
+
+
+OptimizerType_SGD = "sgd"
+OptimizerType_ADAM = "adam"
+OptimizerType_ADAMW = "adamw"
+OptimizerType_RMSPROP = "rmsprop"
+OptimizerType_NESTEROV = "nesterov"
+OptimizerType_ADAGRAD = "adagrad"RegularizationType_L1 = "l1"
+RegularizationType_L2 = "l2"
+RegularizationType_ELASTIC_NET = "elastic_net"
+RegularizationType_DROPOUT = "dropout"
+RegularizationType_BATCH_NORM = "batch_norm"LearningRateSchedule_CONSTANT = "constant"
+LearningRateSchedule_EXPONENTIAL = "exponential"
+LearningRateSchedule_COSINE = "cosine"
+LearningRateSchedule_WARMUP = "warmup"
+LearningRateSchedule_CYCLICAL = "cyclical"class
+# Class Optimizer
+    # Optimizer configuration
+    type
+    learning_rate: float = 0.001
+    beta1: float = 0.9
+    beta2: float = 0.999
+    epsilon: float = 1e-8
+    momentum: float = 0.0
+    decay: float = 0.0
+    weight_decay: float = 0.0
+
+
+# Class GradientOptimizer
+    # Gradient optimization
+
+    fn make_gradientoptimizer(optimizer):
+        obj = {}
+        obj["optimizer"] = optimizer
+        obj["m"] = null
+        obj["v"] = null
+        obj["t"] = 0
+
+    def update(self, gradients: np.ndarray, weights: np.ndarray) -> np.ndarray:
+        # Update weights using optimizer
+        obj["t"] += 1
+
+        if obj["optimizer"].type == OptimizerType.SGD:
+            return gradientoptimizer__sgd_update(obj, gradients, weights)
+        elif obj["optimizer"].type == OptimizerType.ADAM:
+            return gradientoptimizer__adam_update(obj, gradients, weights)
+        elif obj["optimizer"].type == OptimizerType.RMSPROP:
+            return gradientoptimizer__rmsprop_update(obj, gradients, weights)
+        elif obj["optimizer"].type == OptimizerType.NESTEROV:
+            return gradientoptimizer__nesterov_update(obj, gradients, weights)
+        else:
+            return gradientoptimizer__sgd_update(obj, gradients, weights)
+
+    def _sgd_update(self, gradients: np.ndarray, weights: np.ndarray) -> np.ndarray:
+        # SGD update
+        lr = obj["optimizer"].learning_rate
+        return weights - lr * gradients
+
+    def _adam_update(self, gradients: np.ndarray, weights: np.ndarray) -> np.ndarray:
+        # Adam update
+        lr = obj["optimizer"].learning_rate
+        beta1 = obj["optimizer"].beta1
+        beta2 = obj["optimizer"].beta2
+        epsilon = obj["optimizer"].epsilon
+
+        if obj["m"] is null:
+            obj["m"] = np.zeros_like(gradients)
+            obj["v"] = np.zeros_like(gradients)
+
+        obj["m"] = beta1 * obj["m"] + (1 - beta1) * gradients
+        obj["v"] = beta2 * obj["v"] + (1 - beta2) * (gradients ** 2)
+
+        m_hat = obj["m"] / (1 - beta1 ** obj["t"])
+        v_hat = obj["v"] / (1 - beta2 ** obj["t"])
+
+        return weights - lr * m_hat / (np.sqrt(v_hat) + epsilon)
+
+    def _rmsprop_update(self, gradients: np.ndarray, weights: np.ndarray) -> np.ndarray:
+        # RMSProp update
+        lr = obj["optimizer"].learning_rate
+        beta = obj["optimizer"].beta1
+        epsilon = obj["optimizer"].epsilon
+
+        if obj["v"] is null:
+            obj["v"] = np.zeros_like(gradients)
+
+        obj["v"] = beta * obj["v"] + (1 - beta) * (gradients ** 2)
+        return weights - lr * gradients / (np.sqrt(obj["v"]) + epsilon)
+
+    def _nesterov_update(self, gradients: np.ndarray, weights: np.ndarray) -> np.ndarray:
+        # Nesterov momentum update
+        lr = obj["optimizer"].learning_rate
+        momentum = obj["optimizer"].momentum
+
+        if obj["m"] is null:
+            obj["m"] = np.zeros_like(gradients)
+
+        obj["m"] = momentum * obj["m"] - lr * gradients
+        return weights + momentum * obj["m"] - lr * gradients
+
+
+# Class Regularizer
+    # Regularization techniques
+
+    fn make_regularizer(reg_type, strength: float = 0.01):
+        obj = {}
+        obj["reg_type"] = reg_type
+        obj["strength"] = strength
+
+    def apply(self, weights: np.ndarray) -> np.ndarray:
+        # Apply regularization to weights
+        if obj["reg_type"] == RegularizationType.L1:
+            return regularizer__l1_regularization(obj, weights)
+        elif obj["reg_type"] == RegularizationType.L2:
+            return regularizer__l2_regularization(obj, weights)
+        elif obj["reg_type"] == RegularizationType.ELASTIC_NET:
+            return regularizer__elastic_net(obj, weights)
+        return weights
+
+    def penalty(self, weights: np.ndarray) -> float:
+        # Calculate regularization penalty
+        if obj["reg_type"] == RegularizationType.L1:
+            return obj["strength"] * np.sum(np.abs(weights))
+        elif obj["reg_type"] == RegularizationType.L2:
+            return 0.5 * obj["strength"] * np.sum(weights ** 2)
+        elif obj["reg_type"] == RegularizationType.ELASTIC_NET:
+            l1 = obj["strength"] * 0.5 * np.sum(np.abs(weights))
+            l2 = 0.5 * obj["strength"] * 0.5 * np.sum(weights ** 2)
+            return l1 + l2
+        return 0.0
+
+    def _l1_regularization(self, weights: np.ndarray) -> np.ndarray:
+        # L1 regularization
+        return weights - obj["strength"] * np.sign(weights)
+
+    def _l2_regularization(self, weights: np.ndarray) -> np.ndarray:
+        # L2 regularization
+        return weights - obj["strength"] * weights
+
+    def _elastic_net(self, weights: np.ndarray) -> np.ndarray:
+        # Elastic net regularization
+        l1 = obj["strength"] * 0.5 * np.sign(weights)
+        l2 = obj["strength"] * 0.5 * weights
+        return weights - l1 - l2
+
+
+# Class LearningRateScheduler
+    # Learning rate scheduling
+
+    fn make_learningratescheduler(schedule, initial_lr: float = 0.001):
+        obj = {}
+        obj["schedule"] = schedule
+        obj["initial_lr"] = initial_lr
+        obj["current_lr"] = initial_lr
+        obj["epoch"] = 0
+
+    def step(self) -> float:
+        # Update learning rate
+        obj["epoch"] += 1
+
+        if obj["schedule"] == LearningRateSchedule.CONSTANT:
+            obj["current_lr"] = obj["initial_lr"]
+        elif obj["schedule"] == LearningRateSchedule.EXPONENTIAL:
+            decay_rate = 0.95
+            obj["current_lr"] = obj["initial_lr"] * (decay_rate ** obj["epoch"])
+        elif obj["schedule"] == LearningRateSchedule.COSINE:
+            total_epochs = 100
+            obj["current_lr"] = obj["initial_lr"] * 0.5 * (1 + np.cos(np.pi * obj["epoch"] / total_epochs))
+        elif obj["schedule"] == LearningRateSchedule.WARMUP:
+            warmup_epochs = 10
+            if obj["epoch"] < warmup_epochs:
+                obj["current_lr"] = obj["initial_lr"] * (obj["epoch"] / warmup_epochs)
+            else:
+                decay_rate = 0.95
+                obj["current_lr"] = obj["initial_lr"] * (decay_rate ** (obj["epoch"] - warmup_epochs))
+
+        return obj["current_lr"]
+
+
+# Class EarlyStopping
+    # Early stopping callback
+
+    fn make_earlystopping(patience: int = 10, min_delta: float = 0.0):
+        obj = {}
+        obj["patience"] = patience
+        obj["min_delta"] = min_delta
+        obj["best_score"] = null
+        obj["counter"] = 0
+        obj["early_stop"] = false
+
+    def __call__(self, score: float) -> bool:
+        # Check if should stop early
+        if obj["best_score"] is null:
+            obj["best_score"] = score
+            return false
+
+        if score > obj["best_score"] + obj["min_delta"]:
+            obj["best_score"] = score
+            obj["counter"] = 0
+        else:
+            obj["counter"] += 1
+
+        if obj["counter"] >= obj["patience"]:
+            obj["early_stop"] = true
+            return true
+
+        return false
+
+
+# Class MixedPrecisionTraining
+    # Mixed precision training
+
+    fn make_mixedprecisiontraining():
+        obj = {}
+        obj["scaler"] = 1.0
+
+    def scale_loss(self, loss: float) -> float:
+        # Scale loss for mixed precision
+        return loss * obj["scaler"]
+
+    def unscale_gradients(self, gradients: np.ndarray) -> np.ndarray:
+        # Unscale gradients
+        return gradients / obj["scaler"]
+
+    fn mixedprecisiontraining_update_scaler(obj, gradients: np.ndarray):
+        # Update scaler based on gradients
+        if np.any(np.isnan(gradients)) or np.any(np.isinf(gradients)):
+            obj["scaler"] *= 0.5
+
+        if obj["scaler"] < 1.0:
+            obj["scaler"] *= 2.0
+
+
+# Class TrainingCallback
+    # Training callback
+
+    fn trainingcallback_on_epoch_begin(obj, epoch: int):
+        # Called at beginning of epoch
+        pass
+
+    fn trainingcallback_on_epoch_end(obj, epoch: int, logs):
+        # Called at end of epoch
+        pass
+
+    fn trainingcallback_on_batch_begin(obj, batch: int):
+        # Called at beginning of batch
+        pass
+
+    fn trainingcallback_on_batch_end(obj, batch: int, logs):
+        # Called at end of batch
+        pass
+
+
+# Class ModelCheckpoint
+    # Model checkpoint callback
+
+    fn make_modelcheckpoint(filepath: str, monitor: str = "val_loss", save_best_only: bool = True):
+        obj = {}
+        obj["filepath"] = filepath
+        obj["monitor"] = monitor
+        obj["save_best_only"] = save_best_only
+        obj["best_score"] = null
+
+    fn modelcheckpoint_on_epoch_end(obj, epoch: int, logs):
+        # Save model checkpoint
+        if obj["monitor"] not in logs:
+            return
+
+        score = logs[obj["monitor"]]
+
+        if obj["best_score"] is null or score > obj["best_score"]:
+            obj["best_score"] = score
+            if obj["save_best_only"]:
+                # Save model (simplified)
+                pass
+
+
+# Class ReduceLROnPlateau
+    # Reduce learning rate on plateau
+
+    fn make_reducelronplateau(monitor: str = "val_loss", factor: float = 0.5, patience: int = 5):
+        obj = {}
+        obj["monitor"] = monitor
+        obj["factor"] = factor
+        obj["patience"] = patience
+        obj["best_score"] = null
+        obj["counter"] = 0
+
+    fn reducelronplateau_on_epoch_end(obj, epoch: int, logs):
+        # Reduce learning rate if metric plateaus
+        if obj["monitor"] not in logs:
+            return
+
+        score = logs[obj["monitor"]]
+
+        if obj["best_score"] is null:
+            obj["best_score"] = score
+            return
+
+        if score > obj["best_score"]:
+            obj["best_score"] = score
+            obj["counter"] = 0
+        else:
+            obj["counter"] += 1
+
+            if obj["counter"] >= obj["patience"]:
+                # Reduce learning rate (would need access to optimizer)
+                obj["counter"] = 0
+
+
+# Class GradientClipping
+    # Gradient clipping
+
+    fn make_gradientclipping(clip_value: float = 1.0):
+        obj = {}
+        obj["clip_value"] = clip_value
+
+    def clip(self, gradients: np.ndarray) -> np.ndarray:
+        # Clip gradients
+        norm = np.linalg.norm(gradients)
+        if norm > obj["clip_value"]:
+            gradients = gradients * (obj["clip_value"] / norm)
+        return gradients
+
+
+# Class TrainingMonitor
+    # Training progress monitoring
+
+    fn make_trainingmonitor():
+        obj = {}
+        obj["metrics"]] = {}
+        obj["current_epoch"] = 0
+
+    fn trainingmonitor_update(obj, metrics):
+        # Update metrics
+        for key, value in metrics.items():
+            if key not in obj["metrics"]:
+                obj["metrics"][key] = []
+            obj["metrics"][key].append(value)
+
+    def get_history(self) ]:
+        # Get training history
+        return obj["metrics"].copy()
+
+    fn trainingmonitor_plot_history(obj, metrics):
+        # Plot training history
+        # Simplified - would use matplotlib in practice
+        for metric in metrics:
+            if metric in obj["metrics"]:
+                print("{metric}: {obj["metrics"][metric][-1]:.4f}")
+
+
+def create_optimizer(optimizer_type, learning_rate: float = 0.001) :
+    # Create optimizer
+    return Optimizer(type=optimizer_type, learning_rate=learning_rate)
+
+
+def create_regularizer(reg_type, strength: float = 0.01) :
+    # Create regularizer
+    return Regularizer(reg_type, strength)
+
+
+def create_scheduler(schedule, initial_lr: float = 0.001) :
+    # Create learning rate scheduler
+    return LearningRateScheduler(schedule, initial_lr)
+
+
+fn main():
+    # Main entry point for testing
+    print("Testing Training Optimization...")
+
+    # Test Optimizer
+    optimizer = create_optimizer(OptimizerType.ADAM, learning_rate=0.001)
+    grad_opt = GradientOptimizer(optimizer)
+
+    weights = np.random.randn(10, 10)
+    gradients = np.random.randn(10, 10) * 0.01
+
+    updated_weights = grad_opt.update(gradients, weights)
+    print("Optimizer: {optimizer.type.value}, weights updated")
+
+    # Test Regularizer
+    regularizer = create_regularizer(RegularizationType.L2, strength=0.01)
+    penalty = regularizer.penalty(weights)
+    print("L2 penalty: {penalty:.4f}")
+
+    # Test Learning Rate Scheduler
+    scheduler = create_scheduler(LearningRateSchedule.EXPONENTIAL, initial_lr=0.001)
+    lr = scheduler.step()
+    print("Learning rate: {lr:.6f}")
+
+    # Test Early Stopping
+    early_stopping = EarlyStopping(patience=5, min_delta=0.0)
+    for score in [0.8, 0.85, 0.82, 0.83, 0.84, 0.82]:
+        should_stop = early_stopping(score)
+        print("Score: {score:.2f}, Stop: {should_stop}")
+
+    # Test Gradient Clipping
+    clipper = GradientClipping(clip_value=1.0)
+    large_grads = np.array([10.0, 10.0, 10.0])
+    clipped_grads = clipper.clip(large_grads)
+    print("Clipped gradients: {clipped_grads[:3]}")
+
+    # Test Training Monitor
+    monitor = TrainingMonitor()
+    monitor.update({"loss": 0.5, "accuracy": 0.8})
+    monitor.update({"loss": 0.4, "accuracy": 0.85})
+    history = monitor.get_history()
+    print("Training history: {len(history['loss'])} epochs")
+
+    print("\nTraining Optimization initialized successfully")
+
+
+if __name__ == "__main__":
+    main()

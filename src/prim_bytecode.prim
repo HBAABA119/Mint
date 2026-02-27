@@ -1,0 +1,454 @@
+#mode slim
+# Prim Language Bytecode Compiler and VM (v0.5)
+# Implementation of bytecode compiler and virtual machine for Prim
+
+# Opcode constants
+OP_LOAD_CONST = 0
+OP_LOAD_NAME = 1
+OP_STORE_NAME = 2
+OP_BINARY_ADD = 3
+OP_BINARY_SUB = 4
+OP_BINARY_MUL = 5
+OP_BINARY_DIV = 6
+OP_BINARY_MOD = 7
+OP_BINARY_EQ = 8
+OP_BINARY_NE = 9
+OP_BINARY_LT = 10
+OP_BINARY_GT = 11
+OP_BINARY_LE = 12
+OP_BINARY_GE = 13
+OP_BINARY_AND = 14
+OP_BINARY_OR = 15
+OP_UNARY_NEG = 16
+OP_UNARY_NOT = 17
+OP_JUMP_ABSOLUTE = 18
+OP_JUMP_IF_FALSE_OR_POP = 19
+OP_POP_JUMP_IF_TRUE = 20
+OP_POP_JUMP_IF_FALSE = 21
+OP_CALL_FUNCTION = 22
+OP_RETURN_VALUE = 23
+OP_POP_TOP = 24
+OP_ROT_TWO = 25
+OP_ROT_THREE = 26
+OP_DUP_TOP = 27
+OP_DUP_TOP_TWO = 28
+
+# Instruction factory
+fn make_instruction(opcode, arg, lineno):
+    if arg == None:
+        arg = None
+    if lineno == None:
+        lineno = 0
+    return {
+        "opcode": opcode,
+        "arg": arg,
+        "lineno": lineno,
+        "to_string": fn() {
+            if arg != None:
+                return to_string(opcode) + "(" + to_string(arg) + ")"
+            return to_string(opcode)
+        }
+    }
+
+# Bytecode factory
+fn make_bytecode():
+    return {
+        "code": [],
+        "consts": [],
+        "names": [],
+        "varnames": []
+    }
+
+fn bytecode_add_instruction(bytecode, opcode, arg, lineno):
+    # Add an instruction to the bytecode
+    bytecode["code"] = push(bytecode["code"], make_instruction(opcode, arg, lineno))
+
+fn bytecode_add_const(bytecode, const):
+    # Add a constant to the constants pool and return its index
+    if not contains(bytecode["consts"], const):
+        bytecode["consts"] = push(bytecode["consts"], const)
+    return index_of(bytecode["consts"], const)
+
+fn bytecode_add_name(bytecode, name):
+    # Add a name to the names table and return its index
+    if not contains(bytecode["names"], name):
+        bytecode["names"] = push(bytecode["names"], name)
+    return index_of(bytecode["names"], name)
+
+fn bytecode_add_varname(bytecode, name):
+    # Add a variable name to the varnames table and return its index
+    if not contains(bytecode["varnames"], name):
+        bytecode["varnames"] = push(bytecode["varnames"], name)
+    return index_of(bytecode["varnames"], name)
+
+# BytecodeCompiler factory
+fn make_bytecode_compiler():
+    return {
+        "bytecode": make_bytecode(),
+        "environment_stack": []
+    }
+
+fn bytecode_compiler_compile(compiler, ast):
+    # Compile an AST to bytecode
+    compiler["bytecode"] = make_bytecode()
+    
+    if ast["node_type"] == "BLOCK_STATEMENT":
+        for stmt in ast["statements"]:
+            bytecode_compiler_compile_statement(compiler, stmt)
+    else:
+        bytecode_compiler_compile_statement(compiler, ast)
+    
+    # Add return statement at the end
+    bytecode_add_instruction(compiler["bytecode"], OP_LOAD_CONST, 
+        bytecode_add_const(compiler["bytecode"], None), 0)
+    bytecode_add_instruction(compiler["bytecode"], OP_RETURN_VALUE, None, 0)
+    
+    return compiler["bytecode"]
+
+fn bytecode_compiler_compile_statement(compiler, node):
+    # Compile a statement
+    node_type = node["node_type"]
+    if node_type == "ASSIGNMENT":
+        bytecode_compiler_compile_assignment(compiler, node)
+    elif node_type == "EXPRESSION_STATEMENT":
+        bytecode_compiler_compile_expression(compiler, node["expression"])
+        bytecode_add_instruction(compiler["bytecode"], OP_POP_TOP, None, 0)
+    elif node_type == "IF_STATEMENT":
+        bytecode_compiler_compile_if_statement(compiler, node)
+    elif node_type == "WHILE_LOOP":
+        bytecode_compiler_compile_while_loop(compiler, node)
+    elif node_type == "RETURN_STATEMENT":
+        bytecode_compiler_compile_return_statement(compiler, node)
+
+fn bytecode_compiler_compile_assignment(compiler, node):
+    # Compile an assignment statement
+    # Compile the value
+    bytecode_compiler_compile_expression(compiler, node["value"])
+    
+    # Store it in the variable
+    var_name = node["variable"]
+    name_idx = bytecode_add_name(compiler["bytecode"], var_name)
+    bytecode_add_instruction(compiler["bytecode"], OP_STORE_NAME, name_idx, 0)
+
+fn bytecode_compiler_compile_if_statement(compiler, node):
+    # Compile an if statement
+    # Compile the condition
+    bytecode_compiler_compile_expression(compiler, node["condition"])
+    
+    # Jump to else block if condition is false
+    jump_else_pos = len(compiler["bytecode"]["code"])
+    bytecode_add_instruction(compiler["bytecode"], OP_POP_JUMP_IF_FALSE, 0, 0)
+    
+    # Compile the if block
+    bytecode_compiler_compile_statement(compiler, node["consequent"])
+    
+    # Jump to end after if block
+    jump_end_pos = len(compiler["bytecode"]["code"])
+    bytecode_add_instruction(compiler["bytecode"], OP_JUMP_ABSOLUTE, 0, 0)
+    
+    # Update the jump to else position
+    compiler["bytecode"]["code"][jump_else_pos]["arg"] = len(compiler["bytecode"]["code"])
+    
+    # Compile the else block if present
+    if contains(dict_keys(node), "alternate") and node["alternate"] != None:
+        bytecode_compiler_compile_statement(compiler, node["alternate"])
+    
+    # Update the jump to end position
+    compiler["bytecode"]["code"][jump_end_pos]["arg"] = len(compiler["bytecode"]["code"])
+
+fn bytecode_compiler_compile_while_loop(compiler, node):
+    # Compile a while loop
+    loop_start = len(compiler["bytecode"]["code"])
+    
+    # Compile the condition
+    bytecode_compiler_compile_expression(compiler, node["condition"])
+    
+    # Jump to after loop if condition is false
+    jump_out_pos = len(compiler["bytecode"]["code"])
+    bytecode_add_instruction(compiler["bytecode"], OP_POP_JUMP_IF_FALSE, 0, 0)
+    
+    # Compile the loop body
+    bytecode_compiler_compile_statement(compiler, node["body"])
+    
+    # Jump back to the condition
+    bytecode_add_instruction(compiler["bytecode"], OP_JUMP_ABSOLUTE, loop_start, 0)
+    
+    # Update the jump out position
+    compiler["bytecode"]["code"][jump_out_pos]["arg"] = len(compiler["bytecode"]["code"])
+
+fn bytecode_compiler_compile_return_statement(compiler, node):
+    # Compile a return statement
+    if contains(dict_keys(node), "value") and node["value"] != None:
+        bytecode_compiler_compile_expression(compiler, node["value"])
+    else:
+        bytecode_add_instruction(compiler["bytecode"], OP_LOAD_CONST,
+            bytecode_add_const(compiler["bytecode"], None), 0)
+    bytecode_add_instruction(compiler["bytecode"], OP_RETURN_VALUE, None, 0)
+
+fn bytecode_compiler_compile_expression(compiler, node):
+    # Compile an expression
+    node_type = node["node_type"]
+    if node_type == "NUMBER_LITERAL":
+        const_idx = bytecode_add_const(compiler["bytecode"], node["value"])
+        bytecode_add_instruction(compiler["bytecode"], OP_LOAD_CONST, const_idx, 0)
+    elif node_type == "STRING_LITERAL":
+        const_idx = bytecode_add_const(compiler["bytecode"], node["value"])
+        bytecode_add_instruction(compiler["bytecode"], OP_LOAD_CONST, const_idx, 0)
+    elif node_type == "BOOLEAN_LITERAL":
+        const_idx = bytecode_add_const(compiler["bytecode"], node["value"])
+        bytecode_add_instruction(compiler["bytecode"], OP_LOAD_CONST, const_idx, 0)
+    elif node_type == "NULL_LITERAL":
+        const_idx = bytecode_add_const(compiler["bytecode"], node["value"])
+        bytecode_add_instruction(compiler["bytecode"], OP_LOAD_CONST, const_idx, 0)
+    elif node_type == "VARIABLE_ACCESS":
+        name_idx = bytecode_add_name(compiler["bytecode"], node["name"])
+        bytecode_add_instruction(compiler["bytecode"], OP_LOAD_NAME, name_idx, 0)
+    elif node_type == "BINARY_OPERATION":
+        bytecode_compiler_compile_binary_operation(compiler, node)
+    elif node_type == "UNARY_OPERATION":
+        bytecode_compiler_compile_unary_operation(compiler, node)
+    elif node_type == "FUNCTION_CALL":
+        bytecode_compiler_compile_function_call(compiler, node)
+
+fn bytecode_compiler_compile_binary_operation(compiler, node):
+    # Compile a binary operation
+    op = node["operator"]
+    
+    # Compile left and right operands
+    bytecode_compiler_compile_expression(compiler, node["left"])
+    bytecode_compiler_compile_expression(compiler, node["right"])
+    
+    # Perform the operation based on the operator
+    if op == "+":
+        bytecode_add_instruction(compiler["bytecode"], OP_BINARY_ADD, None, 0)
+    elif op == "-":
+        bytecode_add_instruction(compiler["bytecode"], OP_BINARY_SUB, None, 0)
+    elif op == "*":
+        bytecode_add_instruction(compiler["bytecode"], OP_BINARY_MUL, None, 0)
+    elif op == "/":
+        bytecode_add_instruction(compiler["bytecode"], OP_BINARY_DIV, None, 0)
+    elif op == "%":
+        bytecode_add_instruction(compiler["bytecode"], OP_BINARY_MOD, None, 0)
+    elif op == "==":
+        bytecode_add_instruction(compiler["bytecode"], OP_BINARY_EQ, None, 0)
+    elif op == "!=":
+        bytecode_add_instruction(compiler["bytecode"], OP_BINARY_NE, None, 0)
+    elif op == "<":
+        bytecode_add_instruction(compiler["bytecode"], OP_BINARY_LT, None, 0)
+    elif op == ">":
+        bytecode_add_instruction(compiler["bytecode"], OP_BINARY_GT, None, 0)
+    elif op == "<=":
+        bytecode_add_instruction(compiler["bytecode"], OP_BINARY_LE, None, 0)
+    elif op == ">=":
+        bytecode_add_instruction(compiler["bytecode"], OP_BINARY_GE, None, 0)
+    elif op == "&&":
+        bytecode_add_instruction(compiler["bytecode"], OP_BINARY_AND, None, 0)
+    elif op == "||":
+        bytecode_add_instruction(compiler["bytecode"], OP_BINARY_OR, None, 0)
+
+fn bytecode_compiler_compile_unary_operation(compiler, node):
+    # Compile a unary operation
+    op = node["operator"]
+    
+    # Compile the operand
+    bytecode_compiler_compile_expression(compiler, node["operand"])
+    
+    # Perform the operation based on the operator
+    if op == "-":
+        bytecode_add_instruction(compiler["bytecode"], OP_UNARY_NEG, None, 0)
+    elif op == "!":
+        bytecode_add_instruction(compiler["bytecode"], OP_UNARY_NOT, None, 0)
+
+fn bytecode_compiler_compile_function_call(compiler, node):
+    # Compile a function call
+    # Compile the function
+    bytecode_compiler_compile_expression(compiler, node["callee"])
+    
+    # Compile arguments
+    arg_count = 0
+    for arg in node["arguments"]:
+        bytecode_compiler_compile_expression(compiler, arg)
+        arg_count = arg_count + 1
+    
+    # Call the function
+    bytecode_add_instruction(compiler["bytecode"], OP_CALL_FUNCTION, arg_count, 0)
+
+# VirtualMachine factory
+fn make_virtual_machine():
+    return {
+        "stack": [],
+        "frames": [],
+        "return_value": None
+    }
+
+fn virtual_machine_execute(vm, bytecode, global_env):
+    # Execute bytecode
+    if global_env == None:
+        global_env = {}
+    frame = make_frame(bytecode, global_env)
+    vm["frames"] = push(vm["frames"], frame)
+    
+    while frame["pc"] < len(frame["code"]["code"]):
+        instruction = frame["code"]["code"][frame["pc"]]
+        virtual_machine_execute_instruction(vm, instruction, frame)
+        frame["pc"] = frame["pc"] + 1
+        
+        if vm["return_value"] != None:
+            break
+    
+    # Pop frame
+    vm["frames"] = slice(vm["frames"], 0, len(vm["frames"]) - 1)
+    return vm["return_value"]
+
+fn virtual_machine_execute_instruction(vm, instruction, frame):
+    # Execute a single instruction
+    opcode = instruction["opcode"]
+    arg = instruction["arg"]
+    
+    if opcode == OP_LOAD_CONST:
+        const = frame["code"]["consts"][arg]
+        frame_push(frame, const)
+    elif opcode == OP_LOAD_NAME:
+        name = frame["code"]["names"][arg]
+        if contains(dict_keys(frame["local_vars"]), name):
+            frame_push(frame, frame["local_vars"][name])
+        elif contains(dict_keys(frame["global_vars"]), name):
+            frame_push(frame, frame["global_vars"][name])
+        else:
+            print("NameError: Name '" + name + "' is not defined")
+    elif opcode == OP_STORE_NAME:
+        name = frame["code"]["names"][arg]
+        value = frame_pop(frame)
+        frame["local_vars"][name] = value
+    elif opcode == OP_BINARY_ADD:
+        right = frame_pop(frame)
+        left = frame_pop(frame)
+        frame_push(frame, left + right)
+    elif opcode == OP_BINARY_SUB:
+        right = frame_pop(frame)
+        left = frame_pop(frame)
+        frame_push(frame, left - right)
+    elif opcode == OP_BINARY_MUL:
+        right = frame_pop(frame)
+        left = frame_pop(frame)
+        frame_push(frame, left * right)
+    elif opcode == OP_BINARY_DIV:
+        right = frame_pop(frame)
+        left = frame_pop(frame)
+        frame_push(frame, left / right)
+    elif opcode == OP_BINARY_MOD:
+        right = frame_pop(frame)
+        left = frame_pop(frame)
+        frame_push(frame, left % right)
+    elif opcode == OP_BINARY_EQ:
+        right = frame_pop(frame)
+        left = frame_pop(frame)
+        frame_push(frame, left == right)
+    elif opcode == OP_BINARY_NE:
+        right = frame_pop(frame)
+        left = frame_pop(frame)
+        frame_push(frame, left != right)
+    elif opcode == OP_BINARY_LT:
+        right = frame_pop(frame)
+        left = frame_pop(frame)
+        frame_push(frame, left < right)
+    elif opcode == OP_BINARY_GT:
+        right = frame_pop(frame)
+        left = frame_pop(frame)
+        frame_push(frame, left > right)
+    elif opcode == OP_BINARY_LE:
+        right = frame_pop(frame)
+        left = frame_pop(frame)
+        frame_push(frame, left <= right)
+    elif opcode == OP_BINARY_GE:
+        right = frame_pop(frame)
+        left = frame_pop(frame)
+        frame_push(frame, left >= right)
+    elif opcode == OP_UNARY_NEG:
+        value = frame_pop(frame)
+        frame_push(frame, -value)
+    elif opcode == OP_UNARY_NOT:
+        value = frame_pop(frame)
+        frame_push(frame, not value)
+    elif opcode == OP_POP_JUMP_IF_FALSE:
+        value = frame_pop(frame)
+        if not value:
+            frame["pc"] = arg - 1  # -1 because pc will be incremented
+    elif opcode == OP_JUMP_ABSOLUTE:
+        frame["pc"] = arg - 1  # -1 because pc will be incremented
+    elif opcode == OP_POP_TOP:
+        frame_pop(frame)
+    elif opcode == OP_RETURN_VALUE:
+        vm["return_value"] = frame_pop(frame)
+    elif opcode == OP_CALL_FUNCTION:
+        arg_count = arg
+        args = []
+        i = 0
+        while i < arg_count:
+            args = push(args, frame_pop(frame))
+            i = i + 1
+        # Reverse args to get correct order
+        func = frame_pop(frame)
+        if callable(func):
+            # In conceptual implementation
+            result = func(args)
+            frame_push(frame, result)
+        else:
+            print("TypeError: " + to_string(func) + " is not callable")
+    else:
+        print("NotImplementedError: Opcode " + to_string(opcode) + " not implemented")
+
+# Frame factory
+fn make_frame(code, global_vars):
+    return {
+        "code": code,
+        "global_vars": global_vars,
+        "local_vars": {},
+        "stack": [],
+        "pc": 0
+    }
+
+fn frame_push(frame, value):
+    # Push a value onto the stack
+    frame["stack"] = push(frame["stack"], value)
+
+fn frame_pop(frame):
+    # Pop a value from the stack
+    if len(frame["stack"]) == 0:
+        print("IndexError: pop from empty stack")
+        return None
+    value = frame["stack"][len(frame["stack"]) - 1]
+    frame["stack"] = slice(frame["stack"], 0, len(frame["stack"]) - 1)
+    return value
+
+fn compile_and_run_vm(ast, global_env):
+    # Compile AST to bytecode and run in VM
+    compiler = make_bytecode_compiler()
+    bytecode = bytecode_compiler_compile(compiler, ast)
+    
+    vm = make_virtual_machine()
+    result = virtual_machine_execute(vm, bytecode, global_env)
+    
+    return result
+
+fn main():
+    print("Prim Bytecode Compiler and VM (v0.5) - Prototype")
+    print("This implements bytecode compilation and virtual machine execution for Prim.")
+    
+    # Example usage
+    print("\nConceptual examples:")
+    print("# Compiling and running code through the VM:")
+    print("# AST -> Bytecode -> VM Execution")
+    print("")
+    print("# The bytecode compiler transforms AST nodes into a sequence of")
+    print("# low-level operations that the VM can execute efficiently.")
+    print("")
+    print("# Sample bytecode for 'x = 5 + 3':")
+    print("# LOAD_CONST 5    # Push 5 onto stack")
+    print("# LOAD_CONST 3    # Push 3 onto stack")
+    print("# BINARY_ADD      # Add top two values")
+    print("# STORE_NAME x    # Store result in variable x")
+    print("# RETURN_VALUE    # Return from function")
+
+if __name__ == "__main__":
+    main()

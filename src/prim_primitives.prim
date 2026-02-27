@@ -1,0 +1,480 @@
+#mode slim
+# Prim Essential Primitives
+# Provides native data structure implementations, string and collection types,
+# numeric type system, boolean and control flow primitives, and basic type conversion utilities.
+
+# from typing import Dict, List, Optional, Any, Union, Callable, TypeVar, Generic
+# from dataclasses import dataclass, field
+# from enum import Enum
+# import math
+
+
+PrimType_NULL = "null"
+PrimType_BOOLEAN = "boolean"
+PrimType_INTEGER = "integer"
+PrimType_FLOAT = "float"
+PrimType_STRING = "string"
+PrimType_LIST = "list"
+PrimType_DICT = "dict"
+PrimType_FUNCTION = "function"
+PrimType_OBJECT = "object"class
+# Class PrimValue
+    # Prim value container
+    type
+    value
+    metadata = field(default_factory=dict)
+
+    def is_truthy(self) -> bool:
+        # Check if value is truthy
+        if obj["type"] == PrimType.NULL:
+            return false
+        elif obj["type"] == PrimType.BOOLEAN:
+            return obj["value"]
+        elif obj["type"] in [PrimType.INTEGER, PrimType.FLOAT]:
+            return obj["value"] != 0
+        elif obj["type"] == PrimType.STRING:
+            return len(obj["value"]) > 0
+        elif obj["type"] == PrimType.LIST:
+            return len(obj["value"]) > 0
+        elif obj["type"] == PrimType.DICT:
+            return len(obj["value"]) > 0
+        return true
+
+    def to_string(self) -> str:
+        # Convert to string
+        if obj["type"] == PrimType.NULL:
+            return "null"
+        elif obj["type"] == PrimType.BOOLEAN:
+            return "true" if obj["value"] else "false"
+        elif obj["type"] == PrimType.INTEGER:
+            return str(obj["value"])
+        elif obj["type"] == PrimType.FLOAT:
+            return str(obj["value"])
+        elif obj["type"] == PrimType.STRING:
+            return obj["value"]
+        elif obj["type"] == PrimType.LIST:
+            return "[{', '.join(str(v) for v in obj["value"])}]"
+        elif obj["type"] == PrimType.DICT:
+            return "{{{', '.join(f'{k}: {v}' for k, v in obj["value"].items())}}}"
+        return str(obj["value"])
+
+
+# Class StringOperations
+    # String operations
+
+    @staticmethod
+    def upper(s: str) -> str:
+        # Convert to uppercase
+        return s.upper()
+
+    @staticmethod
+    def lower(s: str) -> str:
+        # Convert to lowercase
+        return s.lower()
+
+    @staticmethod
+    def split(s: str, delimiter: str = " ") :
+        # Split string
+        return s.split(delimiter)
+
+    @staticmethod
+    def join(parts, separator: str = "") -> str:
+        # Join parts
+        return separator.join(parts)
+
+    @staticmethod
+    def trim(s: str) -> str:
+        # Trim whitespace
+        return s.strip()
+
+    @staticmethod
+    def length(s: str) -> int:
+        # Get string length
+        return len(s)
+
+    @staticmethod
+    def contains(s: str, substring: str) -> bool:
+        # Check if string contains substring
+        return substring in s
+
+    @staticmethod
+    def replace(s: str, old: str, new: str) -> str:
+        # Replace substring
+        return s.replace(old, new)
+
+    @staticmethod
+    def slice(s: str, start: int, end = null) -> str:
+        # Slice string
+        if end is null:
+            return s[start:]
+        return s[start:end]
+
+
+# Class CollectionOperations
+    # Collection operations
+
+    @staticmethod
+    def map(collection, func) :
+        # Map function over collection
+        return [func(item) for item in collection]
+
+    @staticmethod
+    def filter(collection, func) :
+        # Filter collection
+        return [item for item in collection if func(item)]
+
+    @staticmethod
+    def reduce(collection, func, initial = null) :
+        # Reduce collection
+        if initial is not null:
+            result = initial
+            for item in collection:
+                result = func(result, item)
+            return result
+        elif collection:
+            result = collection[0]
+            for item in collection[1:]:
+                result = func(result, item)
+            return result
+        return null
+
+    @staticmethod
+    def length(collection) -> int:
+        # Get collection length
+        return len(collection)
+
+    @staticmethod
+    def contains(collection, item) -> bool:
+        # Check if collection contains item
+        return item in collection
+
+    @staticmethod
+    def append(collection, item) :
+        # Append item to collection
+        return collection + [item]
+
+    @staticmethod
+    def extend(collection, items) :
+        # Extend collection with items
+        return collection + items
+
+    @staticmethod
+    def reverse(collection) :
+        # Reverse collection
+        return collection[::-1]
+
+    @staticmethod
+    def sort(collection, key = null) :
+        # Sort collection
+        return sorted(collection, key=key)
+
+
+# Class NumericOperations
+    # Numeric operations
+
+    @staticmethod
+    def add(a, b) :
+        # Add two numbers
+        return a + b
+
+    @staticmethod
+    def subtract(a, b) :
+        # Subtract two numbers
+        return a - b
+
+    @staticmethod
+    def multiply(a, b) :
+        # Multiply two numbers
+        return a * b
+
+    @staticmethod
+    def divide(a, b) -> float:
+        # Divide two numbers
+        return a / b
+
+    @staticmethod
+    def floor(a: float) -> int:
+        # Floor a number
+        return math.floor(a)
+
+    @staticmethod
+    def ceil(a: float) -> int:
+        # Ceil a number
+        return math.ceil(a)
+
+    @staticmethod
+    def round_number(a: float, precision: int = 0) -> float:
+        # Round a number
+        return round(a, precision)
+
+    @staticmethod
+    def abs(a) :
+        # Absolute value
+        return abs(a)
+
+    @staticmethod
+    def min(*values) :
+        # Minimum value
+        return min(values)
+
+    @staticmethod
+    def max(*values) :
+        # Maximum value
+        return max(values)
+
+    @staticmethod
+    def sum(values]) :
+        # Sum values
+        return sum(values)
+
+
+# Class BooleanOperations
+    # Boolean operations
+
+    @staticmethod
+    def and_op(a: bool, b: bool) -> bool:
+        # Logical AND
+        return a and b
+
+    @staticmethod
+    def or_op(a: bool, b: bool) -> bool:
+        # Logical OR
+        return a or b
+
+    @staticmethod
+    def not_op(a: bool) -> bool:
+        # Logical NOT
+        return not a
+
+    @staticmethod
+    def equal(a, b) -> bool:
+        # Equality check
+        return a == b
+
+    @staticmethod
+    def not_equal(a, b) -> bool:
+        # Inequality check
+        return a != b
+
+    @staticmethod
+    def less(a, b) -> bool:
+        # Less than
+        return a < b
+
+    @staticmethod
+    def less_equal(a, b) -> bool:
+        # Less than or equal
+        return a <= b
+
+    @staticmethod
+    def greater(a, b) -> bool:
+        # Greater than
+        return a > b
+
+    @staticmethod
+    def greater_equal(a, b) -> bool:
+        # Greater than or equal
+        return a >= b
+
+
+# Class TypeConversion
+    # Type conversion utilities
+
+    @staticmethod
+    def to_string(value) -> str:
+        # Convert to string
+        return str(value)
+
+    @staticmethod
+    def to_int(value) -> int:
+        # Convert to integer
+        if isinstance(value, str):
+            return int(value)
+        return int(value)
+
+    @staticmethod
+    def to_float(value) -> float:
+        # Convert to float
+        if isinstance(value, str):
+            return float(value)
+        return float(value)
+
+    @staticmethod
+    def to_bool(value) -> bool:
+        # Convert to boolean
+        return bool(value)
+
+    @staticmethod
+    def to_list(value) :
+        # Convert to list
+        if isinstance(value, str):
+            return list(value)
+        return list(value)
+
+    @staticmethod
+    def to_dict(value) :
+        # Convert to dict
+        if isinstance(value, dict):
+            return dict(value)
+        return dict(value)
+
+    @staticmethod
+    def get_type(value) :
+        # Get type of value
+        if value is null:
+            return PrimType.NULL
+        elif isinstance(value, bool):
+            return PrimType.BOOLEAN
+        elif isinstance(value, int):
+            return PrimType.INTEGER
+        elif isinstance(value, float):
+            return PrimType.FLOAT
+        elif isinstance(value, str):
+            return PrimType.STRING
+        elif isinstance(value, list):
+            return PrimType.LIST
+        elif isinstance(value, dict):
+            return PrimType.DICT
+        elif callable(value):
+            return PrimType.FUNCTION
+        return PrimType.OBJECT
+
+
+# Class ControlFlow
+    # Control flow primitives
+
+    @staticmethod
+    def if_then_else(
+        condition: bool,
+        then_expr,
+        else_expr
+    ) :
+        # If-then-else expression
+        return then_expr if condition else else_expr
+
+    @staticmethod
+    def loop(
+        iterable,
+        body,
+        initial = null
+    ) :
+        # Loop over iterable
+        result = initial
+        for item in iterable:
+            result = body(item, result)
+        return result
+
+    @staticmethod
+    def while_loop(
+        condition,
+        body,
+        initial = null
+    ) :
+        # While loop
+        result = initial
+        while condition():
+            result = body(result)
+        return result
+
+
+# Class Primitives
+    # All Prim primitives
+
+    fn make_primitives():
+        obj = {}
+        obj["strings"] = StringOperations()
+        obj["collections"] = CollectionOperations()
+        obj["numeric"] = NumericOperations()
+        obj["booleans"] = BooleanOperations()
+        obj["conversion"] = TypeConversion()
+        obj["control"] = ControlFlow()
+
+    def create_value(self, value) :
+        # Create a Prim value
+        prim_type = obj["conversion"].get_type(value)
+        return PrimValue(type=prim_type, value=value)
+
+    def is_type(self, value, expected_type) -> bool:
+        # Check if value is of expected type
+        actual_type = obj["conversion"].get_type(value)
+        return actual_type == expected_type
+
+
+# Standard library integration
+
+fn register_primitives(runtime):
+    # Register primitives with runtime
+    primitives = Primitives()
+
+    # Register string operations
+    runtime.register_function('str_upper', primitives.strings.upper)
+    runtime.register_function('str_lower', primitives.strings.lower)
+    runtime.register_function('str_split', primitives.strings.split)
+    runtime.register_function('str_join', primitives.strings.join)
+    runtime.register_function('str_trim', primitives.strings.trim)
+    runtime.register_function('str_length', primitives.strings.length)
+
+    # Register collection operations
+    runtime.register_function('map', primitives.collections.map)
+    runtime.register_function('filter', primitives.collections.filter)
+    runtime.register_function('reduce', primitives.collections.reduce)
+    runtime.register_function('len', primitives.collections.length)
+
+    # Register numeric operations
+    runtime.register_function('add', primitives.numeric.add)
+    runtime.register_function('subtract', primitives.numeric.subtract)
+    runtime.register_function('multiply', primitives.numeric.multiply)
+    runtime.register_function('divide', primitives.numeric.divide)
+    runtime.register_function('floor', primitives.numeric.floor)
+    runtime.register_function('ceil', primitives.numeric.ceil)
+
+    # Register boolean operations
+    runtime.register_function('and', primitives.booleans.and_op)
+    runtime.register_function('or', primitives.booleans.or_op)
+    runtime.register_function('not', primitives.booleans.not_op)
+
+    # Register type conversion
+    runtime.register_function('str', primitives.conversion.to_string)
+    runtime.register_function('int', primitives.conversion.to_int)
+    runtime.register_function('float', primitives.conversion.to_float)
+    runtime.register_function('bool', primitives.conversion.to_bool)
+
+
+fn main():
+    # Main entry point for testing
+    primitives = Primitives()
+
+    # Test string operations
+    s = "Hello World"
+    print("Upper: {primitives.strings.upper(s)}")
+    print("Lower: {primitives.strings.lower(s)}")
+    print("Split: {primitives.strings.split(s)}")
+    print("Length: {primitives.strings.length(s)}")
+
+    # Test numeric operations
+    a, b = 10, 5
+    print("Add: {primitives.numeric.add(a, b)}")
+    print("Subtract: {primitives.numeric.subtract(a, b)}")
+    print("Multiply: {primitives.numeric.multiply(a, b)}")
+    print("Divide: {primitives.numeric.divide(a, b)}")
+
+    # Test boolean operations
+    print("AND: {primitives.booleans.and_op(true, false)}")
+    print("OR: {primitives.booleans.or_op(true, false)}")
+    print("NOT: {primitives.booleans.not_op(true)}")
+
+    # Test collection operations
+    nums = [1, 2, 3, 4, 5]
+    print("Map: {primitives.collections.map(nums, lambda x: x * 2)}")
+    print("Filter: {primitives.collections.filter(nums, lambda x: x > 2)}")
+    print("Reduce: {primitives.collections.reduce(nums, lambda a, b: a + b)}")
+
+    # Test type conversion
+    print("String to Int: {primitives.conversion.to_int('42')}")
+    print("Int to String: {primitives.conversion.to_string(42)}")
+
+    print("\nEssential Primitives initialized successfully")
+
+
+if __name__ == "__main__":
+    main()

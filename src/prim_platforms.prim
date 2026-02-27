@@ -1,0 +1,53 @@
+#mode slim
+# Prim Platform Support
+# Provides platform detection, platform-specific code, cross-platform support,
+# platform configuration, and platform management
+
+# Platform constants
+PLATFORM_WINDOWS = "windows"
+PLATFORM_LINUX = "linux"
+PLATFORM_MACOS = "macos"
+PLATFORM_ANDROID = "android"
+PLATFORM_IOS = "ios"
+
+# PlatformInfo factory
+fn make_platform_info(platform, version, arch):
+    return {
+        "platform": platform,
+        "version": version,
+        "arch": arch
+    }
+
+# PlatformManager factory
+fn make_platform_manager():
+    return {
+        "platform": detect_platform(),
+        "detect_platform": fn() {
+            # Detect current platform (simplified)
+            # In real implementation, would check actual system
+            return PLATFORM_WINDOWS
+        },
+        "get_info": fn() {
+            # Get platform info (simplified)
+            return make_platform_info(
+                platform,
+                "10.0",  # Example version
+                "x64"    # Example architecture
+            )
+        }
+    }
+
+fn detect_platform():
+    # Detect current platform (simplified)
+    # In real implementation, would check actual system
+    return PLATFORM_WINDOWS
+
+fn main():
+    print("Testing Platform Support...")
+    manager = make_platform_manager()
+    info = manager["get_info"]()
+    print("Platform: " + info["platform"])
+    print("Platform Support initialized successfully")
+
+if __name__ == "__main__":
+    main()

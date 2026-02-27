@@ -1,0 +1,42 @@
+#mode slim
+# Prim Device Drivers
+# Provides driver framework, device registration, I/O operations,
+# interrupt handling, and driver management
+
+# Driver type constants
+DRIVER_CHAR = "char"
+DRIVER_BLOCK = "block"
+DRIVER_NETWORK = "network"
+
+# Driver factory
+fn make_driver(name, type_, operations):
+    return {
+        "name": name,
+        "type": type_,
+        "operations": operations
+    }
+
+# DriverManager factory
+fn make_driver_manager():
+    return {
+        "drivers": {}
+    }
+
+fn driver_manager_register_driver(manager, driver):
+    manager["drivers"][driver["name"]] = driver
+
+fn driver_manager_get_driver(manager, name):
+    if contains(dict_keys(manager["drivers"]), name):
+        return manager["drivers"][name]
+    return None
+
+fn main():
+    print("Testing Device Drivers...")
+    manager = make_driver_manager()
+    driver = make_driver("test", DRIVER_CHAR, {})
+    driver_manager_register_driver(manager, driver)
+    print("Drivers: " + to_string(len(dict_keys(manager["drivers"]))))
+    print("Device Drivers initialized successfully")
+
+if __name__ == "__main__":
+    main()

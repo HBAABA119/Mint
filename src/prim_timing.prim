@@ -1,0 +1,42 @@
+#mode slim
+# Prim Timing Services
+# Provides high-resolution timers, time synchronization, timeout handling,
+# periodic tasks, and time management
+
+# Timer type constants
+TIMER_ONE_SHOT = "one_shot"
+TIMER_PERIODIC = "periodic"
+
+# Factory function for Timer
+fn make_timer(id, type_, interval, callback):
+    return {
+        "id": id,
+        "type": type_,
+        "interval": interval,
+        "callback": callback
+    }
+
+# TimingService factory
+fn make_timing_service():
+    return {
+        "timers": {},
+        "time": 0.0
+    }
+
+fn timing_service_create_timer(service, id, timer_type, interval, callback):
+    timer = make_timer(id, timer_type, interval, callback)
+    service["timers"][id] = timer
+    return timer
+
+fn timing_service_get_time(service):
+    return service["time"]
+
+fn main():
+    print("Testing Timing Services...")
+    service = make_timing_service()
+    timer = timing_service_create_timer(service, "timer1", TIMER_ONE_SHOT, 1.0, fn() { None })
+    print("Time: " + to_string(timing_service_get_time(service)))
+    print("Timing Services initialized successfully")
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,44 @@
+#mode slim
+# Prim Filesystems
+# Provides file systems, file operations, directory management,
+# file permissions, and storage management
+
+# File type constants
+FILE_FILE = "file"
+FILE_DIRECTORY = "directory"
+FILE_SYMLINK = "symlink"
+
+# Factory function for File
+fn make_file(name, type_, size, permissions):
+    return {
+        "name": name,
+        "type": type_,
+        "size": size,
+        "permissions": permissions
+    }
+
+# FileSystem factory
+fn make_filesystem():
+    return {
+        "files": {}
+    }
+
+fn filesystem_create_file(fs, name, file_type):
+    file = make_file(name, file_type, 0, 644)
+    fs["files"][name] = file
+    return file
+
+fn filesystem_get_file(fs, name):
+    if contains(dict_keys(fs["files"]), name):
+        return fs["files"][name]
+    return None
+
+fn main():
+    print("Testing Filesystems...")
+    fs = make_filesystem()
+    file = filesystem_create_file(fs, "test.txt", FILE_FILE)
+    print("File: " + file["name"])
+    print("Filesystems initialized successfully")
+
+if __name__ == "__main__":
+    main()

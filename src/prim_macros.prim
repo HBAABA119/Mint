@@ -1,0 +1,512 @@
+#mode slim
+# Prim Macros System
+# Provides compile-time code generation, hygienic macro system, syntax extension capabilities,
+# macro debugging and introspection, and template-based metaprogramming.
+
+# import re
+# import inspect
+# from typing import Dict, List, Optional, Any, Callable, Union
+# from dataclasses import dataclass, field
+# from enum import Enum
+
+
+MacroType_FUNCTION = "function"
+MacroType_SYMBOLIC = "symbolic"
+MacroType_TEMPLATE = "template"
+MacroType_HYGIENIC = "hygienic"class
+# Class MacroDefinition
+    # Macro definition
+    name: str
+    macro_type
+    pattern: str
+    template: str
+    func = null
+    docstring: str = ""
+    hygiene_level: int = 0
+
+
+fn make_macroexpansion(code, bindings):
+    return {"code": code, "bindings": bindings}default_factory=dict)
+    metadata = field(default_factory=dict)
+
+
+# Class MacroEnvironment
+    # Environment for macro execution
+
+    fn make_macroenvironment():
+        obj = {}
+        obj["macros"] = {}
+        obj["symbols"] = {}
+        obj["debug_mode"] = false
+
+    fn macroenvironment_define_macro(obj, macro):
+        # Define a macro in the environment
+        obj["macros"][macro.name] = macro
+
+    def get_macro(self, name: str) :
+        # Get a macro by name
+        return obj["macros"].get(name)
+
+    def has_macro(self, name: str) -> bool:
+        # Check if macro exists
+        return name in obj["macros"]
+
+    fn macroenvironment_set_symbol(obj, name: str, value):
+        # Set a symbol value
+        obj["symbols"][name] = value
+
+    def get_symbol(self, name: str) :
+        # Get a symbol value
+        return obj["symbols"].get(name)
+
+
+# Class MacroExpander
+    # Macro expansion engine
+
+    fn make_macroexpander(env):
+        obj = {}
+        obj["env"] = env
+        obj["expansion_count"] = 0
+        obj["max_expansions"] = 1000
+
+    def expand(self, code: str) -> str:
+        # Expand all macros in code
+        obj["expansion_count"] = 0
+        return macroexpander__expand_recursive(obj, code)
+
+    def _expand_recursive(self, code: str) -> str:
+        # Recursively expand macros
+        if obj["expansion_count"] >= obj["max_expansions"]:
+            raise RecursionError("Maximum macro expansion depth exceeded")
+
+        # Find macro invocations
+        macro_pattern = r'@(\w+)\s*\(([^)]*)\)'
+        matches = list(re.finditer(macro_pattern, code))
+
+        if not matches:
+            return code
+
+        # Process matches in reverse order to maintain positions
+        for match in reversed(matches):
+            macro_name = match.group(1)
+            args_str = match.group(2)
+
+            # Get macro definition
+            macro = obj["env"].get_macro(macro_name)
+            if not macro:
+                continue
+
+            # Parse arguments
+            args = macroexpander__parse_arguments(obj, args_str)
+
+            # Expand macro
+            expansion = macroexpander__expand_macro(obj, macro, args)
+
+            # Replace macro invocation with expansion
+            start, end = match.span()
+            code = code[:start] + expansion.code + code[end:]
+
+            obj["expansion_count"] += 1
+
+        # Recursively expand again to handle nested macros
+        if re.search(macro_pattern, code):
+            return macroexpander__expand_recursive(obj, code)
+
+        return code
+
+    def _expand_macro(self, macro, args) :
+        # Expand a single macro
+        if macro.macro_type == MacroType.FUNCTION:
+            return macroexpander__expand_function_macro(obj, macro, args)
+        elif macro.macro_type == MacroType.SYMBOLIC:
+            return macroexpander__expand_symbolic_macro(obj, macro, args)
+        elif macro.macro_type == MacroType.TEMPLATE:
+            return macroexpander__expand_template_macro(obj, macro, args)
+        elif macro.macro_type == MacroType.HYGIENIC:
+            return macroexpander__expand_hygienic_macro(obj, macro, args)
+
+        return MacroExpansion(code="")
+
+    def _expand_function_macro(self, macro, args) :
+        # Expand a function macro
+        if macro.func is null:
+            return MacroExpansion(code="")
+
+        try:
+            # Call macro function with arguments
+            result = macro.func(*args)
+            return MacroExpansion(code=str(result))
+        except Exception as e:
+            if obj["env"].debug_mode:
+                print("Error expanding macro {macro.name}: {e}")
+            return MacroExpansion(code="")
+
+    def _expand_symbolic_macro(self, macro, args) :
+        # Expand a symbolic macro
+        # Simple pattern matching and replacement
+        pattern = macro.pattern
+        template = macro.template
+
+        # Create bindings from pattern
+        bindings = macroexpander__match_pattern(obj, pattern, args)
+        if not bindings:
+            return MacroExpansion(code="")
+
+        # Apply template
+        code = template
+        for key, value in bindings.items():
+            code = code.replace("${{{key}}}", str(value))
+
+        return MacroExpansion(code=code, bindings=bindings)
+
+    def _expand_template_macro(self, macro, args) :
+        # Expand a template macro
+        template = macro.template
+
+        # Replace positional placeholders
+        for i, arg in enumerate(args):
+            template = template.replace("${{{i}}}", arg)
+
+        # Replace named placeholders
+        for i, arg in enumerate(args):
+            template = template.replace("${{arg" + str(i) + "}}", arg)
+
+        return MacroExpansion(code=template)
+
+    def _expand_hygienic_macro(self, macro, args) :
+        # Expand a hygienic macro with variable hygiene
+        # Generate unique identifiers for bound variables
+        bindings = {}
+        template = macro.template
+
+        # Find all variable placeholders
+        var_pattern = r'\$\{(\w+)\}'
+        vars = re.findall(var_pattern, template)
+
+        # Generate unique identifiers
+        for var in vars:
+            unique_id = "_{var}_{id(macro.name)}_{len(bindings)}"
+            bindings[var] = unique_id
+            template = template.replace("${{{var}}}", unique_id)
+
+        # Replace with arguments
+        for i, arg in enumerate(args):
+            template = template.replace("${{{i}}}", arg)
+
+        return MacroExpansion(code=template, bindings=bindings)
+
+    def _parse_arguments(self, args_str: str) :
+        # Parse macro arguments
+        if not args_str.strip():
+            return []
+
+        args = []
+        current = ""
+        depth = 0
+        in_string = false
+
+        for char in args_str:
+            if char in '([' and not in_string:
+                depth += 1
+                current += char
+            elif char in ')]' and not in_string:
+                depth -= 1
+                current += char
+            elif char == ',' and depth == 0:
+                args = push(args, current.strip())
+                current = ""
+            elif char in '"\'' and not in_string:
+                in_string = not in_string
+                current += char
+            else:
+                current += char
+
+        if current.strip():
+            args = push(args, current.strip())
+
+        return args
+
+    def _match_pattern(self, pattern: str, args) ]:
+        # Match pattern against arguments and return bindings
+        # Simple pattern matching
+        pattern_parts = pattern.split()
+        bindings = {}
+
+        if len(pattern_parts) != len(args):
+            return null
+
+        for i, part in enumerate(pattern_parts):
+            if part.startswith('$'):
+                var_name = part[1:]
+                bindings[var_name] = args[i]
+            elif part != args[i]:
+                return null
+
+        return bindings
+
+
+# Class MacroSystem
+    # Main macro system
+
+    fn make_macrosystem():
+        obj = {}
+        obj["env"] = MacroEnvironment()
+        obj["expander"] = MacroExpander(obj["env"])
+        macrosystem__register_builtin_macros(obj, )
+
+    fn macrosystem__register_builtin_macros(obj):
+        # Register built-in macros
+        # Define macro
+        @macrosystem_macro(obj, "define")
+        fn define_macro(name: str, value: str):
+            obj["env"].set_symbol(name, value)
+            return "{name} = {value}"
+
+        # If macro
+        @macrosystem_macro(obj, "if")
+        fn if_macro(condition: str, then_expr: str, else_expr: str = ""):
+            if else_expr:
+                return "if {condition} {{ {then_expr} }} else {{ {else_expr} }}"
+            return "if {condition} {{ {then_expr} }}"
+
+        # Let macro
+        @macrosystem_macro(obj, "let")
+        fn let_macro(bindings: str, body: str):
+            return "{{ {bindings}; {body} }}"
+
+        # Loop macro
+        @macrosystem_macro(obj, "for")
+        fn for_macro(var: str, iterable: str, body: str):
+            return "for {var} in {iterable} {{ {body} }}"
+
+        # Debug macro
+        @macrosystem_macro(obj, "debug")
+        fn debug_macro(expr: str):
+            return "print('DEBUG: {expr} =', {expr}); {expr}"
+
+        # Assert macro
+        @macrosystem_macro(obj, "assert")
+        fn assert_macro(condition: str, message: str = ""):
+            if message:
+                return "assert {condition}, '{message}'"
+            return "assert {condition}"
+
+        # Time macro
+        @macrosystem_macro(obj, "time")
+        fn time_macro(expr: str):
+            return f# import time
+# start = time.time()
+# result = {expr}
+# print('Time:', time.time() - start)
+# result
+
+    fn macrosystem_macro(obj, name: str):
+        # Decorator to define a macro
+        fn decorator(func):
+            macro = MacroDefinition(
+                name=name,
+                macro_type=MacroType.FUNCTION,
+                pattern="",
+                template="",
+                func=func,
+                docstring=func.__doc__ or ""
+            )
+            obj["env"].define_macro(macro)
+            return func
+        return decorator
+
+    def define_template_macro(
+        self,
+        name: str,
+        pattern: str,
+        template: str,
+        docstring: str = ""
+    ):
+        # Define a template macro
+        macro = MacroDefinition(
+            name=name,
+            macro_type=MacroType.TEMPLATE,
+            pattern=pattern,
+            template=template,
+            docstring=docstring
+        )
+        obj["env"].define_macro(macro)
+
+    def define_hygienic_macro(
+        self,
+        name: str,
+        template: str,
+        docstring: str = ""
+    ):
+        # Define a hygienic macro
+        macro = MacroDefinition(
+            name=name,
+            macro_type=MacroType.HYGIENIC,
+            pattern="",
+            template=template,
+            docstring=docstring
+        )
+        obj["env"].define_macro(macro)
+
+    def expand_code(self, code: str) -> str:
+        # Expand all macros in code
+        return obj["expander"].expand(code)
+
+    def expand_file(self, file_path: str, output_path = null) -> str:
+        # Expand macros in a file
+        with open(file_path, 'r') as f:
+            code = f.read()
+
+        expanded = macrosystem_expand_code(obj, code)
+
+        if output_path:
+            with open(output_path, 'w') as f:
+                f.write(expanded)
+
+        return expanded
+
+    def list_macros(self) :
+        # List all defined macros
+        return list(obj["env"].macros.keys())
+
+    def get_macro_info(self, name: str) :
+        # Get information about a macro
+        macro = obj["env"].get_macro(name)
+        if not macro:
+            return null
+
+        return {
+            'name': macro.name,
+            'type': macro.macro_type.value,
+            'docstring': macro.docstring,
+            'pattern': macro.pattern,
+            'template': macro.template
+        }
+
+    fn macrosystem_enable_debug(obj):
+        # Enable debug mode
+        obj["env"].debug_mode = true
+
+    fn macrosystem_disable_debug(obj):
+        # Disable debug mode
+        obj["env"].debug_mode = false
+
+
+# Class MacroCLI
+    # Command-line interface for macro system
+
+    fn make_macrocli():
+        obj = {}
+        obj["system"] = MacroSystem()
+
+    fn macrocli_run(obj, args):
+        # Run CLI command
+        if not args:
+            macrocli_show_help(obj, )
+            return
+
+        command = args[0]
+        command_args = args[1:]
+
+        if command == 'expand':
+            macrocli_cmd_expand(obj, command_args)
+        elif command == 'list':
+            macrocli_cmd_list(obj, command_args)
+        elif command == 'info':
+            macrocli_cmd_info(obj, command_args)
+        elif command == 'debug':
+            macrocli_cmd_debug(obj, command_args)
+        else:
+            print("Unknown command: {command}")
+            macrocli_show_help(obj, )
+
+    fn macrocli_cmd_expand(obj, args):
+        # Expand macros in a file
+        if not args:
+            print("Usage: expand <input_file> [output_file]")
+            return
+
+        input_file = args[0]
+        output_file = args[1] if len(args) > 1 else null
+
+        try:
+            expanded = obj["system"].expand_file(input_file, output_file)
+
+            if output_file:
+                print("Expanded code written to {output_file}")
+            else:
+                print(expanded)
+        except Exception as e:
+            print("Error: {e}")
+
+    fn macrocli_cmd_list(obj, args):
+        # List all macros
+        macros = obj["system"].list_macros()
+
+        if not macros:
+            print("No macros defined")
+            return
+
+        print("Defined macros:")
+        for name in sorted(macros):
+            info = obj["system"].get_macro_info(name)
+            print("  {name} ({info['type']})")
+            if info['docstring']:
+                print("    {info['docstring']}")
+
+    fn macrocli_cmd_info(obj, args):
+        # Show macro information
+        if not args:
+            print("Usage: info <macro_name>")
+            return
+
+        name = args[0]
+        info = obj["system"].get_macro_info(name)
+
+        if not info:
+            print("Macro '{name}' not found")
+            return
+
+        print("Macro: {name}")
+        print("Type: {info['type']}")
+        print("Docstring: {info['docstring']}")
+        if info['pattern']:
+            print("Pattern: {info['pattern']}")
+        if info['template']:
+            print("Template: {info['template']}")
+
+    fn macrocli_cmd_debug(obj, args):
+        # Toggle debug mode
+        if args and args[0] == 'on':
+            obj["system"].enable_debug()
+            print("Debug mode enabled")
+        elif args and args[0] == 'off':
+            obj["system"].disable_debug()
+            print("Debug mode disabled")
+        else:
+            print("Usage: debug <on|off>")
+
+    fn macrocli_show_help(obj):
+        # Show help
+        print(# Prim Macro System Commands:
+# expand <input> [output]    Expand macros in a file
+# list                       List all defined macros
+# info <name>                Show macro information
+# debug <on|off>             Toggle debug mode
+# 
+# Example:
+# python prim_macros.py expand example.prim output.prim
+# python prim_macros.py list
+# python prim_macros.py info define)
+
+
+fn main():
+    # Main entry point
+    import sys
+
+    cli = MacroCLI()
+    cli.run(sys.argv[1:])
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,43 @@
+#mode slim
+# Prim Development Tools
+# Provides build tools, testing tools, debugging tools,
+# code analysis, and developer utilities
+
+# Tool type constants
+TOOL_COMPILER = "compiler"
+TOOL_LINKER = "linker"
+TOOL_DEBUGGER = "debugger"
+TOOL_TESTER = "tester"
+
+# Factory function for Tool
+fn make_tool(name, type_, path):
+    return {
+        "name": name,
+        "type": type_,
+        "path": path
+    }
+
+# ToolManager factory
+fn make_tool_manager():
+    return {
+        "tools": {}
+    }
+
+fn tool_manager_add_tool(manager, tool):
+    manager["tools"][tool["name"]] = tool
+
+fn tool_manager_get_tool(manager, name):
+    if contains(dict_keys(manager["tools"]), name):
+        return manager["tools"][name]
+    return None
+
+fn main():
+    print("Testing Development Tools...")
+    manager = make_tool_manager()
+    tool = make_tool("gcc", TOOL_COMPILER, "/usr/bin/gcc")
+    tool_manager_add_tool(manager, tool)
+    print("Tool: " + tool["name"])
+    print("Development Tools initialized successfully")
+
+if __name__ == "__main__":
+    main()

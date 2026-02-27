@@ -1,0 +1,61 @@
+#mode slim
+# Prim Kernel Development
+# Provides kernel services, process management, memory management,
+# interrupt handling, and kernel APIs
+
+# Process state constants
+PROCESS_READY = "ready"
+PROCESS_RUNNING = "running"
+PROCESS_BLOCKED = "blocked"
+PROCESS_TERMINATED = "terminated"
+
+# Factory function for Process
+fn make_process(pid, state, priority):
+    return {
+        "pid": pid,
+        "state": state,
+        "priority": priority
+    }
+
+# Kernel factory
+fn make_kernel():
+    return {
+        "processes": {},
+        "pid_counter": 0
+    }
+
+fn kernel_create_process(kernel, priority):
+    kernel["pid_counter"] = kernel["pid_counter"] + 1
+    process = make_process(kernel["pid_counter"], PROCESS_READY, priority)
+    kernel["processes"][process["pid"]] = process
+    return process
+
+fn kernel_schedule(kernel):
+    # Find ready processes
+    ready = []
+    keys = dict_keys(kernel["processes"])
+    for key in keys:
+        p = kernel["processes"][key]
+        if p["state"] == PROCESS_READY:
+            ready = push(ready, p)
+    
+    # Return highest priority process
+    if len(ready) > 0:
+        highest = ready[0]
+        i = 1
+        while i < len(ready):
+            if ready[i]["priority"] > highest["priority"]:
+                highest = ready[i]
+            i = i + 1
+        return highest
+    return None
+
+fn main():
+    print("Testing Kernel Development...")
+    kernel = make_kernel()
+    process = kernel_create_process(kernel, 1)
+    print("Process: " + to_string(process["pid"]))
+    print("Kernel Development initialized successfully")
+
+if __name__ == "__main__":
+    main()

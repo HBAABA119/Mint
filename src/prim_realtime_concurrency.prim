@@ -1,0 +1,396 @@
+#mode slim
+# Prim Real-time Concurrency
+# Provides real-time scheduling, priority inversion handling,
+# deadline management, real-time monitoring, and latency guarantees
+
+# Scheduling policy constants
+SCHEDULING_FIFO = "fifo"
+SCHEDULING_PRIORITY = "priority"
+SCHEDULING_DEADLINE = "deadline"
+SCHEDULING_ROUND_ROBIN = "round_robin"
+SCHEDULING_RATE_MONOTONIC = "rate_monotonic"
+
+# Task state constants
+TASK_READY = "ready"
+TASK_RUNNING = "running"
+TASK_BLOCKED = "blocked"
+TASK_COMPLETED = "completed"
+TASK_MISSED_DEADLINE = "missed_deadline"
+
+# RealTimeTask factory
+fn make_realtime_task(id, period, execution_time, deadline, priority, state, remaining_time, next_release, deadline_time):
+    if priority == None:
+        priority = 0
+    if state == None:
+        state = TASK_READY
+    if remaining_time == None:
+        remaining_time = 0.0
+    if next_release == None:
+        next_release = 0.0
+    if deadline_time == None:
+        deadline_time = 0.0
+    return {
+        "id": id,
+        "period": period,
+        "execution_time": execution_time,
+        "deadline": deadline,
+        "priority": priority,
+        "state": state,
+        "remaining_time": remaining_time,
+        "next_release": next_release,
+        "deadline_time": deadline_time
+    }
+
+# RealTimeScheduler factory
+fn make_realtime_scheduler(policy):
+    if policy == None:
+        policy = SCHEDULING_PRIORITY
+    return {
+        "policy": policy,
+        "tasks": {},
+        "ready_queue": [],
+        "current_task": None,
+        "clock": 0.0,
+        "missed_deadlines": 0,
+        "preemptions": 0,
+        "add_task": fn(task) {
+            task["next_release"] = clock
+            task["deadline_time"] = clock + task["deadline"]
+            task["remaining_time"] = task["execution_time"]
+            
+            tasks[task["id"]] = task
+        },
+        "schedule": fn() {
+            # Update ready queue
+            update_ready_queue()
+            
+            if len(ready_queue) == 0:
+                return None
+            
+            # Select task based on policy
+            if policy == SCHEDULING_PRIORITY:
+                # Sort by priority (simplified)
+                ready_queue = sort_by_priority(ready_queue)
+            elif policy == SCHEDULING_DEADLINE:
+                # Sort by deadline (simplified)
+                ready_queue = sort_by_deadline(ready_queue)
+            elif policy == SCHEDULING_RATE_MONOTONIC:
+                # Sort by period (simplified)
+                ready_queue = sort_by_period(ready_queue)
+            
+            if len(ready_queue) > 0:
+                task = ready_queue[0]
+                ready_queue = slice(ready_queue, 1, len(ready_queue))
+                
+                # Check preemption
+                if current_task != None and task["priority"] > current_task["priority"]:
+                    if current_task["state"] == TASK_RUNNING:
+                        current_task["state"] = TASK_READY
+                        preemptions = preemptions + 1
+                
+                return task
+            
+            return None
+        },
+        "update_ready_queue": fn() {
+            # Update ready queue
+            task_ids = dict_keys(tasks)
+            i = 0
+            while i < len(task_ids):
+                task_id = task_ids[i]
+                task = tasks[task_id]
+                
+                if task["state"] != TASK_COMPLETED:
+                    # Check for new release
+                    if clock >= task["next_release"]:
+                        task["state"] = TASK_READY
+                        task["next_release"] = clock + task["period"]
+                        task["deadline_time"] = task["next_release"] + task["deadline"]
+                    
+                    # Check deadline
+                    if clock > task["deadline_time"] and task["remaining_time"] > 0:
+                        task["state"] = TASK_MISSED_DEADLINE
+                        missed_deadlines = missed_deadlines + 1
+                    
+                    # Add to ready queue
+                    if task["state"] == TASK_READY:
+                        ready_queue = push(ready_queue, task)
+                
+                i = i + 1
+        },
+        "tick": fn(dt) {
+            if dt == None:
+                dt = 0.001
+            clock = clock + dt
+            
+            # Check deadlines
+            task_ids = dict_keys(tasks)
+            i = 0
+            while i < len(task_ids):
+                task_id = task_ids[i]
+                task = tasks[task_id]
+                
+                if task["state"] == TASK_RUNNING:
+                    task["remaining_time"] = task["remaining_time"] - dt
+                    
+                    if task["remaining_time"] <= 0:
+                        task["state"] = TASK_COMPLETED
+                        task["remaining_time"] = task["execution_time"]
+                
+                i = i + 1
+        },
+        "get_stats": fn() {
+            return {
+                "clock": clock,
+                "tasks": len(dict_keys(tasks)),
+                "missed_deadlines": missed_deadlines,
+                "preemptions": preemptions
+            }
+        }
+    }
+
+fn sort_by_priority(queue):
+    # Sort by priority (simplified)
+    return queue
+
+fn sort_by_deadline(queue):
+    # Sort by deadline (simplified)
+    return queue
+
+fn sort_by_period(queue):
+    # Sort by period (simplified)
+    return queue
+
+# PriorityInheritance factory
+fn make_priority_inheritance():
+    return {
+        "locks": {},
+        "task_priorities": {},
+        "acquire_lock": fn(task_id, lock_name) {
+            if not contains(dict_keys(locks), lock_name):
+                locks[lock_name] = []
+            
+            # Inherit priority from blocked tasks (simplified)
+            if len(locks[lock_name]) > 0:
+                # Simplified priority inheritance
+                pass
+            
+            locks[lock_name] = push(locks[lock_name], task_id)
+        },
+        "release_lock": fn(task_id, lock_name) {
+            if contains(dict_keys(locks), lock_name):
+                # Remove task from lock list
+                new_lock_list = []
+                i = 0
+                while i < len(locks[lock_name]):
+                    if locks[lock_name][i] != task_id:
+                        new_lock_list = push(new_lock_list, locks[lock_name][i])
+                    i = i + 1
+                locks[lock_name] = new_lock_list
+        }
+    }
+
+# DeadlineMonitor factory
+fn make_deadline_monitor():
+    return {
+        "deadlines": {},
+        "missed": [],
+        "met": [],
+        "set_deadline": fn(task_id, deadline) {
+            deadlines[task_id] = deadline
+        },
+        "check_deadlines": fn(current_time) {
+            missed = []
+            
+            task_ids = dict_keys(deadlines)
+            i = 0
+            while i < len(task_ids):
+                task_id = task_ids[i]
+                deadline = deadlines[task_id]
+                
+                if current_time > deadline:
+                    missed = push(missed, task_id)
+                    if not contains(missed, task_id):
+                        missed = push(missed, task_id)
+                else:
+                    if not contains(met, task_id):
+                        met = push(met, task_id)
+                
+                i = i + 1
+            
+            return missed
+        },
+        "get_stats": fn() {
+            return {
+                "total": len(dict_keys(deadlines)),
+                "met": len(met),
+                "missed": len(missed)
+            }
+        }
+    }
+
+# LatencyTracker factory
+fn make_latency_tracker():
+    return {
+        "latencies": {},
+        "timestamps": {},
+        "start_task": fn(task_id) {
+            timestamps[task_id] = get_current_time()
+        },
+        "end_task": fn(task_id) {
+            if contains(dict_keys(timestamps), task_id):
+                latency = get_current_time() - timestamps[task_id]
+                
+                if not contains(dict_keys(latencies), task_id):
+                    latencies[task_id] = []
+                
+                latencies[task_id] = push(latencies[task_id], latency)
+                
+                # Remove from timestamps
+                new_timestamps = {}
+                keys = dict_keys(timestamps)
+                i = 0
+                while i < len(keys):
+                    key = keys[i]
+                    if key != task_id:
+                        new_timestamps[key] = timestamps[key]
+                    i = i + 1
+                timestamps = new_timestamps
+        },
+        "get_latency": fn(task_id) {
+            if not contains(dict_keys(latencies), task_id) or len(latencies[task_id]) == 0:
+                return None
+            
+            lat_list = latencies[task_id]
+            total = 0.0
+            i = 0
+            while i < len(lat_list):
+                total = total + lat_list[i]
+                i = i + 1
+            
+            return total / len(lat_list)
+        },
+        "get_stats": fn() {
+            all_latencies = []
+            task_ids = dict_keys(latencies)
+            i = 0
+            while i < len(task_ids):
+                task_id = task_ids[i]
+                lat_list = latencies[task_id]
+                j = 0
+                while j < len(lat_list):
+                    all_latencies = push(all_latencies, lat_list[j])
+                    j = j + 1
+                i = i + 1
+            
+            if len(all_latencies) == 0:
+                return {"min": 0.0, "max": 0.0, "avg": 0.0}
+            
+            min_val = all_latencies[0]
+            max_val = all_latencies[0]
+            total = 0.0
+            i = 0
+            while i < len(all_latencies):
+                val = all_latencies[i]
+                total = total + val
+                if val < min_val:
+                    min_val = val
+                if val > max_val:
+                    max_val = val
+                i = i + 1
+            
+            return {
+                "min": min_val,
+                "max": max_val,
+                "avg": total / len(all_latencies)
+            }
+        }
+    }
+
+# RealTimeExecutor factory
+fn make_realtime_executor(policy):
+    return {
+        "scheduler": make_realtime_scheduler(policy),
+        "priority_inheritance": make_priority_inheritance(),
+        "deadline_monitor": make_deadline_monitor(),
+        "latency_tracker": make_latency_tracker(),
+        "running": false,
+        "add_task": fn(task) {
+            scheduler["add_task"](task)
+            deadline_monitor["set_deadline"](task["id"], task["deadline_time"])
+        },
+        "start": fn() {
+            running = true
+            # Simplified execution loop
+            while running:
+                # Schedule task
+                task = scheduler["schedule"]()
+                
+                if task != None:
+                    # Execute task
+                    execute_task(task)
+                else:
+                    # Idle (conceptual)
+                    pass
+                
+                # Advance clock
+                scheduler["tick"]()
+                
+                # Check deadlines
+                missed = deadline_monitor["check_deadlines"](scheduler["clock"])
+        },
+        "stop": fn() {
+            running = false
+        },
+        "execute_task": fn(task) {
+            # Execute task
+            task["state"] = TASK_RUNNING
+            latency_tracker["start_task"](task["id"])
+            
+            # Simulate execution (conceptual)
+            latency_tracker["end_task"](task["id"])
+        },
+        "get_stats": fn() {
+            return {
+                "scheduler": scheduler["get_stats"](),
+                "deadlines": deadline_monitor["get_stats"](),
+                "latency": latency_tracker["get_stats"]()
+            }
+        }
+    }
+
+fn create_realtime_executor(policy):
+    return make_realtime_executor(policy)
+
+fn get_current_time():
+    # Get current time (simplified)
+    return 1000.0
+
+fn main():
+    print("Testing Real-time Concurrency...")
+    
+    # Create executor
+    executor = create_realtime_executor(SCHEDULING_PRIORITY)
+    
+    # Add tasks
+    task1 = make_realtime_task("task1", 1.0, 0.1, 0.5, 1)
+    task2 = make_realtime_task("task2", 2.0, 0.2, 1.0, 2)
+    
+    executor["add_task"](task1)
+    executor["add_task"](task2)
+    
+    # Run for a short time (simplified)
+    i = 0
+    while i < 100:
+        executor["scheduler"]["tick"]()
+        executor["scheduler"]["schedule"]()
+        i = i + 1
+    
+    # Get stats
+    stats = executor["get_stats"]()
+    print("Executor stats: " + to_string(stats))
+    
+    print("\nReal-time Concurrency initialized successfully")
+
+if __name__ == "__main__":
+    main()

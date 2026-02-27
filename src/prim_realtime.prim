@@ -1,0 +1,548 @@
+#mode slim
+# Prim Real-time Analytics
+# Provides streaming analytics, event processing, real-time dashboards,
+# alert systems, and performance monitoring
+
+# Event type constants
+EVENT_DATA = "data"
+EVENT_ALERT = "alert"
+EVENT_METRIC = "metric"
+EVENT_STATUS = "status"
+EVENT_ERROR = "error"
+
+# Alert severity constants
+SEVERITY_INFO = "info"
+SEVERITY_WARNING = "warning"
+SEVERITY_ERROR = "error"
+SEVERITY_CRITICAL = "critical"
+
+# Event factory
+fn make_event(id, type_, timestamp, data, source, metadata):
+    if source == None:
+        source = ""
+    if metadata == None:
+        metadata = {}
+    return {
+        "id": id,
+        "type": type_,
+        "timestamp": timestamp,
+        "data": data,
+        "source": source,
+        "metadata": metadata
+    }
+
+# Alert factory
+fn make_alert(id, severity, message, timestamp, source, acknowledged, resolved):
+    if source == None:
+        source = ""
+    if acknowledged == None:
+        acknowledged = false
+    if resolved == None:
+        resolved = false
+    return {
+        "id": id,
+        "severity": severity,
+        "message": message,
+        "timestamp": timestamp,
+        "source": source,
+        "acknowledged": acknowledged,
+        "resolved": resolved
+    }
+
+# EventStream factory
+fn make_event_stream(name):
+    if name == None:
+        name = "stream"
+    return {
+        "name": name,
+        "events": [],
+        "subscribers": [],
+        "buffer_size": 10000,
+        "running": false,
+        "publish": fn(event) {
+            events = push(events, event)
+            
+            # Maintain buffer size
+            if len(events) > buffer_size:
+                events = slice(events, len(events) - buffer_size, len(events))
+            
+            # Notify subscribers
+            i = 0
+            while i < len(subscribers):
+                subscriber = subscribers[i]
+                try:
+                    subscriber(event)
+                catch e:
+                    print("Subscriber error: " + to_string(e))
+                i = i + 1
+        },
+        "subscribe": fn(callback) {
+            subscribers = push(subscribers, callback)
+        },
+        "unsubscribe": fn(callback) {
+            # Remove callback from subscribers
+            new_subscribers = []
+            i = 0
+            while i < len(subscribers):
+                if subscribers[i] != callback:
+                    new_subscribers = push(new_subscribers, subscribers[i])
+                i = i + 1
+            subscribers = new_subscribers
+        },
+        "get_events": fn(event_type, since) {
+            result = events
+            
+            if event_type != None:
+                filtered = []
+                i = 0
+                while i < len(result):
+                    event = result[i]
+                    if event["type"] == event_type:
+                        filtered = push(filtered, event)
+                    i = i + 1
+                result = filtered
+            
+            if since != None:
+                filtered = []
+                i = 0
+                while i < len(result):
+                    event = result[i]
+                    if event["timestamp"] >= since:
+                        filtered = push(filtered, event)
+                    i = i + 1
+                result = filtered
+            
+            return result
+        }
+    }
+
+# EventProcessor factory
+fn make_event_processor():
+    return {
+        "processors": [],
+        "filters": [],
+        "aggregations": [],
+        "add_processor": fn(processor) {
+            processors = push(processors, processor)
+        },
+        "add_filter": fn(filter_func) {
+            filters = push(filters, filter_func)
+        },
+        "add_aggregation": fn(aggregation) {
+            aggregations = push(aggregations, aggregation)
+        },
+        "process_event": fn(event) {
+            # Apply filters
+            i = 0
+            while i < len(filters):
+                filter_func = filters[i]
+                if not filter_func(event):
+                    return None
+                i = i + 1
+            
+            # Apply processors
+            i = 0
+            while i < len(processors):
+                processor = processors[i]
+                try:
+                    event = processor(event)
+                catch e:
+                    print("Processor error: " + to_string(e))
+                i = i + 1
+            
+            # Apply aggregations
+            i = 0
+            while i < len(aggregations):
+                aggregation = aggregations[i]
+                try:
+                    aggregation(event)
+                catch e:
+                    print("Aggregation error: " + to_string(e))
+                i = i + 1
+            
+            return event
+        }
+    }
+
+# RealtimeDashboard factory
+fn make_realtime_dashboard(name):
+    if name == None:
+        name = "dashboard"
+    return {
+        "name": name,
+        "widgets": [],
+        "metrics": {},
+        "alerts": [],
+        "refresh_interval": 1,
+        "running": false,
+        "add_widget": fn(widget_type, config) {
+            widgets = push(widgets, {
+                "type": widget_type,
+                "config": config
+            })
+        },
+        "update_metric": fn(name, value) {
+            metrics[name] = value
+        },
+        "add_alert": fn(alert) {
+            alerts = push(alerts, alert)
+        },
+        "get_data": fn() {
+            return {
+                "name": name,
+                "widgets": widgets,
+                "metrics": metrics,
+                "alerts": slice(alerts, len(alerts) - 10, len(alerts)),  # Last 10 alerts
+                "timestamp": get_current_timestamp()
+            }
+        },
+        "to_json": fn() {
+            # Convert dashboard to JSON (conceptual)
+            data = get_data()
+            return to_string(data)
+        }
+    }
+
+# AlertManager factory
+fn make_alert_manager():
+    return {
+        "alerts": [],
+        "rules": [],
+        "subscribers": [],
+        "add_rule": fn(condition, severity, message_template) {
+            rules = push(rules, {
+                "condition": condition,
+                "severity": severity,
+                "message_template": message_template
+            })
+        },
+        "check_rules": fn(data) {
+            i = 0
+            while i < len(rules):
+                rule = rules[i]
+                try:
+                    if rule["condition"](data):
+                        alert_id = to_string(hash(to_string(rule["severity"]) + "_" + to_string(get_current_time())))
+                        alert = make_alert(
+                            alert_id,
+                            rule["severity"],
+                            format_message(rule["message_template"], data),
+                            get_current_timestamp(),
+                            "alert_manager"
+                        )
+                        add_alert(alert)
+                catch e:
+                    print("Rule check error: " + to_string(e))
+                i = i + 1
+        },
+        "add_alert": fn(alert) {
+            alerts = push(alerts, alert)
+            
+            # Notify subscribers
+            i = 0
+            while i < len(subscribers):
+                subscriber = subscribers[i]
+                try:
+                    subscriber(alert)
+                catch e:
+                    print("Subscriber error: " + to_string(e))
+                i = i + 1
+        },
+        "subscribe": fn(callback) {
+            subscribers = push(subscribers, callback)
+        },
+        "acknowledge_alert": fn(alert_id) {
+            i = 0
+            while i < len(alerts):
+                alert = alerts[i]
+                if alert["id"] == alert_id:
+                    alert["acknowledged"] = true
+                    break
+                i = i + 1
+        },
+        "resolve_alert": fn(alert_id) {
+            i = 0
+            while i < len(alerts):
+                alert = alerts[i]
+                if alert["id"] == alert_id:
+                    alert["resolved"] = true
+                    break
+                i = i + 1
+        },
+        "get_active_alerts": fn() {
+            result = []
+            i = 0
+            while i < len(alerts):
+                alert = alerts[i]
+                if not alert["resolved"]:
+                    result = push(result, alert)
+                i = i + 1
+            return result
+        }
+    }
+
+fn format_message(template, data):
+    # Format message (simplified)
+    return template  # Placeholder
+
+# PerformanceMonitor factory
+fn make_performance_monitor():
+    return {
+        "metrics": {},
+        "counters": {},
+        "timers": {},
+        "start_times": {},
+        "record_metric": fn(name, value) {
+            if not contains(dict_keys(metrics), name):
+                metrics[name] = []
+            metrics[name] = push(metrics[name], value)
+            
+            # Keep last 1000 values
+            if len(metrics[name]) > 1000:
+                metrics[name] = slice(metrics[name], len(metrics[name]) - 1000, len(metrics[name]))
+        },
+        "increment_counter": fn(name, amount) {
+            if amount == None:
+                amount = 1
+            if not contains(dict_keys(counters), name):
+                counters[name] = 0
+            counters[name] = counters[name] + amount
+        },
+        "start_timer": fn(name) {
+            start_times[name] = get_current_time()
+        },
+        "stop_timer": fn(name) {
+            if not contains(dict_keys(start_times), name):
+                return 0.0
+            
+            elapsed = get_current_time() - start_times[name]
+            # Remove from start_times
+            new_start_times = {}
+            keys = dict_keys(start_times)
+            i = 0
+            while i < len(keys):
+                key = keys[i]
+                if key != name:
+                    new_start_times[key] = start_times[key]
+                i = i + 1
+            start_times = new_start_times
+            
+            if not contains(dict_keys(timers), name):
+                timers[name] = []
+            timers[name] = push(timers[name], elapsed)
+            
+            return elapsed
+        },
+        "get_metric_stats": fn(name) {
+            if not contains(dict_keys(metrics), name) or len(metrics[name]) == 0:
+                return {}
+            
+            values = metrics[name]
+            
+            # Calculate stats (simplified)
+            sum_val = 0.0
+            min_val = values[0]
+            max_val = values[0]
+            i = 0
+            while i < len(values):
+                val = values[i]
+                sum_val = sum_val + val
+                if val < min_val:
+                    min_val = val
+                if val > max_val:
+                    max_val = val
+                i = i + 1
+            
+            mean = sum_val / len(values)
+            
+            return {
+                "mean": mean,
+                "std": 0.0,  # Simplified
+                "min": min_val,
+                "max": max_val,
+                "count": len(values)
+            }
+        },
+        "get_counter": fn(name) {
+            if contains(dict_keys(counters), name):
+                return counters[name]
+            return 0
+        },
+        "get_timer_stats": fn(name) {
+            if not contains(dict_keys(timers), name) or len(timers[name]) == 0:
+                return {}
+            
+            values = timers[name]
+            
+            # Calculate stats (simplified)
+            sum_val = 0.0
+            min_val = values[0]
+            max_val = values[0]
+            i = 0
+            while i < len(values):
+                val = values[i]
+                sum_val = sum_val + val
+                if val < min_val:
+                    min_val = val
+                if val > max_val:
+                    max_val = val
+                i = i + 1
+            
+            mean = sum_val / len(values)
+            
+            return {
+                "mean": mean,
+                "std": 0.0,  # Simplified
+                "min": min_val,
+                "max": max_val,
+                "count": len(values)
+            }
+        },
+        "get_all_stats": fn() {
+            metric_keys = dict_keys(metrics)
+            timer_keys = dict_keys(timers)
+            
+            metric_stats = {}
+            i = 0
+            while i < len(metric_keys):
+                key = metric_keys[i]
+                metric_stats[key] = get_metric_stats(key)
+                i = i + 1
+            
+            timer_stats = {}
+            i = 0
+            while i < len(timer_keys):
+                key = timer_keys[i]
+                timer_stats[key] = get_timer_stats(key)
+                i = i + 1
+            
+            return {
+                "metrics": metric_stats,
+                "counters": counters,
+                "timers": timer_stats
+            }
+        }
+    }
+
+# StreamingAnalytics factory
+fn make_streaming_analytics(name):
+    if name == None:
+        name = "analytics"
+    return {
+        "name": name,
+        "stream": make_event_stream(name),
+        "processor": make_event_processor(),
+        "dashboard": make_realtime_dashboard(name),
+        "alert_manager": make_alert_manager(),
+        "monitor": make_performance_monitor(),
+        "running": false,
+        "add_source": fn(source) {
+            stream["subscribe"](source)
+        },
+        "add_processor": fn(processor) {
+            processor["add_processor"](processor)
+        },
+        "add_filter": fn(filter_func) {
+            processor["add_filter"](filter_func)
+        },
+        "add_rule": fn(condition, severity, message) {
+            alert_manager["add_rule"](condition, severity, message)
+        },
+        "start": fn() {
+            running = true
+            # In real implementation, would start processing thread
+        },
+        "stop": fn() {
+            running = false
+        },
+        "get_status": fn() {
+            return {
+                "name": name,
+                "running": running,
+                "events_processed": monitor["get_counter"]("events_processed"),
+                "active_alerts": len(alert_manager["get_active_alerts"]()),
+                "metrics": monitor["get_all_stats"](),
+                "timestamp": get_current_timestamp()
+            }
+        }
+    }
+
+fn create_analytics(name):
+    return make_streaming_analytics(name)
+
+fn get_current_time():
+    # Get current time (simplified)
+    return 1000.0
+
+fn get_current_timestamp():
+    # Get current timestamp (simplified)
+    return "2023-01-01T00:00:00"
+
+fn main():
+    print("Testing Real-time Analytics...")
+    
+    # Create analytics engine
+    analytics = create_analytics("test_analytics")
+    
+    # Add event processor
+    fn processor(event) {
+        event["data"]["processed"] = true
+        return event
+    }
+    
+    analytics["add_processor"](processor)
+    
+    # Add filter
+    fn filter_func(event) {
+        return event["type"] != EVENT_ERROR
+    }
+    
+    analytics["add_filter"](filter_func)
+    
+    # Add alert rule
+    fn high_value_condition(data) {
+        return data["value"] > 100
+    }
+    
+    analytics["add_rule"](high_value_condition, SEVERITY_WARNING, "High value detected: {value}")
+    
+    # Publish some events
+    event1 = make_event("1", EVENT_METRIC, get_current_timestamp(), {"name": "cpu_usage", "value": 75.5})
+    event2 = make_event("2", EVENT_METRIC, get_current_timestamp(), {"name": "memory_usage", "value": 150.0})
+    
+    analytics["stream"]["publish"](event1)
+    analytics["stream"]["publish"](event2)
+    
+    # Start analytics
+    analytics["start"]()
+    analytics["stop"]()
+    
+    # Get status
+    status = analytics["get_status"]()
+    print("Status: " + to_string(status["events_processed"]) + " events processed")
+    print("Active alerts: " + to_string(status["active_alerts"]))
+    
+    # Test dashboard
+    dashboard = make_realtime_dashboard("test_dashboard")
+    dashboard["add_widget"]("metric", {"title": "CPU Usage", "value": 75})
+    dashboard["update_metric"]("cpu", 80)
+    print("Dashboard metrics: " + to_string(dashboard["metrics"]))
+    
+    # Test alert manager
+    alert_manager = make_alert_manager()
+    alert = make_alert("test_alert", SEVERITY_WARNING, "Test alert", get_current_timestamp())
+    alert_manager["add_alert"](alert)
+    print("Active alerts: " + to_string(len(alert_manager["get_active_alerts"]())))
+    
+    # Test performance monitor
+    monitor = make_performance_monitor()
+    monitor["record_metric"]("response_time", 0.5)
+    monitor["record_metric"]("response_time", 0.6)
+    monitor["record_metric"]("response_time", 0.7)
+    stats = monitor["get_metric_stats"]("response_time")
+    print("Response time stats: " + to_string(stats))
+    
+    print("\nReal-time Analytics initialized successfully")
+
+if __name__ == "__main__":
+    main()

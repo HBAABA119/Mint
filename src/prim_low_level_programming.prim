@@ -1,0 +1,85 @@
+#mode slim
+# Prim Low-level Programming
+# Provides bit manipulation, memory management, inline assembly,
+# system calls, and low-level utilities.
+
+# import ctypes
+# from typing import List, Dict, Any, Optional, Callable
+# from dataclasses import dataclass
+# from enum import Enum
+
+
+Endianness_LITTLE = "little"
+Endianness_BIG = "big"class
+# Class BitField
+    # Bit field
+    offset: int
+    width: int
+
+
+# Class BitManipulator
+    # Bit manipulation utilities
+
+    @staticmethod
+    def set_bit(value: int, position: int) -> int:
+        # Set bit at position
+        return value | (1 << position)
+
+    @staticmethod
+    def clear_bit(value: int, position: int) -> int:
+        # Clear bit at position
+        return value & ~(1 << position)
+
+    @staticmethod
+    def toggle_bit(value: int, position: int) -> int:
+        # Toggle bit at position
+        return value ^ (1 << position)
+
+    @staticmethod
+    def get_bit(value: int, position: int) -> bool:
+        # Get bit at position
+        return (value >> position) & 1 == 1
+
+    @staticmethod
+    def extract_bits(value: int, offset: int, width: int) -> int:
+        # Extract bits
+        mask = (1 << width) - 1
+        return (value >> offset) & mask
+
+
+# Class MemoryAllocator
+    # Memory allocator
+
+    fn make_memoryallocator():
+        obj = {}
+        obj["blocks"] = {}
+
+    def allocate(self, size: int) -> int:
+        # Allocate memory
+        address = len(obj["blocks"]) * 8
+        obj["blocks"][address] = size
+        return address
+
+    fn memoryallocator_free(obj, address: int):
+        # Free memory
+        if address in obj["blocks"]:
+            del obj["blocks"][address]
+
+    def get_status(self) :
+        # Get allocator status
+        return {
+            "blocks": len(obj["blocks"]),
+            "total": sum(obj["blocks"].values())
+        }
+
+
+fn main():
+    print("Testing Low-level Programming...")
+    manipulator = BitManipulator()
+    value = manipulator.set_bit(0, 1)
+    print("Value: {value}")
+    print("Low-level Programming initialized successfully")
+
+
+if __name__ == "__main__":
+    main()

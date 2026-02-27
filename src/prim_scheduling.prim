@@ -1,0 +1,70 @@
+#mode slim
+# Prim Scheduling Algorithms
+# Provides real-time scheduling, priority scheduling, deadline scheduling,
+# multi-core scheduling, and task allocation
+
+# Scheduling policy constants
+SCHED_FIFO = "fifo"
+SCHED_PRIORITY = "priority"
+SCHED_ROUND_ROBIN = "round_robin"
+SCHED_DEADLINE = "deadline"
+SCHED_RATE_MONOTONIC = "rate_monotonic"
+
+# Factory function for Task
+fn make_task(id, priority, deadline, execution_time):
+    return {
+        "id": id,
+        "priority": priority,
+        "deadline": deadline,
+        "execution_time": execution_time
+    }
+
+# Scheduler factory
+fn make_scheduler(policy):
+    return {
+        "policy": policy,
+        "tasks": []
+    }
+
+fn scheduler_add_task(scheduler, task):
+    scheduler["tasks"] = push(scheduler["tasks"], task)
+
+fn scheduler_schedule(scheduler):
+    if len(scheduler["tasks"]) == 0:
+        return None
+    
+    if scheduler["policy"] == SCHED_PRIORITY:
+        # Find highest priority task
+        highest = scheduler["tasks"][0]
+        i = 1
+        while i < len(scheduler["tasks"]):
+            if scheduler["tasks"][i]["priority"] > highest["priority"]:
+                highest = scheduler["tasks"][i]
+            i = i + 1
+        return highest
+    elif scheduler["policy"] == SCHED_DEADLINE:
+        # Find earliest deadline
+        earliest = scheduler["tasks"][0]
+        i = 1
+        while i < len(scheduler["tasks"]):
+            if scheduler["tasks"][i]["deadline"] < earliest["deadline"]:
+                earliest = scheduler["tasks"][i]
+            i = i + 1
+        return earliest
+    
+    return scheduler["tasks"][0]
+
+fn main():
+    print("Testing Scheduling Algorithms...")
+    scheduler = make_scheduler(SCHED_PRIORITY)
+    task = make_task("task1", 1, 1.0, 0.1)
+    scheduler_add_task(scheduler, task)
+    scheduled = scheduler_schedule(scheduler)
+    if scheduled:
+        print("Scheduled: " + scheduled["id"])
+    else:
+        print("Scheduled: None")
+    print("Scheduling Algorithms initialized successfully")
+
+if __name__ == "__main__":
+    main()

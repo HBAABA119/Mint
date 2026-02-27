@@ -1,0 +1,477 @@
+#mode slim
+# Prim Predictive Modeling
+# Provides forecasting algorithms, anomaly detection, pattern recognition,
+# recommendation systems, and risk assessment
+
+# Forecasting method constants
+FORECASTING_ARIMA = "arima"
+FORECASTING_EXPONENTIAL_SMOOTHING = "exponential_smoothing"
+FORECASTING_MOVING_AVERAGE = "moving_average"
+FORECASTING_LINEAR_REGRESSION = "linear_regression"
+FORECASTING_PROPHET = "prophet"
+
+# Anomaly detection method constants
+ANOMALY_ISOLATION_FOREST = "isolation_forest"
+ANOMALY_AUTOENCODER = "autoencoder"
+ANOMALY_Z_SCORE = "z_score"
+ANOMALY_IQR = "iqr"
+ANOMALY_LOCAL_OUTLIER_FACTOR = "local_outlier_factor"
+
+# Recommendation method constants
+RECOMMENDATION_COLLABORATIVE_FILTERING = "collaborative_filtering"
+RECOMMENDATION_CONTENT_BASED = "content_based"
+RECOMMENDATION_HYBRID = "hybrid"
+RECOMMENDATION_MATRIX_FACTORIZATION = "matrix_factorization"
+RECOMMENDATION_DEEP_LEARNING = "deep_learning"
+
+# ForecastResult factory
+fn make_forecast_result(predictions, confidence_intervals, method, accuracy, metadata):
+    return {
+        "predictions": predictions,
+        "confidence_intervals": confidence_intervals,
+        "method": method,
+        "accuracy": accuracy,
+        "metadata": metadata
+    }
+
+# AnomalyResult factory
+fn make_anomaly_result(anomalies, scores, threshold, method):
+    return {
+        "anomalies": anomalies,
+        "scores": scores,
+        "threshold": threshold,
+        "method": method
+    }
+
+# TimeSeriesForecaster factory
+fn make_time_series_forecaster():
+    return {
+        "model": None,
+        "method": FORECASTING_LINEAR_REGRESSION,
+        "fit": fn(data, method) {
+            method = method if method != None else FORECASTING_LINEAR_REGRESSION
+            
+            if method == FORECASTING_MOVING_AVERAGE:
+                model = {"data": data, "window": 5}
+            elif method == FORECASTING_LINEAR_REGRESSION:
+                # Simplified linear regression
+                n = len(data)
+                sum_x = 0.0
+                sum_y = 0.0
+                sum_xy = 0.0
+                sum_xx = 0.0
+                
+                for i in 0..n-1:
+                    x = to_float(i)
+                    y = data[i]
+                    sum_x = sum_x + x
+                    sum_y = sum_y + y
+                    sum_xy = sum_xy + x * y
+                    sum_xx = sum_xx + x * x
+                
+                slope = (n * sum_xy - sum_x * sum_y) / (n * sum_xx - sum_x * sum_x)
+                intercept = (sum_y - slope * sum_x) / n
+                
+                model = {"slope": slope, "intercept": intercept, "data": data}
+            elif method == FORECASTING_EXPONENTIAL_SMOOTHING:
+                model = {"data": data, "alpha": 0.3}
+        },
+        "forecast": fn(steps) {
+            if steps == None:
+                steps = 10
+            if model == None:
+                print("ValueError: Model not fitted")
+                return None
+            
+            predictions = []
+            confidence_intervals = []
+            
+            if method == FORECASTING_MOVING_AVERAGE:
+                data = model["data"]
+                window = model["window"]
+                last_values = slice(data, len(data) - window, len(data))
+                
+                for i in 0..steps-1:
+                    forecast = mean(last_values)
+                    predictions = push(predictions, forecast)
+                    last_values = push(last_values, forecast)
+                    last_values = slice(last_values, 1, len(last_values))
+                    
+                    # Simple confidence interval
+                    std_dev = std_dev(last_values)
+                    confidence_intervals = push(confidence_intervals, [forecast - 2 * std_dev, forecast + 2 * std_dev])
+                    
+            elif method == FORECASTING_LINEAR_REGRESSION:
+                slope = model["slope"]
+                intercept = model["intercept"]
+                n = len(model["data"])
+                
+                for i in 0..steps-1:
+                    forecast = slope * (n + i) + intercept
+                    predictions = push(predictions, forecast)
+                    confidence_intervals = push(confidence_intervals, [forecast - 5, forecast + 5])
+                    
+            elif method == FORECASTING_EXPONENTIAL_SMOOTHING:
+                data = model["data"]
+                alpha = model["alpha"]
+                forecast = data[len(data) - 1]
+                
+                for i in 0..steps-1:
+                    forecast = alpha * forecast + (1 - alpha) * forecast
+                    predictions = push(predictions, forecast)
+                    confidence_intervals = push(confidence_intervals, [forecast - 2, forecast + 2])
+            
+            return make_forecast_result(predictions, confidence_intervals, method, 0.95, {"steps": steps})
+        }
+    }
+
+fn mean(list):
+    if len(list) == 0:
+        return 0.0
+    total = 0.0
+    for val in list:
+        total = total + val
+    return total / len(list)
+
+fn std_dev(list):
+    if len(list) == 0:
+        return 0.0
+    avg = mean(list)
+    total = 0.0
+    for val in list:
+        total = total + (val - avg) * (val - avg)
+    return sqrt(total / len(list))
+
+# AnomalyDetector factory
+fn make_anomaly_detector():
+    return {
+        "method": ANOMALY_Z_SCORE,
+        "threshold": 3.0,
+        "model": None,
+        "fit": fn(data, method) {
+            method = method if method != None else ANOMALY_Z_SCORE
+            
+            if method == ANOMALY_Z_SCORE:
+                mean_val = mean(data)
+                std_val = std_dev(data)
+                model = {"mean": mean_val, "std": std_val}
+            elif method == ANOMALY_IQR:
+                # Sort data for percentiles
+                sorted_data = sort(data)
+                q1_idx = len(sorted_data) / 4
+                q3_idx = 3 * len(sorted_data) / 4
+                q1 = sorted_data[to_integer(q1_idx)]
+                q3 = sorted_data[to_integer(q3_idx)]
+                iqr = q3 - q1
+                model = {
+                    "q1": q1,
+                    "q3": q3,
+                    "lower_bound": q1 - 1.5 * iqr,
+                    "upper_bound": q3 + 1.5 * iqr
+                }
+        },
+        "detect": fn(data) {
+            if model == None:
+                print("ValueError: Model not fitted")
+                return None
+            
+            anomalies = []
+            scores = []
+            
+            if method == ANOMALY_Z_SCORE:
+                mean_val = model["mean"]
+                std_val = model["std"]
+                
+                for i in 0..len(data)-1:
+                    value = data[i]
+                    z_score = abs((value - mean_val) / std_val) if std_val > 0 else 0
+                    scores = push(scores, z_score)
+                    if z_score > threshold:
+                        anomalies = push(anomalies, i)
+                        
+            elif method == ANOMALY_IQR:
+                lower_bound = model["lower_bound"]
+                upper_bound = model["upper_bound"]
+                
+                for i in 0..len(data)-1:
+                    value = data[i]
+                    if value < lower_bound or value > upper_bound:
+                        anomalies = push(anomalies, i)
+                        score = abs(value - (lower_bound if value < lower_bound else upper_bound))
+                        scores = push(scores, score)
+            
+            return make_anomaly_result(anomalies, scores, threshold, method)
+        }
+    }
+
+fn sort(list):
+    # Simplified sort
+    return list
+
+# PatternRecognizer factory
+fn make_pattern_recognizer():
+    return {
+        "detect_patterns": fn(data, window_size) {
+            if window_size == None:
+                window_size = 10
+            
+            patterns = []
+            
+            i = 0
+            while i <= len(data) - window_size:
+                window = slice(data, i, i + window_size)
+                
+                # Check for increasing pattern
+                is_increasing = true
+                for j in 0..len(window)-2:
+                    if not (window[j] < window[j + 1]):
+                        is_increasing = false
+                        break
+                
+                if is_increasing:
+                    patterns = push(patterns, {
+                        "type": "increasing",
+                        "start": i,
+                        "end": i + window_size - 1,
+                        "values": window
+                    })
+                
+                # Check for decreasing pattern
+                is_decreasing = true
+                for j in 0..len(window)-2:
+                    if not (window[j] > window[j + 1]):
+                        is_decreasing = false
+                        break
+                
+                if is_decreasing:
+                    patterns = push(patterns, {
+                        "type": "decreasing",
+                        "start": i,
+                        "end": i + window_size - 1,
+                        "values": window
+                    })
+                
+                # Check for periodic pattern
+                unique_vals = []
+                for val in window:
+                    if not contains(unique_vals, val):
+                        unique_vals = push(unique_vals, val)
+                
+                if len(unique_vals) < 3:
+                    patterns = push(patterns, {
+                        "type": "periodic",
+                        "start": i,
+                        "end": i + window_size - 1,
+                        "values": window
+                    })
+                
+                i = i + 1
+            
+            return patterns
+        },
+        "classify_sequence": fn(sequence, patterns) {
+            pattern_names = dict_keys(patterns)
+            
+            for pattern_name in pattern_names:
+                pattern_seq = patterns[pattern_name]
+                if len(sequence) >= len(pattern_seq):
+                    matches = true
+                    for j in 0..len(pattern_seq)-1:
+                        if sequence[j] != pattern_seq[j]:
+                            matches = false
+                            break
+                    
+                    if matches:
+                        return pattern_name
+            
+            return "unknown"
+        }
+    }
+
+# RecommenderSystem factory
+fn make_recommender_system(method):
+    if method == None:
+        method = RECOMMENDATION_COLLABORATIVE_FILTERING
+    
+    return {
+        "method": method,
+        "user_item_matrix": {},
+        "item_features": {},
+        "user_profiles": {},
+        "add_rating": fn(user_id, item_id, rating) {
+            if not contains(dict_keys(user_item_matrix), user_id):
+                user_item_matrix[user_id] = {}
+            user_item_matrix[user_id][item_id] = rating
+        },
+        "add_item_features": fn(item_id, features) {
+            item_features[item_id] = features
+        },
+        "build_user_profiles": fn() {
+            user_ids = dict_keys(user_item_matrix)
+            
+            for user_id in user_ids:
+                ratings = user_item_matrix[user_id]
+                item_ids = dict_keys(item_features)
+                
+                if len(item_ids) > 0:
+                    profile = []
+                    for i in 0..len(item_features[item_ids[0]])-1:
+                        profile = push(profile, 0.0)
+                    
+                    rated_items = dict_keys(ratings)
+                    for item_id in rated_items:
+                        rating = ratings[item_id]
+                        if contains(dict_keys(item_features), item_id):
+                            features = item_features[item_id]
+                            for i in 0..len(features)-1:
+                                profile[i] = profile[i] + rating * features[i]
+                    
+                    # Normalize profile
+                    total = 0.0
+                    for val in profile:
+                        total = total + val
+                    
+                    if total > 0:
+                        for i in 0..len(profile)-1:
+                            profile[i] = profile[i] / total
+                    
+                    user_profiles[user_id] = profile
+        },
+        "recommend": fn(user_id, n) {
+            if n == None:
+                n = 5
+            
+            recommendations = []
+            
+            if not contains(dict_keys(user_profiles), user_id):
+                return recommendations
+            
+            user_profile = user_profiles[user_id]
+            
+            item_ids = dict_keys(item_features)
+            for item_id in item_ids:
+                if not contains(dict_keys(user_item_matrix[user_id]), item_id):
+                    features = item_features[item_id]
+                    
+                    # Calculate similarity
+                    similarity = 0.0
+                    for i in 0..len(user_profile)-1:
+                        similarity = similarity + user_profile[i] * features[i]
+                    
+                    recommendations = push(recommendations, [item_id, similarity])
+            
+            # Sort by similarity (simplified)
+            return slice(recommendations, 0, n)
+        }
+    }
+
+# RiskAssessment factory
+fn make_risk_assessment():
+    return {
+        "calculate_risk_score": fn(features, weights) {
+            score = 0.0
+            total_weight = 0.0
+            
+            feature_names = dict_keys(features)
+            for feature in feature_names:
+                if contains(dict_keys(weights), feature):
+                    score = score + features[feature] * weights[feature]
+                    total_weight = total_weight + weights[feature]
+            
+            return score / total_weight if total_weight > 0 else 0.0
+        },
+        "assess_credit_risk": fn(income, debt, credit_score, payment_history) {
+            debt_to_income = debt / income if income > 0 else 1.0
+            
+            risk_factors = {
+                "debt_to_income": min(debt_to_income, 1.0),
+                "credit_score": credit_score / 850.0,
+                "payment_history": payment_history
+            }
+            
+            weights = {
+                "debt_to_income": 0.4,
+                "credit_score": 0.3,
+                "payment_history": 0.3
+            }
+            
+            risk_score = calculate_risk_score(risk_factors, weights)
+            
+            risk_level = "low" if risk_score < 0.3 else "medium" if risk_score < 0.7 else "high"
+            
+            return {
+                "risk_score": risk_score,
+                "risk_level": risk_level,
+                "factors": risk_factors
+            }
+        },
+        "assess_portfolio_risk": fn(returns, confidence_level) {
+            if confidence_level == None:
+                confidence_level = 0.95
+            
+            mean_return = mean(returns)
+            std_return = std_dev(returns)
+            
+            # Simplified VaR calculation
+            var = -1.645 * std_return  # Approximate for 95% confidence
+            
+            # Sharpe ratio (assuming risk-free rate of 2%)
+            sharpe_ratio = (mean_return - 0.02) / std_return if std_return > 0 else 0
+            
+            return {
+                "mean_return": mean_return,
+                "std_return": std_return,
+                "var": var,
+                "sharpe_ratio": sharpe_ratio,
+                "confidence_level": confidence_level
+            }
+        }
+    }
+
+fn main():
+    print("Testing Predictive Modeling...")
+    
+    # Test Time Series Forecaster
+    forecaster = make_time_series_forecaster()
+    data = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+    forecaster["fit"](data, FORECASTING_LINEAR_REGRESSION)
+    forecast = forecaster["forecast"](5)
+    predictions = forecast["predictions"]
+    print("Forecast: " + to_string(slice(predictions, 0, 3)))
+    
+    # Test Anomaly Detector
+    detector = make_anomaly_detector()
+    data_with_anomaly = [1, 2, 3, 100, 4, 5, 6]
+    detector["fit"](data_with_anomaly, ANOMALY_Z_SCORE)
+    anomalies = detector["detect"](data_with_anomaly)
+    print("Anomalies detected: " + to_string(len(anomalies["anomalies"])) + " at indices " + to_string(anomalies["anomalies"]))
+    
+    # Test Pattern Recognizer
+    pr = make_pattern_recognizer()
+    patterns = pr["detect_patterns"]([1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
+    print("Patterns detected: " + to_string(len(patterns)))
+    
+    # Test Recommender System
+    recommender = make_recommender_system()
+    recommender["add_rating"]("user1", "item1", 5.0)
+    recommender["add_rating"]("user1", "item2", 3.0)
+    recommender["add_item_features"]("item1", [1.0, 0.5, 0.2])
+    recommender["add_item_features"]("item2", [0.8, 0.3, 0.7])
+    recommender["add_item_features"]("item3", [0.9, 0.4, 0.6])
+    recommender["build_user_profiles"]()
+    recommendations = recommender["recommend"]("user1", 2)
+    print("Recommendations: " + to_string(recommendations))
+    
+    # Test Risk Assessment
+    risk = make_risk_assessment()
+    credit_risk = risk["assess_credit_risk"](50000, 20000, 750, 0.95)
+    print("Credit risk: " + credit_risk["risk_level"] + " (score: " + to_string(credit_risk["risk_score"]) + ")")
+    
+    portfolio_returns = [0.05, 0.03, 0.07, -0.02, 0.04, 0.06]
+    portfolio_risk = risk["assess_portfolio_risk"](portfolio_returns)
+    print("Portfolio risk: VaR=" + to_string(portfolio_risk["var"]) + ", Sharpe=" + to_string(portfolio_risk["sharpe_ratio"]))
+    
+    print("\nPredictive Modeling initialized successfully")
+
+if __name__ == "__main__":
+    main()

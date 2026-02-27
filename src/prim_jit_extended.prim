@@ -1,0 +1,411 @@
+#mode slim
+# Prim JIT Extended
+# Provides advanced JIT compilation, code optimization, inline caching,
+# deoptimization, and profile-guided optimization.
+
+# import dis
+# import sys
+# import time
+# import types
+# from typing import List, Dict, Any, Optional, Callable, Tuple
+# from dataclasses import dataclass, field
+# from enum import Enum
+
+
+OptimizationLevel_NONE = 0
+OptimizationLevel_BASIC = 1
+OptimizationLevel_INTERMEDIATE = 2
+OptimizationLevel_AGGRESSIVE = 3JITState_INTERPRETING = "interpreting"
+JITState_COMPILING = "compiling"
+JITState_COMPILED = "compiled"
+JITState_DEOPTIMIZING = "deoptimizing"class
+# Class CompiledCode
+    # Compiled code block
+    code: bytes
+    entry_point: int
+    metadata = field(default_factory=dict)
+    hot_count: int = 0
+
+
+fn make_profiledata(function_name, call_count, execution_time, hot_paths):
+    return {"function_name": function_name, "call_count": call_count, "execution_time": execution_time, "hot_paths": hot_paths}default_factory=list)
+    type_feedback = field(default_factory=dict)
+
+
+# Class InlineCache
+    # Inline cache for method calls
+
+    fn make_inlinecache(size: int = 4):
+        obj = {}
+        obj["entries"]] = []
+        obj["size"] = size
+        obj["hits"] = 0
+        obj["misses"] = 0
+
+    def lookup(self, obj, method_name: str) :
+        # Lookup cached method
+        for entry in obj["entries"]:
+            if entry["type"] == type(obj) and entry["method"] == method_name:
+                obj["hits"] += 1
+                return entry["callable"]
+
+        obj["misses"] += 1
+        return null
+
+    fn inlinecache_update(obj, obj, method_name: str, callable_obj):
+        # Update cache entry
+        # Remove oldest if full
+        if len(obj["entries"]) >= obj["size"]:
+            obj["entries"].pop(0)
+
+        obj["entries"].append({
+            "type": type(obj),
+            "method": method_name,
+            "callable": callable_obj
+        })
+
+    def get_stats(self) :
+        # Get cache statistics
+        return {
+            "hits": obj["hits"],
+            "misses": obj["misses"],
+            "hit_rate": obj["hits"] / (obj["hits"] + obj["misses"]) if (obj["hits"] + obj["misses"]) > 0 else 0
+        }
+
+
+# Class JITCompiler
+    # Extended JIT compiler
+
+    fn make_jitcompiler(optimization_level = OptimizationLevel.INTERMEDIATE):
+        obj = {}
+        obj["optimization_level"] = optimization_level
+        obj["compiled_functions"] = {}
+        obj["profile_data"] = {}
+        obj["inline_caches"] = {}
+        obj["hot_threshold"] = 1000
+        obj["state"] = JITState.INTERPRETING
+
+    def compile_function(self, func) :
+        # Compile function to native code
+        func_name = func.__name__
+
+        # Check if already compiled
+        if func_name in obj["compiled_functions"]:
+            return obj["compiled_functions"][func_name]
+
+        # Get profile data
+        profile = obj["profile_data"].get(func_name, ProfileData(func_name))
+
+        # Check if hot enough to compile
+        if profile.call_count < obj["hot_threshold"]:
+            return null
+
+        obj["state"] = JITState.COMPILED
+
+        # Compile (simplified - would use actual JIT in practice)
+        bytecode = dis.Bytecode(func)
+        code = jitcompiler__generate_native_code(obj, bytecode)
+
+        compiled = CompiledCode(
+            code=code,
+            entry_point=0,
+            metadata={
+                "optimization_level": obj["optimization_level"].value,
+                "compile_time": time.time()
+            }
+        )
+
+        obj["compiled_functions"][func_name] = compiled
+        return compiled
+
+    def _generate_native_code(self, bytecode) -> bytes:
+        # Generate native code from bytecode (simplified)
+        # This is a placeholder for actual JIT compilation
+        # In practice, this would use LLVM, libjit, or similar
+
+        code = b""
+        for instr in bytecode:
+            # Simplified code generation
+            code += bytes([instr.opcode])
+            if instr.arg is not null:
+                code += instr.arg.to_bytes(2, byteorder='little')
+
+        return code
+
+    def execute_compiled(self, func_name: str, *args, **kwargs) :
+        # Execute compiled function
+        if func_name not in obj["compiled_functions"]:
+            raise RuntimeError("Function {func_name} not compiled")
+
+        compiled = obj["compiled_functions"][func_name]
+
+        # Simulate execution (would execute native code in practice)
+        return jitcompiler__simulate_execution(obj, compiled, args, kwargs)
+
+    def _simulate_execution(self, compiled, args, kwargs) :
+        # Simulate execution of compiled code
+        # Placeholder for actual execution
+        return null
+
+    fn jitcompiler_deoptimize(obj, func_name: str):
+        # Deoptimize function back to interpreted mode
+        if func_name in obj["compiled_functions"]:
+            del obj["compiled_functions"][func_name]
+            obj["state"] = JITState.DEOPTIMIZING
+
+        # Clear inline cache
+        if func_name in obj["inline_caches"]:
+            del obj["inline_caches"][func_name]
+
+    def get_inline_cache(self, func_name: str) :
+        # Get or create inline cache for function
+        if func_name not in obj["inline_caches"]:
+            obj["inline_caches"][func_name] = InlineCache()
+        return obj["inline_caches"][func_name]
+
+
+# Class ProfileGuidedOptimizer
+    # Profile-guided optimization
+
+    fn make_profileguidedoptimizer():
+        obj = {}
+        obj["profiles"] = {}
+        obj["hot_functions"] = []
+
+    fn profileguidedoptimizer_record_call(obj, func_name: str, execution_time: float):
+        # Record function call
+        if func_name not in obj["profiles"]:
+            obj["profiles"][func_name] = ProfileData(func_name)
+
+        profile = obj["profiles"][func_name]
+        profile.call_count += 1
+        profile.execution_time += execution_time
+
+        # Update hot functions
+        if profile.call_count > 1000 and func_name not in obj["hot_functions"]:
+            obj["hot_functions"].append(func_name)
+
+    fn profileguidedoptimizer_record_type_feedback(obj, func_name: str, location: int, obj_type: type):
+        # Record type feedback
+        if func_name not in obj["profiles"]:
+            obj["profiles"][func_name] = ProfileData(func_name)
+
+        profile = obj["profiles"][func_name]
+        key = "loc_{location}"
+        if key not in profile.type_feedback:
+            profile.type_feedback[key] = {}
+
+        profile.type_feedback[key][obj_type.__name__] = \
+            profile.type_feedback[key].get(obj_type.__name__, 0) + 1
+
+    def get_hot_functions(self) ]:
+        # Get hot functions sorted by call count
+        sorted_funcs = sorted(
+            [(name, data.call_count) for name, data in obj["profiles"].items()],
+            key=lambda x: x[1],
+            reverse=true
+        )
+        return sorted_funcs[:10]
+
+    def get_optimization_hints(self, func_name: str) :
+        # Get optimization hints from profile
+        if func_name not in obj["profiles"]:
+            return {}
+
+        profile = obj["profiles"][func_name]
+
+        hints = {
+            "is_hot": profile.call_count > 1000,
+            "avg_execution_time": profile.execution_time / profile.call_count if profile.call_count > 0 else 0,
+            "type_feedback": profile.type_feedback
+        }
+
+        return hints
+
+
+# Class CodeOptimizer
+    # Code optimization passes
+
+    fn make_codeoptimizer(level = OptimizationLevel.INTERMEDIATE):
+        obj = {}
+        obj["level"] = level
+
+    def optimize(self, bytecode: dis.Bytecode) -> dis.Bytecode:
+        # Optimize bytecode
+        if obj["level"] == OptimizationLevel.NONE:
+            return bytecode
+
+        # Apply optimization passes
+        optimized = codeoptimizer__constant_folding(obj, bytecode)
+        optimized = codeoptimizer__dead_code_elimination(obj, optimized)
+        optimized = codeoptimizer__inline_expansion(obj, optimized)
+
+        if obj["level"] >= OptimizationLevel.AGGRESSIVE:
+            optimized = codeoptimizer__loop_unrolling(obj, optimized)
+
+        return optimized
+
+    def _constant_folding(self, bytecode: dis.Bytecode) -> dis.Bytecode:
+        # Constant folding optimization
+        # Simplified constant folding
+        optimized_instructions = []
+
+        for instr in bytecode:
+            # Skip LOAD_CONST followed by operations that can be folded
+            if instr.opname == "LOAD_CONST" and optimized_instructions:
+                prev = optimized_instructions[-1]
+                if prev.opname == "LOAD_CONST":
+                    # Can fold
+                    continue
+
+            optimized_instructions = push(optimized_instructions, instr)
+
+        return bytecode
+
+    def _dead_code_elimination(self, bytecode: dis.Bytecode) -> dis.Bytecode:
+        # Dead code elimination
+        # Simplified DCE
+        optimized_instructions = []
+
+        for instr in bytecode:
+            # Skip unreachable code
+            if instr.opname == "JUMP_ABSOLUTE":
+                continue
+
+            optimized_instructions = push(optimized_instructions, instr)
+
+        return bytecode
+
+    def _inline_expansion(self, bytecode: dis.Bytecode) -> dis.Bytecode:
+        # Inline expansion optimization
+        # Simplified inlining
+        return bytecode
+
+    def _loop_unrolling(self, bytecode: dis.Bytecode) -> dis.Bytecode:
+        # Loop unrolling optimization
+        # Simplified loop unrolling
+        return bytecode
+
+
+# Class DeoptimizationHandler
+    # Deoptimization handler
+
+    fn make_deoptimizationhandler():
+        obj = {}
+        obj["deoptimization_points"]] = []
+        obj["deoptimization_count"] = 0
+
+    fn deoptimizationhandler_add_deopt_point(obj, location: int, reason: str):
+        # Add deoptimization point
+        obj["deoptimization_points"].append({
+            "location": location,
+            "reason": reason,
+            "timestamp": time.time()
+        })
+
+    fn deoptimizationhandler_trigger_deoptimization(obj, func_name: str, jit):
+        # Trigger deoptimization
+        obj["deoptimization_count"] += 1
+        jit.deoptimize(func_name)
+
+    def get_stats(self) :
+        # Get deoptimization statistics
+        return {
+            "deoptimization_count": obj["deoptimization_count"],
+            "deopt_points": len(obj["deoptimization_points"])
+        }
+
+
+# Class JITRuntime
+    # JIT runtime environment
+
+    fn make_jitruntime(optimization_level = OptimizationLevel.INTERMEDIATE):
+        obj = {}
+        obj["compiler"] = JITCompiler(optimization_level)
+        obj["optimizer"] = CodeOptimizer(optimization_level)
+        obj["pgo"] = ProfileGuidedOptimizer()
+        obj["deopt_handler"] = DeoptimizationHandler()
+        obj["compiled_count"] = 0
+        obj["decompiled_count"] = 0
+
+    def execute(self, func, *args, **kwargs) :
+        # Execute function with JIT
+        func_name = func.__name__
+
+        # Record profile
+        start_time = time.time()
+        result = func(*args, **kwargs)
+        execution_time = time.time() - start_time
+
+        obj["pgo"].record_call(func_name, execution_time)
+
+        # Check if should compile
+        profile = obj["pgo"].dict_get(profiles, func_name)
+        if profile and profile.call_count >= obj["compiler"].hot_threshold:
+            compiled = obj["compiler"].compile_function(func)
+            if compiled:
+                obj["compiled_count"] += 1
+
+        return result
+
+    def get_stats(self) :
+        # Get JIT statistics
+        return {
+            "compiled_count": obj["compiled_count"],
+            "decompiled_count": obj["decompiled_count"],
+            "hot_functions": len(obj["pgo"].hot_functions),
+            "inline_caches": len(obj["compiler"].inline_caches),
+            "state": obj["compiler"].state.value
+        }
+
+
+def create_jit_runtime(optimization_level = OptimizationLevel.INTERMEDIATE) :
+    # Create JIT runtime
+    return JITRuntime(optimization_level)
+
+
+fn main():
+    # Main entry point for testing
+    print("Testing JIT Extended...")
+
+    # Create JIT runtime
+    jit = create_jit_runtime(OptimizationLevel.INTERMEDIATE)
+
+    # Test function execution
+    fn test_function(x):
+        return x * 2
+
+    # Execute multiple times to trigger JIT
+    for _ in range(1100):
+        result = jit.execute(test_function, 5)
+
+    stats = jit.get_stats()
+    print("JIT stats: {stats}")
+
+    # Test inline cache
+    cache = InlineCache()
+    obj = type("Test", (), {"method": lambda self: "result"})()
+
+    cache.update(obj, "method", obj.method)
+    cached = cache.lookup(obj, "method")
+    print("Inline cache: {cached is not null}")
+
+    cache_stats = cache.get_stats()
+    print("Cache stats: hit rate {cache_stats['hit_rate']:.2f}")
+
+    # Test profile-guided optimization
+    pgo = ProfileGuidedOptimizer()
+    for _ in range(1500):
+        pgo.record_call("hot_func", 0.001)
+
+    hot_funcs = pgo.get_hot_functions()
+    print("Hot functions: {len(hot_funcs)}")
+
+    hints = pgo.get_optimization_hints("hot_func")
+    print("Optimization hints: {hints}")
+
+    print("\nJIT Extended initialized successfully")
+
+
+if __name__ == "__main__":
+    main()

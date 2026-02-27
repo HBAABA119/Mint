@@ -1,0 +1,44 @@
+#mode slim
+# Prim Self-maintenance
+# Provides self-repair, self-healing, self-diagnosis,
+# self-optimization, and self-maintaining systems
+
+# Maintenance type constants
+MAINTENANCE_REPAIR = "repair"
+MAINTENANCE_HEALING = "healing"
+MAINTENANCE_DIAGNOSIS = "diagnosis"
+MAINTENANCE_OPTIMIZATION = "optimization"
+
+# Factory function for SelfMaintainingSystem
+fn make_self_maintaining_system(name, type_, health):
+    return {
+        "name": name,
+        "type": type_,
+        "health": health
+    }
+
+# SelfMaintenance factory
+fn make_self_maintenance():
+    return {
+        "systems": {}
+    }
+
+fn self_maintenance_add_system(maintenance, system):
+    maintenance["systems"][system["name"]] = system
+
+fn self_maintenance_maintain(maintenance, name):
+    if contains(dict_keys(maintenance["systems"]), name):
+        return {"maintained": true}
+    return None
+
+fn main():
+    print("Testing Self-maintenance...")
+    maintenance = make_self_maintenance()
+    system = make_self_maintaining_system("system", MAINTENANCE_REPAIR, 1.0)
+    self_maintenance_add_system(maintenance, system)
+    result = self_maintenance_maintain(maintenance, "system")
+    print("Result: " + to_string(result))
+    print("Self-maintenance initialized successfully")
+
+if __name__ == "__main__":
+    main()

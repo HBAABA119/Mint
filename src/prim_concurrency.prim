@@ -1,0 +1,254 @@
+#mode slim
+# Prim Concurrency Primitives
+# Provides async/await syntax, channel types, actor model, and runtime scheduling
+
+# Concurrency mode constants
+CONCURRENCY_ASYNC_AWAIT = "async_await"
+CONCURRENCY_CHANNELS = "channels"
+CONCURRENCY_ACTORS = "actors"
+CONCURRENCY_THREADS = "threads"
+
+# Promise factory
+fn make_promise():
+    return {
+        "result": None,
+        "error": None,
+        "completed": false,
+        "callbacks": [],
+        "then": fn(callback) {
+            if completed:
+                callback(result if error == None else None)
+            else:
+                callbacks = push(callbacks, callback)
+            return promise
+        },
+        "resolve": fn(value) {
+            result = value
+            completed = true
+            for callback in callbacks:
+                callback(value)
+        },
+        "reject": fn(err) {
+            error = err
+            completed = true
+        }
+    }
+
+# AsyncContext factory
+fn make_async_context():
+    return {
+        "event_loop": {},
+        "run_async": fn(coro) {
+            # Run async coroutine (conceptual)
+            return coro
+        },
+        "run": fn(coro) {
+            # Run coroutine in event loop
+            return coro
+        }
+    }
+
+# Channel factory
+fn make_channel(max_size):
+    if max_size == None:
+        max_size = 0
+    return {
+        "queue": [],
+        "max_size": max_size,
+        "closed": false,
+        "send": fn(value) {
+            # Send a value through the channel (conceptual)
+            if closed:
+                print("RuntimeError: Channel is closed")
+                return
+            queue = push(queue, value)
+        },
+        "receive": fn() {
+            # Receive a value from the channel (conceptual)
+            if closed and len(queue) == 0:
+                print("RuntimeError: Channel is closed")
+                return None
+            if len(queue) > 0:
+                value = queue[0]
+                queue = slice(queue, 1, len(queue))
+                return value
+            return None
+        },
+        "close": fn() {
+            closed = true
+        },
+        "is_closed": fn() {
+            return closed
+        }
+    }
+
+# Actor factory
+fn make_actor(name):
+    return {
+        "name": name,
+        "mailbox": [],
+        "running": false,
+        "handlers": {},
+        "on": fn(message_type, handler) {
+            handlers[message_type] = handler
+        },
+        "send": fn(message_type, args) {
+            # Send a message to the actor (conceptual)
+            mailbox = push(mailbox, [message_type, args])
+        },
+        "receive": fn() {
+            # Receive a message from the mailbox
+            if len(mailbox) > 0:
+                msg = mailbox[0]
+                mailbox = slice(mailbox, 1, len(mailbox))
+                return msg
+            return None
+        },
+        "process_messages": fn() {
+            # Process all messages in the mailbox
+            while running:
+                msg = receive()
+                if msg == None:
+                    break
+                
+                message_type = msg[0]
+                args = msg[1]
+                handler = handlers[message_type]
+                
+                if handler != None:
+                    try:
+                        handler(args)
+                    catch e:
+                        print("Error processing message: " + to_string(e))
+        },
+        "start": fn() {
+            running = true
+            # In real implementation, would start thread
+            process_messages()
+        },
+        "stop": fn() {
+            running = false
+        }
+    }
+
+# ActorSystem factory
+fn make_actor_system():
+    return {
+        "actors": {},
+        "create_actor": fn(name) {
+            actor = make_actor(name)
+            actors[name] = actor
+            return actor
+        },
+        "get_actor": fn(name) {
+            if contains(dict_keys(actors), name):
+                return actors[name]
+            return None
+        },
+        "stop_all": fn() {
+            keys = dict_keys(actors)
+            for key in keys:
+                actors[key]["stop"]()
+        }
+    }
+
+# Scheduler factory
+fn make_scheduler():
+    return {
+        "event_loop": {},
+        "tasks": [],
+        "schedule": fn(coro) {
+            # Schedule a coroutine (conceptual)
+            tasks = push(tasks, coro)
+            return coro
+        },
+        "run": fn() {
+            # Run the scheduler (conceptual)
+            pass
+        },
+        "stop": fn() {
+            # Stop the scheduler (conceptual)
+            tasks = []
+        }
+    }
+
+# ConcurrencyPrimitives factory
+fn make_concurrency_primitives():
+    return {
+        "async_context": make_async_context(),
+        "actor_system": make_actor_system(),
+        "scheduler": make_scheduler(),
+        "create_channel": fn(max_size) {
+            return make_channel(max_size)
+        },
+        "create_actor": fn(name) {
+            return actor_system["create_actor"](name)
+        },
+        "async_function": fn(func) {
+            # Create an async function (decorator)
+            return func
+        },
+        "run_async": fn(coro) {
+            return async_context["run"](coro)
+        }
+    }
+
+fn async_decorator(func):
+    # Decorator for async functions
+    return func
+
+fn await_expr(coro):
+    # Await expression (conceptual)
+    return coro
+
+fn main():
+    print("Testing Concurrency Primitives...")
+    primitives = make_concurrency_primitives()
+    
+    # Test async/await
+    fn example_async() {
+        # Simulate async operation
+        return "Hello from async!"
+    }
+    
+    print("Testing async/await...")
+    result = primitives["async_context"]["run"](example_async)
+    print("Result: " + result)
+    
+    # Test channels
+    print("\nTesting channels...")
+    channel = primitives["create_channel"](0)
+    
+    fn sender() {
+        channel["send"]("Hello")
+        channel["send"]("World")
+    }
+    
+    fn receiver() {
+        msg1 = channel["receive"]()
+        msg2 = channel["receive"]()
+        return msg1 + " " + msg2
+    }
+    
+    sender()
+    result = receiver()
+    print("Channel result: " + result)
+    
+    # Test actors
+    print("\nTesting actors...")
+    actor = primitives["create_actor"]("test_actor")
+    
+    fn handle_greet(args) {
+        print("Hello, " + args + "!")
+    }
+    
+    actor["on"]("greet", handle_greet)
+    actor["start"]()
+    
+    actor["send"]("greet", "World")
+    actor["stop"]()
+    
+    print("\nConcurrency primitives initialized successfully")
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,45 @@
+#mode slim
+# Prim IoT Framework
+# Provides device management, connectivity, data collection, device provisioning,
+# and IoT platform integration
+
+# Device status constants
+IOT_ONLINE = "online"
+IOT_OFFLINE = "offline"
+IOT_CONNECTING = "connecting"
+IOT_ERROR = "error"
+
+# Factory function for IoTDevice
+fn make_iot_device(id, type_, status):
+    return {
+        "id": id,
+        "type": type_,
+        "status": status
+    }
+
+# IoTPlatform factory
+fn make_iot_platform():
+    return {
+        "devices": {}
+    }
+
+fn iot_platform_register_device(platform, device):
+    platform["devices"][device["id"]] = device
+
+fn iot_platform_get_devices(platform):
+    devices = []
+    keys = dict_keys(platform["devices"])
+    for key in keys:
+        devices = push(devices, platform["devices"][key])
+    return devices
+
+fn main():
+    print("Testing IoT Framework...")
+    platform = make_iot_platform()
+    device = make_iot_device("iot1", "sensor", IOT_ONLINE)
+    iot_platform_register_device(platform, device)
+    print("Devices: " + to_string(len(iot_platform_get_devices(platform))))
+    print("IoT Framework initialized successfully")
+
+if __name__ == "__main__":
+    main()

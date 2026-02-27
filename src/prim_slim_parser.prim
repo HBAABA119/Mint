@@ -1,0 +1,539 @@
+#mode slim
+# Prim Language Slim Mode Parser
+# This parser handles the indentation-based syntax similar to Python
+
+# Import from prim_ast module
+use prim_ast
+
+# Token type constants
+TOKEN_IDENTIFIER = "IDENTIFIER"
+TOKEN_NUMBER = "NUMBER"
+TOKEN_STRING = "STRING"
+TOKEN_OPERATOR = "OPERATOR"
+TOKEN_PUNCTUATION = "PUNCTUATION"
+TOKEN_NEWLINE = "NEWLINE"
+TOKEN_EOF = "EOF"
+TOKEN_FN = "FN"
+TOKEN_IF = "IF"
+TOKEN_ELSE = "ELSE"
+TOKEN_ELIF = "ELIF"
+TOKEN_WHILE = "WHILE"
+TOKEN_FOR = "FOR"
+TOKEN_RETURN = "RETURN"
+TOKEN_TRUE = "TRUE"
+TOKEN_FALSE = "FALSE"
+TOKEN_NULL = "NULL"
+
+# Keywords list
+KEYWORDS = ["fn", "if", "else", "elif", "while", "for", "return", "true", "false", "null"]
+
+# Operator characters
+OPERATOR_CHARS = "+-*/%=!<>&|"
+PUNCTUATION_CHARS = "{}()[],;:."
+
+# Factory function for creating tokens
+fn make_token(type_, value, line, column):
+    return {
+        "type": type_,
+        "value": value,
+        "line": line,
+        "column": column
+    }
+
+# Create SlimLexer as a factory function
+fn make_slim_lexer(text):
+    return {
+        "text": text,
+        "pos": 0,
+        "line": 1,
+        "column": 1,
+        "tokens": [],
+        "length": strlen(text)
+    }
+
+# Check if character is whitespace (but not newline)
+fn is_whitespace(char):
+    return char != "\n" and (char == " " or char == "\t" or char == "\r")
+
+# Check if character is alphabetic or underscore
+fn is_alpha_or_underscore(char):
+    return contains("_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ", char)
+
+# Check if character is alphanumeric or underscore
+fn is_alnum_or_underscore(char):
+    return contains("_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789", char)
+
+# Check if character is a digit
+fn is_digit(char):
+    return contains("0123456789", char)
+
+# Check if string is in list
+fn contains(lst, item):
+    for x in lst:
+        if x == item:
+            return true
+    return false
+
+# Tokenize function
+fn lexer_tokenize(lexer):
+    while lexer["pos"] < lexer["length"]:
+        char = slice(lexer["text"], lexer["pos"], lexer["pos"] + 1)
+        
+        # Skip whitespace except newlines
+        if is_whitespace(char):
+            lexer_skip_whitespace(lexer)
+            continue
+        
+        # Handle newlines
+        if char == "\n":
+            lexer_handle_newline(lexer)
+            continue
+        
+        # Identify token type
+        if is_alpha_or_underscore(char):
+            lexer_read_identifier(lexer)
+        elif is_digit(char):
+            lexer_read_number(lexer)
+        elif char == "\"" or char == "'":
+            lexer_read_string(lexer, char)
+        elif contains(OPERATOR_CHARS, char):
+            lexer_read_operator(lexer)
+        elif contains(PUNCTUATION_CHARS, char):
+            lexer_read_punctuation(lexer)
+        elif char == "#":
+            lexer_read_comment(lexer)
+        else:
+            print("Unexpected character '" + char + "' at " + to_string(lexer["line"]) + ":" + to_string(lexer["column"]))
+            lexer["pos"] = lexer["pos"] + 1
+            lexer["column"] = lexer["column"] + 1
+    
+    return lexer["tokens"]
+
+fn lexer_skip_whitespace(lexer):
+    while lexer["pos"] < lexer["length"]:
+        char = slice(lexer["text"], lexer["pos"], lexer["pos"] + 1)
+        if not is_whitespace(char):
+            break
+        lexer["pos"] = lexer["pos"] + 1
+        lexer["column"] = lexer["column"] + 1
+
+fn lexer_handle_newline(lexer):
+    lexer["tokens"] = push(lexer["tokens"], make_token(TOKEN_NEWLINE, "\n", lexer["line"], lexer["column"]))
+    lexer["pos"] = lexer["pos"] + 1
+    lexer["line"] = lexer["line"] + 1
+    lexer["column"] = 1
+
+fn lexer_read_identifier(lexer):
+    start_pos = lexer["pos"]
+    start_col = lexer["column"]
+    
+    while lexer["pos"] < lexer["length"]:
+        char = slice(lexer["text"], lexer["pos"], lexer["pos"] + 1)
+        if not is_alnum_or_underscore(char):
+            break
+        lexer["pos"] = lexer["pos"] + 1
+        lexer["column"] = lexer["column"] + 1
+    
+    identifier = slice(lexer["text"], start_pos, lexer["pos"])
+    
+    # Check if it's a keyword
+    token_type = TOKEN_IDENTIFIER
+    if identifier == "fn":
+        token_type = TOKEN_FN
+    elif identifier == "if":
+        token_type = TOKEN_IF
+    elif identifier == "else":
+        token_type = TOKEN_ELSE
+    elif identifier == "elif":
+        token_type = TOKEN_ELIF
+    elif identifier == "while":
+        token_type = TOKEN_WHILE
+    elif identifier == "for":
+        token_type = TOKEN_FOR
+    elif identifier == "return":
+        token_type = TOKEN_RETURN
+    elif identifier == "true":
+        token_type = TOKEN_TRUE
+    elif identifier == "false":
+        token_type = TOKEN_FALSE
+    elif identifier == "null":
+        token_type = TOKEN_NULL
+    
+    lexer["tokens"] = push(lexer["tokens"], make_token(token_type, identifier, lexer["line"], start_col))
+
+fn lexer_read_number(lexer):
+    start_pos = lexer["pos"]
+    start_col = lexer["column"]
+    
+    while lexer["pos"] < lexer["length"]:
+        char = slice(lexer["text"], lexer["pos"], lexer["pos"] + 1)
+        if not (is_digit(char) or char == "."):
+            break
+        lexer["pos"] = lexer["pos"] + 1
+        lexer["column"] = lexer["column"] + 1
+    
+    number_str = slice(lexer["text"], start_pos, lexer["pos"])
+    lexer["tokens"] = push(lexer["tokens"], make_token(TOKEN_NUMBER, number_str, lexer["line"], start_col))
+
+fn lexer_read_string(lexer, quote_char):
+    start_pos = lexer["pos"]
+    start_col = lexer["column"]
+    lexer["pos"] = lexer["pos"] + 1  # Skip opening quote
+    lexer["column"] = lexer["column"] + 1
+    
+    value = ""
+    while lexer["pos"] < lexer["length"]:
+        char = slice(lexer["text"], lexer["pos"], lexer["pos"] + 1)
+        if char == quote_char:
+            break
+        if char == "\n":
+            print("Unterminated string at " + to_string(lexer["line"]) + ":" + to_string(lexer["column"]))
+            return
+        if char == "\\":
+            # Handle escape sequences
+            lexer["pos"] = lexer["pos"] + 1
+            lexer["column"] = lexer["column"] + 1
+            if lexer["pos"] >= lexer["length"]:
+                print("Unterminated string at " + to_string(lexer["line"]) + ":" + to_string(lexer["column"]))
+                return
+            escaped_char = slice(lexer["text"], lexer["pos"], lexer["pos"] + 1)
+            if escaped_char == "n":
+                value = value + "\n"
+            elif escaped_char == "t":
+                value = value + "\t"
+            elif escaped_char == "\\" or escaped_char == "\"" or escaped_char == "'":
+                value = value + escaped_char
+            else:
+                value = value + "\\" + escaped_char
+        else:
+            value = value + char
+        lexer["pos"] = lexer["pos"] + 1
+        lexer["column"] = lexer["column"] + 1
+    
+    if lexer["pos"] >= lexer["length"] or slice(lexer["text"], lexer["pos"], lexer["pos"] + 1) != quote_char:
+        print("Unterminated string at " + to_string(lexer["line"]) + ":" + to_string(lexer["column"]))
+        return
+    
+    lexer["pos"] = lexer["pos"] + 1  # Skip closing quote
+    lexer["column"] = lexer["column"] + 1
+    lexer["tokens"] = push(lexer["tokens"], make_token(TOKEN_STRING, value, lexer["line"], start_col))
+
+fn lexer_read_operator(lexer):
+    start_col = lexer["column"]
+    op = slice(lexer["text"], lexer["pos"], lexer["pos"] + 1)
+    lexer["pos"] = lexer["pos"] + 1
+    lexer["column"] = lexer["column"] + 1
+    
+    # Check for two-character operators
+    if lexer["pos"] < lexer["length"]:
+        two_char_op = op + slice(lexer["text"], lexer["pos"], lexer["pos"] + 1)
+        if two_char_op == "==" or two_char_op == "!=" or two_char_op == "<=" or two_char_op == ">=" or two_char_op == "&&" or two_char_op == "||" or two_char_op == "->" or two_char_op == "|>":
+            op = two_char_op
+            lexer["pos"] = lexer["pos"] + 1
+            lexer["column"] = lexer["column"] + 1
+    
+    lexer["tokens"] = push(lexer["tokens"], make_token(TOKEN_OPERATOR, op, lexer["line"], start_col))
+
+fn lexer_read_punctuation(lexer):
+    char = slice(lexer["text"], lexer["pos"], lexer["pos"] + 1)
+    lexer["tokens"] = push(lexer["tokens"], make_token(TOKEN_PUNCTUATION, char, lexer["line"], lexer["column"]))
+    lexer["pos"] = lexer["pos"] + 1
+    lexer["column"] = lexer["column"] + 1
+
+fn lexer_read_comment(lexer):
+    # Skip until end of line
+    while lexer["pos"] < lexer["length"]:
+        char = slice(lexer["text"], lexer["pos"], lexer["pos"] + 1)
+        if char == "\n":
+            break
+        lexer["pos"] = lexer["pos"] + 1
+        lexer["column"] = lexer["column"] + 1
+
+# Create SlimParser as a factory function
+fn make_slim_parser(tokens):
+    return {
+        "tokens": tokens,
+        "pos": 0,
+        "current_token": tokens[0] if len(tokens) > 0 else None
+    }
+
+fn parser_advance(parser):
+    parser["pos"] = parser["pos"] + 1
+    if parser["pos"] < len(parser["tokens"]):
+        parser["current_token"] = parser["tokens"][parser["pos"]]
+    else:
+        parser["current_token"] = None
+
+fn parser_match(parser, expected_type, expected_value):
+    if not parser["current_token"]:
+        return false
+    if parser["current_token"]["type"] != expected_type:
+        return false
+    if expected_value and parser["current_token"]["value"] != expected_value:
+        return false
+    return true
+
+fn parser_consume(parser, expected_type, expected_value):
+    if not parser_match(parser, expected_type, expected_value):
+        current = parser["current_token"]
+        msg = "Expected " + expected_type
+        if expected_value:
+            msg = msg + "=" + expected_value
+        msg = msg + ", got " + current["type"] + "='" + current["value"] + "' at " + to_string(current["line"]) + ":" + to_string(current["column"])
+        print(msg)
+        return None
+    token = parser["current_token"]
+    parser_advance(parser)
+    return token
+
+fn parser_parse_program(parser):
+    statements = []
+    while parser["current_token"] and parser["current_token"]["type"] != TOKEN_EOF:
+        if parser["current_token"]["type"] == TOKEN_NEWLINE:
+            parser_advance(parser)
+            continue
+        stmt = parser_parse_statement(parser)
+        if stmt:
+            statements = push(statements, stmt)
+    return prim_ast.make_block_statement_node(statements)
+
+fn parser_parse_statement(parser):
+    # Check for assignment: identifier = expression
+    if parser_match(parser, TOKEN_IDENTIFIER) and parser["pos"] + 1 < len(parser["tokens"]):
+        next_token = parser["tokens"][parser["pos"] + 1]
+        if next_token["value"] == "=":
+            return parser_parse_assignment(parser)
+    
+    if parser_match(parser, TOKEN_FN):
+        return parser_parse_function_definition(parser)
+    elif parser_match(parser, TOKEN_IF):
+        return parser_parse_if_statement(parser)
+    elif parser_match(parser, TOKEN_WHILE):
+        return parser_parse_while_loop(parser)
+    elif parser_match(parser, TOKEN_RETURN):
+        return parser_parse_return_statement(parser)
+    else:
+        # Assume it's an expression statement
+        expr = parser_parse_expression(parser)
+        if expr:
+            return prim_ast.make_expression_statement_node(expr)
+    return None
+
+fn parser_parse_assignment(parser):
+    var_name = parser_consume(parser, TOKEN_IDENTIFIER)["value"]
+    parser_consume(parser, TOKEN_OPERATOR, "=")
+    value_expr = parser_parse_expression(parser)
+    return prim_ast.make_assignment_node(prim_ast.make_variable_access_node(var_name), value_expr)
+
+fn parser_parse_function_definition(parser):
+    parser_consume(parser, TOKEN_FN)
+    name = parser_consume(parser, TOKEN_IDENTIFIER)["value"]
+    parser_consume(parser, TOKEN_PUNCTUATION, "(")
+    
+    params = []
+    if not parser_match(parser, TOKEN_PUNCTUATION, ")"):
+        params = push(params, parser_consume(parser, TOKEN_IDENTIFIER)["value"])
+        while parser_match(parser, TOKEN_PUNCTUATION, ","):
+            parser_advance(parser)
+            params = push(params, parser_consume(parser, TOKEN_IDENTIFIER)["value"])
+    
+    parser_consume(parser, TOKEN_PUNCTUATION, ")")
+    parser_consume(parser, TOKEN_PUNCTUATION, ":")
+    
+    # In slim mode, function body is indented
+    body = parser_parse_block(parser)
+    return prim_ast.make_lambda_node(params, body)
+
+fn parser_parse_if_statement(parser):
+    parser_consume(parser, TOKEN_IF)
+    condition = parser_parse_expression(parser)
+    parser_consume(parser, TOKEN_PUNCTUATION, ":")
+    
+    consequent = parser_parse_block(parser)
+    alternate = None
+    
+    if parser_match(parser, TOKEN_ELSE) or (parser_match(parser, TOKEN_IDENTIFIER) and parser["current_token"]["value"] == "else"):
+        parser_advance(parser)
+        parser_consume(parser, TOKEN_PUNCTUATION, ":")
+        alternate = parser_parse_block(parser)
+    
+    return prim_ast.make_if_statement_node(condition, consequent, alternate)
+
+fn parser_parse_while_loop(parser):
+    parser_consume(parser, TOKEN_WHILE)
+    condition = parser_parse_expression(parser)
+    parser_consume(parser, TOKEN_PUNCTUATION, ":")
+    
+    body = parser_parse_block(parser)
+    return prim_ast.make_while_loop_node(condition, body)
+
+fn parser_parse_return_statement(parser):
+    parser_consume(parser, TOKEN_RETURN)
+    value = None
+    if parser["current_token"] and not parser_match(parser, TOKEN_NEWLINE):
+        value = parser_parse_expression(parser)
+    return prim_ast.make_return_statement_node(value)
+
+fn parser_parse_block(parser):
+    # In slim mode, blocks are defined by indentation
+    statements = []
+    while parser["current_token"] and not parser_match(parser, TOKEN_EOF):
+        if parser["current_token"]["type"] == TOKEN_NEWLINE:
+            parser_advance(parser)
+            continue
+        stmt = parser_parse_statement(parser)
+        if stmt:
+            statements = push(statements, stmt)
+        # Simplified: just parse one statement for now
+        break
+    return prim_ast.make_block_statement_node(statements)
+
+fn parser_parse_expression(parser):
+    return parser_parse_logical_or(parser)
+
+fn parser_parse_logical_or(parser):
+    left = parser_parse_logical_and(parser)
+    while parser_match(parser, TOKEN_OPERATOR, "||"):
+        parser_advance(parser)
+        right = parser_parse_logical_and(parser)
+        left = prim_ast.make_binary_operation_node("||", left, right)
+    return left
+
+fn parser_parse_logical_and(parser):
+    left = parser_parse_equality(parser)
+    while parser_match(parser, TOKEN_OPERATOR, "&&"):
+        parser_advance(parser)
+        right = parser_parse_equality(parser)
+        left = prim_ast.make_binary_operation_node("&&", left, right)
+    return left
+
+fn parser_parse_equality(parser):
+    left = parser_parse_comparison(parser)
+    while parser_match(parser, TOKEN_OPERATOR):
+        if parser["current_token"]["value"] == "==" or parser["current_token"]["value"] == "!=":
+            op = parser_consume(parser, TOKEN_OPERATOR)["value"]
+            right = parser_parse_comparison(parser)
+            left = prim_ast.make_binary_operation_node(op, left, right)
+        else:
+            break
+    return left
+
+fn parser_parse_comparison(parser):
+    left = parser_parse_addition(parser)
+    while parser_match(parser, TOKEN_OPERATOR):
+        val = parser["current_token"]["value"]
+        if val == "<" or val == ">" or val == "<=" or val == ">=":
+            op = parser_consume(parser, TOKEN_OPERATOR)["value"]
+            right = parser_parse_addition(parser)
+            left = prim_ast.make_binary_operation_node(op, left, right)
+        else:
+            break
+    return left
+
+fn parser_parse_addition(parser):
+    left = parser_parse_multiplication(parser)
+    while parser_match(parser, TOKEN_OPERATOR):
+        val = parser["current_token"]["value"]
+        if val == "+" or val == "-":
+            op = parser_consume(parser, TOKEN_OPERATOR)["value"]
+            right = parser_parse_multiplication(parser)
+            left = prim_ast.make_binary_operation_node(op, left, right)
+        else:
+            break
+    return left
+
+fn parser_parse_multiplication(parser):
+    left = parser_parse_unary(parser)
+    while parser_match(parser, TOKEN_OPERATOR):
+        val = parser["current_token"]["value"]
+        if val == "*" or val == "/" or val == "%":
+            op = parser_consume(parser, TOKEN_OPERATOR)["value"]
+            right = parser_parse_unary(parser)
+            left = prim_ast.make_binary_operation_node(op, left, right)
+        else:
+            break
+    return left
+
+fn parser_parse_unary(parser):
+    if parser_match(parser, TOKEN_OPERATOR):
+        val = parser["current_token"]["value"]
+        if val == "!" or val == "-" or val == "+":
+            op = parser_consume(parser, TOKEN_OPERATOR)["value"]
+            operand = parser_parse_unary(parser)
+            return prim_ast.make_unary_operation_node(op, operand)
+    return parser_parse_primary(parser)
+
+fn parser_parse_primary(parser):
+    if parser_match(parser, TOKEN_NUMBER):
+        value = float(parser_consume(parser, TOKEN_NUMBER)["value"])
+        return prim_ast.make_number_literal_node(value)
+    elif parser_match(parser, TOKEN_STRING):
+        value = parser_consume(parser, TOKEN_STRING)["value"]
+        return prim_ast.make_string_literal_node(value)
+    elif parser_match(parser, TOKEN_TRUE):
+        parser_consume(parser, TOKEN_TRUE)
+        return prim_ast.make_boolean_literal_node(true)
+    elif parser_match(parser, TOKEN_FALSE):
+        parser_consume(parser, TOKEN_FALSE)
+        return prim_ast.make_boolean_literal_node(false)
+    elif parser_match(parser, TOKEN_NULL):
+        parser_consume(parser, TOKEN_NULL)
+        return prim_ast.make_null_literal_node()
+    elif parser_match(parser, TOKEN_IDENTIFIER):
+        name = parser_consume(parser, TOKEN_IDENTIFIER)["value"]
+        # Check if it's a function call
+        if parser_match(parser, TOKEN_PUNCTUATION, "("):
+            parser_consume(parser, TOKEN_PUNCTUATION, "(")
+            args = []
+            if not parser_match(parser, TOKEN_PUNCTUATION, ")"):
+                args = push(args, parser_parse_expression(parser))
+                while parser_match(parser, TOKEN_PUNCTUATION, ","):
+                    parser_advance(parser)
+                    args = push(args, parser_parse_expression(parser))
+            parser_consume(parser, TOKEN_PUNCTUATION, ")")
+            callee = prim_ast.make_variable_access_node(name)
+            return prim_ast.make_function_call_node(callee, args)
+        return prim_ast.make_variable_access_node(name)
+    elif parser_match(parser, TOKEN_PUNCTUATION, "("):
+        parser_consume(parser, TOKEN_PUNCTUATION, "(")
+        expr = parser_parse_expression(parser)
+        parser_consume(parser, TOKEN_PUNCTUATION, ")")
+        return expr
+    else:
+        print("Unexpected token: " + to_string(parser["current_token"]))
+        return None
+
+# Parse slim mode code and return AST
+fn parse_slim_code(code):
+    lexer = make_slim_lexer(code)
+    tokens = lexer_tokenize(lexer)
+    
+    # Add EOF token
+    if len(tokens) > 0:
+        last_token = tokens[len(tokens) - 1]
+        tokens = push(tokens, make_token(TOKEN_EOF, "", last_token["line"], last_token["column"]))
+    else:
+        tokens = push(tokens, make_token(TOKEN_EOF, "", 1, 1))
+    
+    parser = make_slim_parser(tokens)
+    return parser_parse_program(parser)
+
+# Test the parser with a simple example
+fn main():
+    test_code = ""
+x = 42
+y = 58
+result = x + y
+print(result)
+""
+    
+    print("Parsing test code:")
+    print(test_code)
+    
+    ast = parse_slim_code(test_code)
+    print("\nParsed AST:")
+    print(to_json(ast))
+
+# Run main if this is the entry point
+if __name__ == "__main__":
+    main()

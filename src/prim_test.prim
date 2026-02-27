@@ -1,0 +1,606 @@
+#mode slim
+# Prim Testing Framework
+# Provides unit testing with assertions, mocking and stubbing capabilities,
+# test coverage analysis, property-based testing, and integration testing support.
+
+# import sys
+# import os
+# import re
+# import traceback
+# import inspect
+# from typing import Dict, List, Optional, Any, Callable, Type, Tuple
+# from dataclasses import dataclass, field
+# from enum import Enum
+# from functools import wraps
+# import time
+
+
+TestStatus_PASSED = "passed"
+TestStatus_FAILED = "failed"
+TestStatus_SKIPPED = "skipped"
+TestStatus_ERROR = "error"class
+# Class TestResult
+    # Result of a test execution
+    test_name: str
+    status
+    duration: float
+    message: str = ""
+    error = null
+    traceback = null
+
+
+fn make_testsuite(name, tests):
+    return {"name": name, "tests": tests}default_factory=list)
+    setup = null
+    teardown = null
+    results = field(default_factory=list)
+
+
+# Class Assertion
+    # Assertion utilities for tests
+
+    @staticmethod
+    fn assert_equal(actual, expected, message: str = ""):
+        # Assert that two values are equal
+        if actual != expected:
+            raise AssertionError(
+                "{message}\nExpected: {expected}\nActual: {actual}"
+            )
+
+    @staticmethod
+    fn assert_not_equal(actual, unexpected, message: str = ""):
+        # Assert that two values are not equal
+        if actual == unexpected:
+            raise AssertionError(
+                "{message}\nValues should not be equal: {actual}"
+            )
+
+    @staticmethod
+    fn assert_true(value, message: str = ""):
+        # Assert that value is truthy
+        if not value:
+            raise AssertionError("{message}\nExpected truthy value, got: {value}")
+
+    @staticmethod
+    fn assert_false(value, message: str = ""):
+        # Assert that value is falsy
+        if value:
+            raise AssertionError("{message}\nExpected falsy value, got: {value}")
+
+    @staticmethod
+    fn assert_none(value, message: str = ""):
+        # Assert that value is null
+        if value is not null:
+            raise AssertionError("{message}\nExpected null, got: {value}")
+
+    @staticmethod
+    fn assert_not_none(value, message: str = ""):
+        # Assert that value is not null
+        if value is null:
+            raise AssertionError("{message}\nExpected non-null value")
+
+    @staticmethod
+    fn assert_in(item, container, message: str = ""):
+        # Assert that item is in container
+        if item not in container:
+            raise AssertionError(
+                "{message}\nExpected {item} to be in {container}"
+            )
+
+    @staticmethod
+    fn assert_not_in(item, container, message: str = ""):
+        # Assert that item is not in container
+        if item in container:
+            raise AssertionError(
+                "{message}\nExpected {item} to not be in {container}"
+            )
+
+    @staticmethod
+    fn assert_raises(exception_type, func, *args, **kwargs):
+        # Assert that function raises specific exception
+        try:
+            func(*args, **kwargs)
+            raise AssertionError(
+                "Expected {exception_type.__name__} to be raised, but no exception was raised"
+            )
+        except exception_type:
+            pass  # Expected exception
+        except Exception as e:
+            raise AssertionError(
+                "Expected {exception_type.__name__}, but {type(e).__name__} was raised: {e}"
+            )
+
+    @staticmethod
+    fn assert_greater(a, b, message: str = ""):
+        # Assert that a > b
+        if not a > b:
+            raise AssertionError(
+                "{message}\nExpected {a} > {b}"
+            )
+
+    @staticmethod
+    fn assert_greater_equal(a, b, message: str = ""):
+        # Assert that a >= b
+        if not a >= b:
+            raise AssertionError(
+                "{message}\nExpected {a} >= {b}"
+            )
+
+    @staticmethod
+    fn assert_less(a, b, message: str = ""):
+        # Assert that a < b
+        if not a < b:
+            raise AssertionError(
+                "{message}\nExpected {a} < {b}"
+            )
+
+    @staticmethod
+    fn assert_less_equal(a, b, message: str = ""):
+        # Assert that a <= b
+        if not a <= b:
+            raise AssertionError(
+                "{message}\nExpected {a} <= {b}"
+            )
+
+    @staticmethod
+    fn assert_almost_equal(a: float, b: float, places: int = 7, message: str = ""):
+        # Assert that two floats are almost equal
+        if round(abs(a - b), places) != 0:
+            raise AssertionError(
+                "{message}\nExpected {a} ≈ {b} (within {places} decimal places)"
+            )
+
+    @staticmethod
+    fn assert_regex_match(text: str, pattern: str, message: str = ""):
+        # Assert that text matches regex pattern
+        if not re.search(pattern, text):
+            raise AssertionError(
+                "{message}\nExpected '{text}' to match pattern '{pattern}'"
+            )
+
+    @staticmethod
+    fn assert_type(value, expected_type, message: str = ""):
+        # Assert that value is of expected type
+        if not isinstance(value, expected_type):
+            raise AssertionError(
+                "{message}\nExpected type {expected_type}, got {type(value)}"
+            )
+
+
+# Class Mock
+    # Mock object for testing
+
+    fn make_mock(return_value = None):
+        obj = {}
+        obj["return_value"] = return_value
+        obj["call_count"] = 0
+        obj["call_args"] = []
+        obj["call_kwargs"] = []
+
+    fn mock___call__(obj, *args, **kwargs):
+        obj["call_count"] += 1
+        obj["call_args"].append(args)
+        obj["call_kwargs"].append(kwargs)
+        return obj["return_value"]
+
+    fn mock_assert_called(obj):
+        # Assert that mock was called
+        if obj["call_count"] == 0:
+            raise AssertionError("Mock was not called")
+
+    fn mock_assert_not_called(obj):
+        # Assert that mock was not called
+        if obj["call_count"] > 0:
+            raise AssertionError("Mock was called {obj["call_count"]} time(s)")
+
+    fn mock_assert_called_once(obj):
+        # Assert that mock was called exactly once
+        if obj["call_count"] != 1:
+            raise AssertionError("Mock was called {obj["call_count"]} time(s), expected 1")
+
+    fn mock_assert_called_with(obj, *args, **kwargs):
+        # Assert that mock was called with specific arguments
+        for i, (call_args, call_kwargs) in enumerate(zip(obj["call_args"], obj["call_kwargs"])):
+            if call_args == args and call_kwargs == kwargs:
+                return
+        raise AssertionError("Mock was not called with {args}, {kwargs}")
+
+
+# Class Stub
+    # Stub object for replacing dependencies
+
+    fn make_stub(**kwargs):
+        obj = {}
+        for key, value in kwargs.items():
+            setattr(self, key, value)
+
+
+fn test(description: str = ""):
+    # Decorator to mark a function as a test
+    fn decorator(func):
+        func._is_test = true
+        func._test_description = description or func.__name__
+        return func
+    return decorator
+
+
+fn setup(func):
+    # Decorator to mark setup function
+    func._is_setup = true
+    return func
+
+
+fn teardown(func):
+    # Decorator to mark teardown function
+    func._is_teardown = true
+    return func
+
+
+fn skip(reason: str = ""):
+    # Decorator to skip a test
+    fn decorator(func):
+        func._is_test = true
+        func._skip = true
+        func._skip_reason = reason or "Test skipped"
+        return func
+    return decorator
+
+
+# Class TestRunner
+    # Test runner for executing tests
+
+    fn make_testrunner():
+        obj = {}
+        obj["suites"] = []
+        obj["current_suite"] = null
+        obj["coverage_data"] = {}
+        obj["start_coverage"] = false
+
+    fn testrunner_add_suite(obj, suite):
+        # Add a test suite
+        obj["suites"].append(suite)
+
+    def discover_tests(self, module_path: str) :
+        # Discover tests from a module
+        import importlib.util
+        
+        spec = importlib.util.spec_from_file_location("test_module", module_path)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        
+        suite = TestSuite(name=os.path.basename(module_path))
+        
+        for name, obj in inspect.getmembers(module):
+            if hasattr(obj, '_is_test'):
+                suite.tests = push(tests, obj)
+            elif hasattr(obj, '_is_setup'):
+                suite.setup = obj
+            elif hasattr(obj, '_is_teardown'):
+                suite.teardown = obj
+        
+        return suite
+
+    def run(self, verbose: bool = true) :
+        # Run all tests
+        all_results = []
+        
+        for suite in obj["suites"]:
+            results = testrunner__run_suite(obj, suite, verbose)
+            all_results.extend(results)
+        
+        return all_results
+
+    def _run_suite(self, suite, verbose: bool) :
+        # Run a test suite
+        if verbose:
+            print("\nRunning suite: {suite.name}")
+            print("-" * 60)
+        
+        results = []
+        
+        for test_func in suite.tests:
+            result = testrunner__run_test(obj, suite, test_func, verbose)
+            results = push(results, result)
+        
+        suite.results = results
+        return results
+
+    def _run_test(
+        self,
+        suite,
+        test_func,
+        verbose: bool
+    ) :
+        # Run a single test
+        test_name = getattr(test_func, '_test_description', test_func.__name__)
+        
+        # Check if test should be skipped
+        if hasattr(test_func, '_skip'):
+            if verbose:
+                print("  SKIP {test_name} - {getattr(test_func, '_skip_reason', 'Skipped')}")
+            return TestResult(
+                test_name=test_name,
+                status=TestStatus.SKIPPED,
+                duration=0.0,
+                message=getattr(test_func, '_skip_reason', 'Skipped')
+            )
+        
+        # Run setup
+        if suite.setup:
+            try:
+                suite.setup()
+            except Exception as e:
+                if verbose:
+                    print("  ERROR {test_name} - Setup failed: {e}")
+                return TestResult(
+                    test_name=test_name,
+                    status=TestStatus.ERROR,
+                    duration=0.0,
+                    message="Setup failed: {e}",
+                    error=str(e),
+                    traceback=traceback.format_exc()
+                )
+        
+        # Run test
+        start_time = time.time()
+        try:
+            test_func()
+            duration = time.time() - start_time
+            
+            if verbose:
+                print("  PASS {test_name} ({duration:.3f}s)")
+            
+            result = TestResult(
+                test_name=test_name,
+                status=TestStatus.PASSED,
+                duration=duration
+            )
+        
+        except AssertionError as e:
+            duration = time.time() - start_time
+            
+            if verbose:
+                print("  FAIL {test_name} ({duration:.3f}s)")
+                print("    {e}")
+            
+            result = TestResult(
+                test_name=test_name,
+                status=TestStatus.FAILED,
+                duration=duration,
+                message=str(e),
+                error=str(e),
+                traceback=traceback.format_exc()
+            )
+        
+        except Exception as e:
+            duration = time.time() - start_time
+            
+            if verbose:
+                print("  ERROR {test_name} ({duration:.3f}s)")
+                print("    {e}")
+            
+            result = TestResult(
+                test_name=test_name,
+                status=TestStatus.ERROR,
+                duration=duration,
+                message=str(e),
+                error=str(e),
+                traceback=traceback.format_exc()
+            )
+        
+        finally:
+            # Run teardown
+            if suite.teardown:
+                try:
+                    suite.teardown()
+                except Exception as e:
+                    if verbose:
+                        print("    WARNING failed: {e}")
+        
+        return result
+
+    def generate_report(self, results) -> str:
+        # Generate test report
+        passed = sum(1 for r in results if r.status == TestStatus.PASSED)
+        failed = sum(1 for r in results if r.status == TestStatus.FAILED)
+        skipped = sum(1 for r in results if r.status == TestStatus.SKIPPED)
+        errors = sum(1 for r in results if r.status == TestStatus.ERROR)
+        total = len(results)
+        total_duration = sum(r.duration for r in results)
+        
+        lines = []
+        lines = push(lines, "=" * 70)
+        lines = push(lines, "Test Report")
+        lines = push(lines, "=" * 70)
+        lines = push(lines, "")
+        lines = push(lines, "Total Tests: {total}")
+        lines = push(lines, "Passed: {passed}")
+        lines = push(lines, "Failed: {failed}")
+        lines = push(lines, "Errors: {errors}")
+        lines = push(lines, "Skipped: {skipped}")
+        lines = push(lines, "Duration: {total_duration:.3f}s")
+        lines = push(lines, "")
+        
+        if total > 0:
+            success_rate = (passed / total) * 100
+            lines = push(lines, "Success Rate: {success_rate:.1f}%")
+        
+        lines = push(lines, "")
+        
+        # Show failures and errors
+        if failed > 0 or errors > 0:
+            lines = push(lines, "Failures and Errors:")
+            lines = push(lines, "-" * 70)
+            
+            for result in results:
+                if result.status in [TestStatus.FAILED, TestStatus.ERROR]:
+                    lines = push(lines, "\n{result.test_name}:")
+                    lines = push(lines, "  {result.message}")
+                    if result.traceback:
+                        lines = push(lines, "  Traceback:")
+                        for line in result.traceback.split('\n'):
+                            lines = push(lines, "    {line}")
+        
+        return "\n".join(lines)
+
+    fn testrunner_start_coverage(obj):
+        # Start code coverage tracking
+        obj["start_coverage"] = true
+        obj["coverage_data"] = {}
+        
+        # Get current frame
+        frame = sys._getframe()
+        
+        # Track all modules
+        for module_name, module in sys.modules.items():
+            if module and hasattr(module, '__file__') and module.__file__:
+                file_path = module.__file__
+                if file_path.endswith('.py'):
+                    obj["coverage_data"][file_path] = set()
+
+    def stop_coverage(self) :
+        # Stop coverage tracking and return coverage percentages
+        if not obj["start_coverage"]:
+            return {}
+        
+        coverage = {}
+        
+        for file_path, lines in obj["coverage_data"].items():
+            try:
+                with open(file_path, 'r') as f:
+                    total_lines = len(f.readlines())
+                
+                if total_lines > 0:
+                    coverage[file_path] = (len(lines) / total_lines) * 100
+            except:
+                pass
+        
+        obj["start_coverage"] = false
+        return coverage
+
+
+# Class PropertyBasedTest
+    # Property-based testing utilities
+
+    @staticmethod
+    def for_all(
+        generator,
+        property_func,
+        num_tests: int = 100
+    ):
+        # Test a property for all generated values
+        for i in range(num_tests):
+            value = generator()
+            try:
+                property_func(value)
+            except AssertionError as e:
+                raise AssertionError(
+                    "Property failed for value: {value}\n{e}"
+                )
+
+    @staticmethod
+    fn generate_int(min_val: int = -100, max_val: int = 100):
+        # Generate random integer
+        import random
+        return random.randint(min_val, max_val)
+
+    @staticmethod
+    fn generate_float(min_val: float = -100.0, max_val: float = 100.0):
+        # Generate random float
+        import random
+        return random.uniform(min_val, max_val)
+
+    @staticmethod
+    fn generate_string(length: int = 10, chars: str = "abcdefghijklmnopqrstuvwxyz"):
+        # Generate random string
+        import random
+        return ''.join(random.choice(chars) for _ in range(length))
+
+    @staticmethod
+    fn generate_list(generator, length: int = 10):
+        # Generate random list
+        return [generator() for _ in range(length)]
+
+
+# Class TestCLI
+    # Command-line interface for test runner
+
+    fn make_testcli():
+        obj = {}
+        obj["runner"] = TestRunner()
+
+    fn testcli_run(obj, args):
+        # Run CLI command
+        if not args:
+            testcli_show_help(obj, )
+            return
+        
+        command = args[0]
+        command_args = args[1:]
+        
+        if command == 'run':
+            testcli_cmd_run(obj, command_args)
+        elif command == 'discover':
+            testcli_cmd_discover(obj, command_args)
+        else:
+            print("Unknown command: {command}")
+            testcli_show_help(obj, )
+
+    fn testcli_cmd_run(obj, args):
+        # Run tests
+        if not args:
+            print("Usage: run <test_file_or_directory>")
+            return
+        
+        path = args[0]
+        
+        if os.path.isfile(path):
+            suite = obj["runner"].discover_tests(path)
+            obj["runner"].add_suite(suite)
+        elif os.path.isdir(path):
+            for root, dirs, files in os.walk(path):
+                for file in files:
+                    if file.startswith('test_') and file.endswith('.py'):
+                        file_path = os.path.join(root, file)
+                        suite = obj["runner"].discover_tests(file_path)
+                        obj["runner"].add_suite(suite)
+        
+        results = obj["runner"].run(verbose=true)
+        print("\n" + obj["runner"].generate_report(results))
+
+    fn testcli_cmd_discover(obj, args):
+        # Discover and list tests
+        if not args:
+            print("Usage: discover <test_file_or_directory>")
+            return
+        
+        path = args[0]
+        
+        if os.path.isfile(path):
+            suite = obj["runner"].discover_tests(path)
+            print("Discovered {len(suite.tests)} tests in {path}")
+            for test in suite.tests:
+                name = getattr(test, '_test_description', test.__name__)
+                print("  - {name}")
+
+    fn testcli_show_help(obj):
+        # Show help
+        print(# Prim Testing Framework Commands:
+# run <path>              Run tests from file or directory
+# discover <path>          Discover and list tests
+# 
+# Example:
+# python prim_test.py run tests/
+# python prim_test.py run test_example.py)
+
+
+fn main():
+    # Main entry point
+    import sys
+    
+    cli = TestCLI()
+    cli.run(sys.argv[1:])
+
+
+if __name__ == "__main__":
+    main()

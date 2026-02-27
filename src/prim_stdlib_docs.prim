@@ -1,0 +1,302 @@
+#mode slim
+# Prim Standard Library Documentation Generator
+# Provides API documentation, examples, and reference documentation
+# for all standard library modules.
+
+# import inspect
+# import os
+# from typing import List, Dict, Any, Optional, Type, Callable
+# from dataclasses import dataclass, field
+# from enum import Enum
+
+
+DocType_MODULE = "module"
+DocType_CLASS = "class"
+    FUNCTION = "function"
+    METHOD = "method"
+    VARIABLE = "variable"
+
+
+fn make_parameter(name, type, description):
+    return {"name": name, "type": type, "description": description}default = null
+
+
+fn make_example(code, description, output):
+    return {"code": code, "description": description, "output": output}class
+# Class Documentation
+    # Documentation entry
+    name: str
+    type
+    description: str
+    parameters = field(default_factory=list)
+    returns = null
+    raises = field(default_factory=list)
+    examples = field(default_factory=list)
+    see_also = field(default_factory=list)
+    deprecated: bool = false
+    version_added: str = "1.0.0"
+
+
+# Class DocumentationGenerator
+    # Documentation generator
+
+    fn make_documentationgenerator(output_dir: str = "docs"):
+        obj = {}
+        obj["output_dir"] = output_dir
+        obj["docs"] = {}
+
+        os.makedirs(output_dir, exist_ok=true)
+
+    def generate_from_module(self, module) :
+        # Generate documentation from module
+        module_name = module.__name__
+        docstring = inspect.getdoc(module) or ""
+
+        doc = Documentation(
+            name=module_name,
+            type=DocType.MODULE,
+            description=docstring
+        )
+
+        # Document classes
+        for name, obj in inspect.getmembers(module, inspect.isclass):
+            if obj.__module__ == module_name:
+                class_doc = documentationgenerator__generate_class_doc(obj, obj)
+                obj["docs"]["{module_name}.{name}"] = class_doc
+
+        # Document functions
+        for name, obj in inspect.getmembers(module, inspect.isfunction):
+            if obj.__module__ == module_name:
+                func_doc = documentationgenerator__generate_function_doc(obj, obj)
+                obj["docs"]["{module_name}.{name}"] = func_doc
+
+        return doc
+
+    def _generate_class_doc(self, cls) :
+        # Generate class documentation
+        docstring = inspect.getdoc(cls) or ""
+
+        doc = Documentation(
+            name=cls.__name__,
+            type=DocType.CLASS,
+            description=docstring
+        )
+
+        # Document methods
+        for name, obj in inspect.getmembers(cls, inspect.isfunction):
+            if not name.startswith('_'):
+                method_doc = documentationgenerator__generate_function_doc(obj, obj, is_method=true)
+                obj["docs"]["{cls.__name__}.{name}"] = method_doc
+
+        return doc
+
+    def _generate_function_doc(self, func, is_method: bool = false) :
+        # Generate function documentation
+        docstring = inspect.getdoc(func) or ""
+        signature = inspect.signature(func)
+
+        doc = Documentation(
+            name=func.__name__,
+            type=DocType.METHOD if is_method else DocType.FUNCTION,
+            description=docstring
+        )
+
+        # Parse parameters
+        for param_name, param in signature.parameters.items():
+            param_type = str(param.annotation) if param.annotation else "Any"
+            param_default = str(param.default) if param.default != inspect.Parameter.empty else null
+
+            doc.parameters.append(Parameter(
+                name=param_name,
+                type=param_type,
+                description="",
+                default=param_default
+            ))
+
+        # Parse return type
+        if signature.return_annotation and signature.return_annotation != inspect.Signature.empty:
+            doc.returns = str(signature.return_annotation)
+
+        return doc
+
+    fn documentationgenerator_add_example(obj, doc_name: str, example):
+        # Add example to documentation
+        if doc_name in obj["docs"]:
+            obj["docs"][doc_name].examples = push(examples, example)
+
+    fn documentationgenerator_mark_deprecated(obj, doc_name: str, version: str = "1.0.0"):
+        # Mark documentation as deprecated
+        if doc_name in obj["docs"]:
+            obj["docs"][doc_name].deprecated = true
+            obj["docs"][doc_name].version_added = version
+
+    def generate_markdown(self, doc) -> str:
+        # Generate markdown documentation
+        lines = []
+
+        # Title
+        lines = push(lines, "# {doc.name}")
+        lines = push(lines, "")
+
+        # Type badge
+        lines = push(lines, "**Type:** `{doc.type.value}`")
+        lines = push(lines, "")
+
+        # Description
+        lines = push(lines, "## Description")
+        lines = push(lines, doc.description)
+        lines = push(lines, "")
+
+        # Deprecation warning
+        if doc.deprecated:
+            lines = push(lines, "⚠️ **This is deprecated and will be removed in a future version.**")
+            lines = push(lines, "")
+
+        # Parameters
+        if doc.parameters:
+            lines = push(lines, "## Parameters")
+            for param in doc.parameters:
+                default_str = " = {param.default}" if param.default else ""
+                lines = push(lines, "- **{param.name}** ({param.type}){default_str}: {param.description}")
+            lines = push(lines, "")
+
+        # Returns
+        if doc.returns:
+            lines = push(lines, "## Returns")
+            lines = push(lines, "Type: `{doc.returns}`")
+            lines = push(lines, "")
+
+        # Raises
+        if doc.raises:
+            lines = push(lines, "## Raises")
+            for exc in doc.raises:
+                lines = push(lines, "- `{exc}`")
+            lines = push(lines, "")
+
+        # Examples
+        if doc.examples:
+            lines = push(lines, "## Examples")
+            for example in doc.examples:
+                if example.description:
+                    lines = push(lines, "### {example.description}")
+                lines = push(lines, "```prim")
+                lines = push(lines, example.code)
+                lines = push(lines, "```")
+                if example.output:
+                    lines = push(lines, "**Output:**")
+                    lines = push(lines, "```")
+                    lines = push(lines, example.output)
+                    lines = push(lines, "```")
+                lines = push(lines, "")
+
+        # See also
+        if doc.see_also:
+            lines = push(lines, "## See Also")
+            for ref in doc.see_also:
+                lines = push(lines, "- [{ref}]({ref.replace('.', '/')}.md)")
+            lines = push(lines, "")
+
+        return "\n".join(lines)
+
+    fn documentationgenerator_generate_all(obj):
+        # Generate all documentation
+        for doc_name, doc in obj["docs"].items():
+            markdown = documentationgenerator_generate_markdown(obj, doc)
+
+            # Create file path
+            parts = doc_name.split('.')
+            file_path = os.path.join(obj["output_dir"], *parts[:-1]) + ".md"
+
+            os.makedirs(os.path.dirname(file_path), exist_ok=true)
+
+            with open(file_path, 'w') as f:
+                f.write(markdown)
+
+        print("Generated {len(obj["docs"])} documentation files")
+
+
+# Class SecurityAuditor
+    # Security auditor for standard library
+
+    fn make_securityauditor():
+        obj = {}
+        obj["issues"]] = []
+
+    def audit_module(self, module) ]:
+        # Audit module for security issues
+        obj["issues"] = []
+
+        # Check for dangerous imports
+        securityauditor__check_dangerous_imports(obj, module)
+
+        # Check for unsafe functions
+        securityauditor__check_unsafe_functions(obj, module)
+
+        # Check for input validation
+        securityauditor__check_input_validation(obj, module)
+
+        return obj["issues"]
+
+    fn securityauditor__check_dangerous_imports(obj, module):
+        # Check for dangerous imports
+        dangerous = ['eval', 'exec', 'pickle', 'subprocess']
+
+        for name, obj in inspect.getmembers(module):
+            if inspect.isfunction(obj) or inspect.isclass(obj):
+                source = inspect.getsource(obj) if hasattr(obj, '__module__') else ""
+                for danger in dangerous:
+                    if danger in source:
+                        obj["issues"].append({
+                            'severity': 'high',
+                            'type': 'dangerous_import',
+                            'message': f'Use of dangerous {danger}',
+                            'location': "{module.__name__}.{name}"
+                        })
+
+    fn securityauditor__check_unsafe_functions(obj, module):
+        # Check for unsafe functions
+        for name, obj in inspect.getmembers(module, inspect.isfunction):
+            if name in ['eval', 'exec', 'compile']:
+                obj["issues"].append({
+                    'severity': 'high',
+                    'type': 'unsafe_function',
+                    'message': f'Unsafe function {name}',
+                    'location': "{module.__name__}.{name}"
+                })
+
+    fn securityauditor__check_input_validation(obj, module):
+        # Check for input validation
+        for name, obj in inspect.getmembers(module, inspect.isfunction):
+            sig = inspect.signature(obj)
+            if len(sig.parameters) == 0:
+                continue
+
+            # Check if function validates inputs
+            source = inspect.getsource(obj) if hasattr(obj, '__module__') else ""
+            if 'validate' not in source.lower() and 'check' not in source.lower():
+                obj["issues"].append({
+                    'severity': 'medium',
+                    'type': 'missing_validation',
+                    'message': f'Function {name} may lack input validation',
+                    'location': "{module.__name__}.{name}"
+                })
+
+
+fn main():
+    # Main entry point
+    print("Testing Standard Library Documentation...")
+
+    # Test documentation generator
+    gen = DocumentationGenerator()
+    gen.generate_all()
+
+    # Test security auditor
+    auditor = SecurityAuditor()
+    issues = auditor.audit_module(gen)
+    print("Found {len(issues)} security issues")
+
+    print("Standard Library Documentation initialized successfully")
+
+
+if __name__ == "__main__":
+    main()

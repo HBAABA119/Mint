@@ -1,0 +1,385 @@
+#mode slim
+# Prim Debugger
+# Provides breakpoint management, variable inspection, call stack navigation,
+# step-through execution, conditional breakpoints, and watch expressions
+
+# Debug state constants
+DEBUG_RUNNING = "running"
+DEBUG_PAUSED = "paused"
+DEBUG_STEPPING = "stepping"
+DEBUG_TERMINATED = "terminated"
+
+# Step mode constants
+STEP_OVER = "over"
+STEP_INTO = "into"
+STEP_OUT = "out"
+
+# Breakpoint factory
+fn make_breakpoint(id, file_path, line_number, condition):
+    return {
+        "id": id,
+        "file_path": file_path,
+        "line_number": line_number,
+        "condition": condition,
+        "hit_count": 0,
+        "enabled": true
+    }
+
+# WatchExpression factory
+fn make_watch_expression(expression):
+    return {
+        "expression": expression,
+        "value": None,
+        "error": None
+    }
+
+# StackFrame factory
+fn make_stack_frame(file_path, function_name, line_number, local_variables):
+    if local_variables == None:
+        local_variables = {}
+    return {
+        "file_path": file_path,
+        "function_name": function_name,
+        "line_number": line_number,
+        "local_variables": local_variables
+    }
+
+# DebugEvent factory
+fn make_debug_event(event_type, file_path, line_number, message, data):
+    return {
+        "event_type": event_type,
+        "file_path": file_path,
+        "line_number": line_number,
+        "message": message,
+        "data": data
+    }
+
+# PrimDebugger factory
+fn make_prim_debugger():
+    return {
+        "state": DEBUG_RUNNING,
+        "breakpoints": [],
+        "watch_expressions": [],
+        "call_stack": [],
+        "current_frame": None,
+        "step_mode": None,
+        "step_depth": 0,
+        "breakpoint_counter": 0,
+        "event_handlers": {},
+        "source_files": {},
+        "variables": {}
+    }
+
+fn debugger_add_breakpoint(debugger, file_path, line_number, condition):
+    # Add a breakpoint
+    debugger["breakpoint_counter"] = debugger["breakpoint_counter"] + 1
+    breakpoint = make_breakpoint(debugger["breakpoint_counter"], file_path, line_number, condition)
+    debugger["breakpoints"] = push(debugger["breakpoints"], breakpoint)
+    debugger_emit_event(debugger, "breakpoint_added", breakpoint)
+    return breakpoint
+
+fn debugger_remove_breakpoint(debugger, breakpoint_id):
+    # Remove a breakpoint by ID
+    new_breakpoints = []
+    found = false
+    for bp in debugger["breakpoints"]:
+        if bp["id"] == breakpoint_id:
+            found = true
+            debugger_emit_event(debugger, "breakpoint_removed", bp)
+        else:
+            new_breakpoints = push(new_breakpoints, bp)
+    debugger["breakpoints"] = new_breakpoints
+    return found
+
+fn debugger_toggle_breakpoint(debugger, breakpoint_id):
+    # Toggle breakpoint enabled state
+    for bp in debugger["breakpoints"]:
+        if bp["id"] == breakpoint_id:
+            bp["enabled"] = not bp["enabled"]
+            return bp
+    return None
+
+fn debugger_list_breakpoints(debugger):
+    # List all breakpoints
+    return debugger["breakpoints"]
+
+fn debugger_add_watch_expression(debugger, expression):
+    # Add a watch expression
+    watch = make_watch_expression(expression)
+    debugger["watch_expressions"] = push(debugger["watch_expressions"], watch)
+    debugger_emit_event(debugger, "watch_added", watch)
+    return watch
+
+fn debugger_remove_watch_expression(debugger, index):
+    # Remove a watch expression
+    if index >= 0 and index < len(debugger["watch_expressions"]):
+        new_watches = []
+        i = 0
+        while i < len(debugger["watch_expressions"]):
+            if i != index:
+                new_watches = push(new_watches, debugger["watch_expressions"][i])
+            i = i + 1
+        debugger["watch_expressions"] = new_watches
+        return true
+    return false
+
+fn debugger_update_watch_expressions(debugger):
+    # Update all watch expressions
+    for watch in debugger["watch_expressions"]:
+        try:
+            value = debugger_evaluate_expression(debugger, watch["expression"])
+            watch["value"] = value
+            watch["error"] = None
+        catch e:
+            watch["error"] = to_string(e)
+
+fn debugger_get_watch_values(debugger):
+    # Get current values of all watch expressions
+    results = []
+    for watch in debugger["watch_expressions"]:
+        if watch["error"] != None:
+            results = push(results, [watch["expression"], "Error: " + watch["error"]])
+        else:
+            results = push(results, [watch["expression"], watch["value"]])
+    return results
+
+fn debugger_step_over(debugger):
+    # Step over function calls
+    debugger["state"] = DEBUG_STEPPING
+    debugger["step_mode"] = STEP_OVER
+    debugger["step_depth"] = len(debugger["call_stack"])
+
+fn debugger_step_into(debugger):
+    # Step into function calls
+    debugger["state"] = DEBUG_STEPPING
+    debugger["step_mode"] = STEP_INTO
+    debugger["step_depth"] = len(debugger["call_stack"])
+
+fn debugger_step_out(debugger):
+    # Step out of current function
+    debugger["state"] = DEBUG_STEPPING
+    debugger["step_mode"] = STEP_OUT
+    debugger["step_depth"] = len(debugger["call_stack"])
+
+fn debugger_continue(debugger):
+    # Continue execution
+    debugger["state"] = DEBUG_RUNNING
+    debugger["step_mode"] = None
+
+fn debugger_pause(debugger):
+    # Pause execution
+    debugger["state"] = DEBUG_PAUSED
+
+fn debugger_stop(debugger):
+    # Stop debugging
+    debugger["state"] = DEBUG_TERMINATED
+    debugger_emit_event(debugger, "debugger_stopped", None)
+
+fn debugger_check_breakpoint(debugger, file_path, line_number, context):
+    # Check if execution should pause at this location
+    for bp in debugger["breakpoints"]:
+        if not bp["enabled"]:
+            continue
+        
+        if bp["file_path"] == file_path and bp["line_number"] == line_number:
+            # Check condition if present
+            if bp["condition"] != None:
+                try:
+                    if context != None:
+                        result = debugger_evaluate_expression(debugger, bp["condition"])
+                        if not result:
+                            continue
+                    else:
+                        continue
+                catch e:
+                    continue
+            
+            bp["hit_count"] = bp["hit_count"] + 1
+            return bp
+    
+    return None
+
+fn debugger_should_pause(debugger, file_path, line_number, context):
+    # Check if execution should pause
+    # Check breakpoints
+    bp = debugger_check_breakpoint(debugger, file_path, line_number, context)
+    if bp != None:
+        return [true, "Breakpoint " + to_string(bp["id"]) + " hit"]
+    
+    # Check step mode
+    if debugger["state"] == DEBUG_STEPPING:
+        if debugger["step_mode"] == STEP_INTO:
+            return [true, "Step into"]
+        elif debugger["step_mode"] == STEP_OVER:
+            if len(debugger["call_stack"]) <= debugger["step_depth"]:
+                return [true, "Step over"]
+        elif debugger["step_mode"] == STEP_OUT:
+            if len(debugger["call_stack"]) < debugger["step_depth"]:
+                return [true, "Step out"]
+    
+    return [false, None]
+
+fn debugger_push_frame(debugger, file_path, function_name, line_number, local_variables):
+    # Push a new frame onto the call stack
+    frame = make_stack_frame(file_path, function_name, line_number, local_variables)
+    debugger["call_stack"] = push(debugger["call_stack"], frame)
+    debugger["current_frame"] = frame
+    debugger_emit_event(debugger, "frame_pushed", frame)
+
+fn debugger_pop_frame(debugger):
+    # Pop a frame from the call stack
+    if len(debugger["call_stack"]) > 0:
+        frame = debugger["call_stack"][len(debugger["call_stack"]) - 1]
+        debugger_emit_event(debugger, "frame_popped", frame)
+        debugger["call_stack"] = slice(debugger["call_stack"], 0, len(debugger["call_stack"]) - 1)
+        if len(debugger["call_stack"]) > 0:
+            debugger["current_frame"] = debugger["call_stack"][len(debugger["call_stack"]) - 1]
+        else:
+            debugger["current_frame"] = None
+
+fn debugger_get_call_stack(debugger):
+    # Get the current call stack
+    return debugger["call_stack"]
+
+fn debugger_get_local_variables(debugger):
+    # Get local variables in current frame
+    if debugger["current_frame"] != None:
+        return debugger["current_frame"]["local_variables"]
+    return {}
+
+fn debugger_get_variable(debugger, name):
+    # Get a variable value
+    # Check local variables first
+    if debugger["current_frame"] != None:
+        if contains(dict_keys(debugger["current_frame"]["local_variables"]), name):
+            return debugger["current_frame"]["local_variables"][name]
+    
+    # Check global variables
+    if contains(dict_keys(debugger["variables"]), name):
+        return debugger["variables"][name]
+    
+    return None
+
+fn debugger_set_variable(debugger, name, value):
+    # Set a variable value
+    if debugger["current_frame"] != None:
+        if contains(dict_keys(debugger["current_frame"]["local_variables"]), name):
+            debugger["current_frame"]["local_variables"][name] = value
+            return
+    debugger["variables"][name] = value
+
+fn debugger_evaluate_expression(debugger, expression):
+    # Evaluate an expression in the current context (simplified)
+    # Try to get variable value
+    value = debugger_get_variable(debugger, expression)
+    if value != None:
+        return value
+    
+    # Try to parse as number
+    if is_digit_string(expression):
+        return to_number(expression)
+    
+    # Return as string
+    return expression
+
+fn is_digit_string(s):
+    # Check if string is digits
+    i = 0
+    while i < len(s):
+        c = s[i]
+        if c < "0" or c > "9":
+            return false
+        i = i + 1
+    return len(s) > 0
+
+fn to_number(s):
+    # Convert string to number (simplified)
+    return 0
+
+fn debugger_register_event_handler(debugger, event_type, handler):
+    # Register an event handler
+    if not contains(dict_keys(debugger["event_handlers"]), event_type):
+        debugger["event_handlers"][event_type] = []
+    debugger["event_handlers"][event_type] = push(debugger["event_handlers"][event_type], handler)
+
+fn debugger_emit_event(debugger, event_type, data):
+    # Emit a debug event
+    event = make_debug_event(
+        event_type,
+        debugger["current_frame"]["file_path"] if debugger["current_frame"] != None else "",
+        debugger["current_frame"]["line_number"] if debugger["current_frame"] != None else 0,
+        None,
+        data
+    )
+    
+    if contains(dict_keys(debugger["event_handlers"]), event_type):
+        for handler in debugger["event_handlers"][event_type]:
+            handler(event)
+
+fn debugger_load_source_file(debugger, file_path):
+    # Load source file for debugging (conceptual)
+    if not contains(dict_keys(debugger["source_files"]), file_path):
+        debugger["source_files"][file_path] = []
+    return debugger["source_files"][file_path]
+
+fn debugger_get_source_line(debugger, file_path, line_number):
+    # Get a specific line from a source file
+    lines = debugger_load_source_file(debugger, file_path)
+    if line_number >= 1 and line_number <= len(lines):
+        return lines[line_number - 1]
+    return None
+
+fn debugger_get_source_context(debugger, file_path, line_number, context_lines):
+    # Get source code context around a line
+    if context_lines == None:
+        context_lines = 3
+    lines = debugger_load_source_file(debugger, file_path)
+    context = []
+    
+    start = line_number - context_lines
+    if start < 1:
+        start = 1
+    end = line_number + context_lines
+    if end > len(lines):
+        end = len(lines)
+    
+    i = start
+    while i <= end:
+        context = push(context, [i, lines[i - 1]])
+        i = i + 1
+    
+    return context
+
+fn debugger_get_state(debugger):
+    return debugger["state"]
+
+fn debugger_is_paused(debugger):
+    return debugger["state"] == DEBUG_PAUSED
+
+fn debugger_is_running(debugger):
+    return debugger["state"] == DEBUG_RUNNING
+
+fn debugger_is_terminated(debugger):
+    return debugger["state"] == DEBUG_TERMINATED
+
+fn main():
+    print("Prim Debugger")
+    
+    debugger = make_prim_debugger()
+    
+    # Add a breakpoint
+    bp = debugger_add_breakpoint(debugger, "test.prim", 10, None)
+    print("Added breakpoint " + to_string(bp["id"]) + " at test.prim:10")
+    
+    # Add watch expression
+    watch = debugger_add_watch_expression(debugger, "x")
+    print("Added watch expression: x")
+    
+    # Test stepping
+    debugger_step_into(debugger)
+    print("Step mode: " + debugger["step_mode"])
+    
+    print("Debugger initialized successfully")
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,206 @@
+#mode slim
+# Prim Ecosystem Development
+# Provides IDE integration, LSP server, debugging support,
+# community tools, and documentation site generation
+
+# LSP method constants
+LSP_INITIALIZE = "initialize"
+LSP_SHUTDOWN = "shutdown"
+LSP_TEXT_DOCUMENT_DID_OPEN = "textDocument/didOpen"
+LSP_TEXT_DOCUMENT_DID_CHANGE = "textDocument/didChange"
+LSP_TEXT_DOCUMENT_COMPLETION = "textDocument/completion"
+LSP_TEXT_DOCUMENT_HOVER = "textDocument/hover"
+LSP_TEXT_DOCUMENT_DEFINITION = "textDocument/definition"
+LSP_TEXT_DOCUMENT_REFERENCES = "textDocument/references"
+LSP_TEXT_DOCUMENT_DIAGNOSTIC = "textDocument/diagnostic"
+
+# LSPMessage factory
+fn make_lsp_message(jsonrpc, id, method, params, result, error):
+    return {
+        "jsonrpc": jsonrpc,
+        "id": id,
+        "method": method,
+        "params": params,
+        "result": result,
+        "error": error
+    }
+
+# CompletionItem factory
+fn make_completion_item(label, kind, detail, documentation, insert_text):
+    return {
+        "label": label,
+        "kind": kind,
+        "detail": detail,
+        "documentation": documentation,
+        "insert_text": insert_text
+    }
+
+# LSPServer factory
+fn make_lsp_server():
+    return {
+        "documents": {},
+        "diagnostics": {}
+    }
+
+fn lsp_server_handle_message(server, message):
+    # Handle LSP message (simplified)
+    try:
+        msg = parse_json(message)
+        
+        method = dict_get(msg, "method")
+        if method == LSP_INITIALIZE:
+            return lsp_server_handle_initialize(server, msg)
+        elif method == LSP_TEXT_DOCUMENT_DID_OPEN:
+            return lsp_server_handle_did_open(server, msg)
+        elif method == LSP_TEXT_DOCUMENT_COMPLETION:
+            return lsp_server_handle_completion(server, msg)
+        elif method == LSP_TEXT_DOCUMENT_HOVER:
+            return lsp_server_handle_hover(server, msg)
+        
+        return "{}"
+    catch e:
+        return '{"jsonrpc": "2.0", "error": {"code": -32603, "message": "Error"}}'
+
+fn parse_json(s):
+    # Simplified JSON parsing
+    return {}
+
+fn lsp_server_handle_initialize(server, msg):
+    # Handle initialize request
+    return '{"jsonrpc": "2.0", "id": 1, "result": {"capabilities": {"textDocumentSync": 1, "completionProvider": {}, "hoverProvider": true, "definitionProvider": true}}}'
+
+fn lsp_server_handle_did_open(server, msg):
+    # Handle document open
+    return '{"jsonrpc": "2.0", "result": null}'
+
+fn lsp_server_handle_completion(server, msg):
+    # Handle completion request
+    completions = [
+        make_completion_item("fn", 3, "function", "Define a function", "fn "),
+        make_completion_item("let", 12, "keyword", "Declare a variable", "let "),
+        make_completion_item("const", 12, "keyword", "Declare a constant", "const "),
+        make_completion_item("if", 12, "keyword", "Conditional statement", "if "),
+        make_completion_item("while", 12, "keyword", "While loop", "while ")
+    ]
+    return '{"jsonrpc": "2.0", "id": 1, "result": {"items": []}}'
+
+fn lsp_server_handle_hover(server, msg):
+    # Handle hover request
+    return '{"jsonrpc": "2.0", "id": 1, "result": {"contents": [{"kind": "markdown", "value": "Hover information"}]}}'
+
+# Debugger factory
+fn make_ecosystem_debugger():
+    return {
+        "breakpoints": {},
+        "current_line": None,
+        "current_file": None,
+        "variables": {},
+        "call_stack": []
+    }
+
+fn ecosystem_debugger_set_breakpoint(debugger, file, line):
+    # Set breakpoint
+    if not contains(dict_keys(debugger["breakpoints"]), file):
+        debugger["breakpoints"][file] = []
+    debugger["breakpoints"][file] = push(debugger["breakpoints"][file], line)
+
+fn ecosystem_debugger_clear_breakpoint(debugger, file, line):
+    # Clear breakpoint
+    if contains(dict_keys(debugger["breakpoints"]), file):
+        new_breakpoints = []
+        for bp in debugger["breakpoints"][file]:
+            if bp != line:
+                new_breakpoints = push(new_breakpoints, bp)
+        debugger["breakpoints"][file] = new_breakpoints
+
+fn ecosystem_debugger_step_over(debugger):
+    # Step over
+    if debugger["current_line"] != None:
+        debugger["current_line"] = debugger["current_line"] + 1
+
+fn ecosystem_debugger_step_into(debugger):
+    # Step into
+    if debugger["current_line"] != None:
+        debugger["current_line"] = debugger["current_line"] + 1
+
+fn ecosystem_debugger_step_out(debugger):
+    # Step out
+    if len(debugger["call_stack"]) > 0:
+        frame = debugger["call_stack"][len(debugger["call_stack"]) - 1]
+        debugger["call_stack"] = slice(debugger["call_stack"], 0, len(debugger["call_stack"]) - 1)
+        debugger["current_line"] = dict_get(frame, "line")
+        debugger["current_file"] = dict_get(frame, "file")
+
+fn ecosystem_debugger_continue(debugger):
+    # Continue execution
+    return "running"
+
+fn ecosystem_debugger_get_variables(debugger):
+    # Get current variables
+    return debugger["variables"]
+
+fn ecosystem_debugger_get_call_stack(debugger):
+    # Get call stack
+    return debugger["call_stack"]
+
+# Formatter factory
+fn make_formatter():
+    return {}
+
+fn formatter_format(formatter, code):
+    # Format code (simplified)
+    return code
+
+# DocumentationGenerator factory
+fn make_documentation_generator(output_dir):
+    if output_dir == None:
+        output_dir = "docs_site"
+    return {
+        "output_dir": output_dir
+    }
+
+fn documentation_generator_generate_site(generator, modules):
+    # Generate documentation site (conceptual)
+    documentation_generator_generate_index(generator)
+    
+    for module in modules:
+        documentation_generator_generate_module_doc(generator, module)
+    
+    print("Documentation site generated in " + generator["output_dir"])
+
+fn documentation_generator_generate_index(generator):
+    # Generate index page (conceptual)
+    pass
+
+fn documentation_generator_generate_module_doc(generator, module):
+    # Generate module documentation (conceptual)
+    pass
+
+fn main():
+    print("Testing Ecosystem Development...")
+    
+    # Test LSP server
+    lsp = make_lsp_server()
+    msg = '{"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}}'
+    response = lsp_server_handle_message(lsp, msg)
+    print("LSP response length: " + to_string(len(response)))
+    
+    # Test debugger
+    debugger = make_ecosystem_debugger()
+    ecosystem_debugger_set_breakpoint(debugger, "test.prim", 10)
+    print("Breakpoints: " + to_string(len(dict_keys(debugger["breakpoints"]))))
+    
+    # Test formatter
+    formatter = make_formatter()
+    code = "fn test() {\n    print('hello')\n}"
+    formatted = formatter_format(formatter, code)
+    print("Formatted length: " + to_string(len(formatted)))
+    
+    # Test documentation generator
+    doc_gen = make_documentation_generator(None)
+    documentation_generator_generate_site(doc_gen, ["stdlib"])
+    
+    print("Ecosystem Development initialized successfully")
+
+if __name__ == "__main__":
+    main()

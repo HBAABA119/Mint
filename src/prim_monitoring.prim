@@ -1,0 +1,41 @@
+#mode slim
+# Prim System Monitoring
+# Provides performance monitoring, health checks, alerting,
+# metrics collection, and system status
+
+# Health status constants
+HEALTH_HEALTHY = "healthy"
+HEALTH_UNHEALTHY = "unhealthy"
+HEALTH_DEGRADED = "degraded"
+
+# Factory function for Metric
+fn make_metric(name, value, timestamp):
+    return {
+        "name": name,
+        "value": value,
+        "timestamp": timestamp
+    }
+
+# SystemMonitor factory
+fn make_system_monitor():
+    return {
+        "metrics": [],
+        "status": HEALTH_HEALTHY
+    }
+
+fn system_monitor_record_metric(monitor, metric):
+    monitor["metrics"] = push(monitor["metrics"], metric)
+
+fn system_monitor_get_health(monitor):
+    return monitor["status"]
+
+fn main():
+    print("Testing System Monitoring...")
+    monitor = make_system_monitor()
+    metric = make_metric("cpu", 50.0, 0.0)
+    system_monitor_record_metric(monitor, metric)
+    print("Health: " + system_monitor_get_health(monitor))
+    print("System Monitoring initialized successfully")
+
+if __name__ == "__main__":
+    main()

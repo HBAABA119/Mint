@@ -1,0 +1,17 @@
+#mode slim
+# Prim Standard Library - Main Module
+# Combines all standard library modules into one importable unit
+
+use prim_std_collections
+use prim_std_strings
+use prim_std_math
+use prim_std_io
+
+fn register_standard_library(interpreter):
+    # Register all standard library functions with the interpreter
+    prim_std_collections.register_collections_functions(interpreter)
+    prim_std_strings.register_string_functions(interpreter)
+    prim_std_math.register_math_functions(interpreter)
+    prim_std_io.register_io_functions(interpreter)
+    
+    print("Prim Standard Library v1.0 loaded successfully!")

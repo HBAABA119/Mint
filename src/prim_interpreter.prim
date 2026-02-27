@@ -1,0 +1,427 @@
+#mode slim
+# Prim Language Prototype Interpreter
+# This is a basic prototype to demonstrate the multi-syntax concept of Prim
+# Currently implements the core interpreter with support for basic operations
+
+use prim_ast
+
+# Node type constants
+NODE_NUMBER_LITERAL = "NumberLiteral"
+NODE_STRING_LITERAL = "StringLiteral"
+NODE_BOOLEAN_LITERAL = "BooleanLiteral"
+NODE_NULL_LITERAL = "NullLiteral"
+NODE_LIST_LITERAL = "ListLiteral"
+NODE_DICT_LITERAL = "DictLiteral"
+NODE_VARIABLE_ACCESS = "VariableAccess"
+NODE_ASSIGNMENT = "Assignment"
+NODE_BINARY_OPERATION = "BinaryOperation"
+NODE_UNARY_OPERATION = "UnaryOperation"
+NODE_FUNCTION_CALL = "FunctionCall"
+NODE_LAMBDA = "Lambda"
+NODE_EXPRESSION_STATEMENT = "ExpressionStatement"
+NODE_IF_STATEMENT = "IfStatement"
+NODE_WHILE_LOOP = "WhileLoop"
+NODE_FOR_LOOP = "ForLoop"
+NODE_RETURN_STATEMENT = "ReturnStatement"
+NODE_BLOCK_STATEMENT = "BlockStatement"
+
+# RuntimeValue factory
+fn make_runtime_value(value):
+    return {
+        "value": value
+    }
+
+# RuntimeEnvironment factory
+fn make_runtime_environment(parent):
+    return {
+        "variables": {},
+        "parent": parent
+    }
+
+fn env_define(env, name, value):
+    env["variables"][name] = value
+
+fn env_assign(env, name, value):
+    if contains(dict_keys(env["variables"]), name):
+        env["variables"][name] = value
+    elif env["parent"]:
+        env_assign(env["parent"], name, value)
+    else:
+        print("Undefined variable: " + name)
+
+fn env_lookup(env, name):
+    if contains(dict_keys(env["variables"]), name):
+        return env["variables"][name]
+    elif env["parent"]:
+        return env_lookup(env["parent"], name)
+    else:
+        print("Undefined variable: " + name)
+        return make_runtime_value(None)
+
+# PrimInterpreter factory
+fn make_prim_interpreter():
+    interpreter = {
+        "global_env": make_runtime_environment(None)
+    }
+    setup_builtins(interpreter)
+    return interpreter
+
+fn setup_builtins(interpreter):
+    # Setup built-in functions
+    env_define(interpreter["global_env"], "print", make_runtime_value(builtin_print))
+    env_define(interpreter["global_env"], "len", make_runtime_value(builtin_len))
+    env_define(interpreter["global_env"], "str", make_runtime_value(builtin_str))
+    env_define(interpreter["global_env"], "num", make_runtime_value(builtin_num))
+    env_define(interpreter["global_env"], "bool", make_runtime_value(builtin_bool))
+    env_define(interpreter["global_env"], "push", make_runtime_value(builtin_push))
+    env_define(interpreter["global_env"], "contains", make_runtime_value(builtin_contains))
+    env_define(interpreter["global_env"], "slice", make_runtime_value(builtin_slice))
+    env_define(interpreter["global_env"], "dict_keys", make_runtime_value(builtin_dict_keys))
+    env_define(interpreter["global_env"], "strlen", make_runtime_value(builtin_strlen))
+    env_define(interpreter["global_env"], "to_json", make_runtime_value(builtin_to_json))
+    env_define(interpreter["global_env"], "from_json", make_runtime_value(builtin_from_json))
+
+# Built-in functions
+fn builtin_print(args):
+    # Print all arguments
+    for arg in args:
+        if is_runtime_value(arg):
+            print_value(arg["value"])
+        else:
+            print_value(arg)
+    return make_runtime_value(None)
+
+fn print_value(val):
+    if is_string(val):
+        print(val)
+    elif is_number(val):
+        print(to_string(val))
+    elif is_bool(val):
+        if val:
+            print("true")
+        else:
+            print("false")
+    elif val == None:
+        print("null")
+    elif is_list(val):
+        print_list(val)
+    elif is_dict(val):
+        print_dict(val)
+    else:
+        print(to_string(val))
+
+fn print_list(lst):
+    result = "["
+    i = 0
+    while i < len(lst):
+        if i > 0:
+            result = result + ", "
+        result = result + to_string(lst[i])
+        i = i + 1
+    result = result + "]"
+    print(result)
+
+fn print_dict(d):
+    result = "{"
+    keys = dict_keys(d)
+    i = 0
+    while i < len(keys):
+        if i > 0:
+            result = result + ", "
+        key = keys[i]
+        result = result + to_string(key) + ": " + to_string(d[key])
+        i = i + 1
+    result = result + "}"
+    print(result)
+
+fn builtin_len(container):
+    if is_runtime_value(container):
+        val = container["value"]
+        if is_list(val) or is_string(val) or is_dict(val):
+            return make_runtime_value(len(val))
+    elif is_list(container) or is_string(container) or is_dict(container):
+        return make_runtime_value(len(container))
+    print("len() requires a list, string, or dict")
+    return make_runtime_value(0)
+
+fn builtin_str(value):
+    val = value
+    if is_runtime_value(value):
+        val = value["value"]
+    return make_runtime_value(to_string(val))
+
+fn builtin_num(value):
+    val = value
+    if is_runtime_value(value):
+        val = value["value"]
+    return make_runtime_value(float(val))
+
+fn builtin_bool(value):
+    val = value
+    if is_runtime_value(value):
+        val = value["value"]
+    return make_runtime_value(bool(val))
+
+fn builtin_push(lst, item):
+    if is_runtime_value(lst):
+        lst = lst["value"]
+    return push(lst, item)
+
+fn builtin_contains(s, item):
+    if is_runtime_value(s):
+        s = s["value"]
+    return contains(s, item)
+
+fn builtin_slice(s, start, end):
+    if is_runtime_value(s):
+        s = s["value"]
+    return slice(s, start, end)
+
+fn builtin_dict_keys(d):
+    if is_runtime_value(d):
+        d = d["value"]
+    return dict_keys(d)
+
+fn builtin_strlen(s):
+    if is_runtime_value(s):
+        s = s["value"]
+    return strlen(s)
+
+fn builtin_to_json(obj):
+    return to_json(obj)
+
+fn builtin_from_json(s):
+    return from_json(s)
+
+# Type checking helpers
+fn is_runtime_value(val):
+    return is_dict(val) and contains(dict_keys(val), "value")
+
+fn is_list(val):
+    # Check if it's a list by looking for list-like behavior
+    return is_dict(val) and contains(dict_keys(val), "length")
+
+fn is_dict(val):
+    # In Prim, dicts are represented as objects
+    return type(val) == "dict"
+
+fn is_string(val):
+    return type(val) == "string"
+
+fn is_number(val):
+    return type(val) == "number"
+
+fn is_bool(val):
+    return type(val) == "bool"
+
+# Main evaluate function
+fn interpreter_evaluate(interpreter, node, env):
+    node_type = node["node_type"]
+    props = node["properties"]
+    
+    if node_type == prim_ast.NODE_NUMBER_LITERAL:
+        return make_runtime_value(props["value"])
+    elif node_type == prim_ast.NODE_STRING_LITERAL:
+        return make_runtime_value(props["value"])
+    elif node_type == prim_ast.NODE_BOOLEAN_LITERAL:
+        return make_runtime_value(props["value"])
+    elif node_type == prim_ast.NODE_NULL_LITERAL:
+        return make_runtime_value(None)
+    elif node_type == prim_ast.NODE_LIST_LITERAL:
+        elements = []
+        for elem in props["elements"]:
+            evaled = interpreter_evaluate(interpreter, elem, env)
+            elements = push(elements, evaled["value"])
+        return make_runtime_value(elements)
+    elif node_type == prim_ast.NODE_DICT_LITERAL:
+        result_dict = {}
+        for pair in props["pairs"]:
+            key_val = interpreter_evaluate(interpreter, pair["key"], env)["value"]
+            value_val = interpreter_evaluate(interpreter, pair["value"], env)["value"]
+            result_dict[key_val] = value_val
+        return make_runtime_value(result_dict)
+    elif node_type == prim_ast.NODE_VARIABLE_ACCESS:
+        var_name = props["name"]
+        return env_lookup(env, var_name)
+    elif node_type == prim_ast.NODE_ASSIGNMENT:
+        var_name = props["variable"]
+        value = interpreter_evaluate(interpreter, props["value"], env)
+        env_define(env, var_name, value)
+        return value
+    elif node_type == prim_ast.NODE_BINARY_OPERATION:
+        left_val = interpreter_evaluate(interpreter, props["left"], env)["value"]
+        right_val = interpreter_evaluate(interpreter, props["right"], env)["value"]
+        op = props["operator"]
+        
+        if op == "+":
+            return make_runtime_value(left_val + right_val)
+        elif op == "-":
+            return make_runtime_value(left_val - right_val)
+        elif op == "*":
+            return make_runtime_value(left_val * right_val)
+        elif op == "/":
+            return make_runtime_value(left_val / right_val)
+        elif op == "%":
+            return make_runtime_value(left_val % right_val)
+        elif op == "==":
+            return make_runtime_value(left_val == right_val)
+        elif op == "!=":
+            return make_runtime_value(left_val != right_val)
+        elif op == "<":
+            return make_runtime_value(left_val < right_val)
+        elif op == ">":
+            return make_runtime_value(left_val > right_val)
+        elif op == "<=":
+            return make_runtime_value(left_val <= right_val)
+        elif op == ">=":
+            return make_runtime_value(left_val >= right_val)
+        elif op == "&&":
+            return make_runtime_value(bool(left_val and right_val))
+        elif op == "||":
+            return make_runtime_value(bool(left_val or right_val))
+        else:
+            print("Unknown binary operator: " + op)
+            return make_runtime_value(None)
+    elif node_type == prim_ast.NODE_UNARY_OPERATION:
+        operand_val = interpreter_evaluate(interpreter, props["operand"], env)["value"]
+        op = props["operator"]
+        
+        if op == "!":
+            return make_runtime_value(not operand_val)
+        elif op == "-":
+            return make_runtime_value(-operand_val)
+        elif op == "+":
+            return make_runtime_value(operand_val)
+        else:
+            print("Unknown unary operator: " + op)
+            return make_runtime_value(None)
+    elif node_type == prim_ast.NODE_FUNCTION_CALL:
+        fn_node = props["callee"]
+        fn_val = interpreter_evaluate(interpreter, fn_node, env)
+        
+        if is_runtime_value(fn_val):
+            actual_fn = fn_val["value"]
+        else:
+            actual_fn = fn_val
+        
+        # Check if it's a callable function
+        if is_function(actual_fn):
+            args = []
+            for arg_node in props["arguments"]:
+                arg_val = interpreter_evaluate(interpreter, arg_node, env)
+                args = push(args, arg_val)
+            
+            # Call the function
+            result = call_function(actual_fn, args)
+            if is_runtime_value(result):
+                return result
+            else:
+                return make_runtime_value(result)
+        else:
+            print("Not callable: " + to_string(actual_fn))
+            return make_runtime_value(None)
+    elif node_type == prim_ast.NODE_LAMBDA:
+        params = props["parameters"]
+        body = props["body"]
+        
+        # Create lambda function
+        lambda_fn = make_lambda_function(params, body, env, interpreter)
+        return make_runtime_value(lambda_fn)
+    elif node_type == prim_ast.NODE_EXPRESSION_STATEMENT:
+        return interpreter_evaluate(interpreter, props["expression"], env)
+    elif node_type == prim_ast.NODE_IF_STATEMENT:
+        condition_val = interpreter_evaluate(interpreter, props["condition"], env)["value"]
+        if condition_val:
+            return interpreter_evaluate(interpreter, props["consequent"], env)
+        elif contains(dict_keys(props), "alternate") and props["alternate"]:
+            return interpreter_evaluate(interpreter, props["alternate"], env)
+        else:
+            return make_runtime_value(None)
+    elif node_type == prim_ast.NODE_WHILE_LOOP:
+        condition = props["condition"]
+        body = props["body"]
+        
+        while true:
+            cond_val = interpreter_evaluate(interpreter, condition, env)["value"]
+            if not cond_val:
+                break
+            interpreter_evaluate(interpreter, body, env)
+        return make_runtime_value(None)
+    elif node_type == prim_ast.NODE_BLOCK_STATEMENT:
+        block_env = make_runtime_environment(env)
+        result = make_runtime_value(None)
+        for stmt in props["statements"]:
+            result = interpreter_evaluate(interpreter, stmt, block_env)
+        return result
+    else:
+        print("Unknown node type: " + node_type)
+        return make_runtime_value(None)
+
+# Lambda function helper
+fn make_lambda_function(params, body, env, interpreter):
+    return {
+        "type": "lambda",
+        "params": params,
+        "body": body,
+        "env": env,
+        "interpreter": interpreter
+    }
+
+fn is_function(val):
+    return is_dict(val) and contains(dict_keys(val), "type") and val["type"] == "lambda"
+
+fn call_function(fn, args):
+    # Create new environment for lambda execution
+    lambda_env = make_runtime_environment(fn["env"])
+    
+    # Bind parameters
+    i = 0
+    while i < len(fn["params"]):
+        param = fn["params"][i]
+        arg = args[i]
+        env_define(lambda_env, param, arg)
+        i = i + 1
+    
+    # Evaluate body
+    return interpreter_evaluate(fn["interpreter"], fn["body"], lambda_env)
+
+# Demo function
+fn demo_prim_concept():
+    print("=== Prim Language Prototype Demo ===\n")
+    
+    interpreter = make_prim_interpreter()
+    env = interpreter["global_env"]
+    
+    # Create simple AST: x = 10; y = 20; print(x + y)
+    nodes = [
+        prim_ast.make_assignment_node(
+            prim_ast.make_variable_access_node("x"),
+            prim_ast.make_number_literal_node(10)
+        ),
+        prim_ast.make_assignment_node(
+            prim_ast.make_variable_access_node("y"),
+            prim_ast.make_number_literal_node(20)
+        ),
+        prim_ast.make_function_call_node(
+            prim_ast.make_variable_access_node("print"),
+            [
+                prim_ast.make_binary_operation_node(
+                    "+",
+                    prim_ast.make_variable_access_node("x"),
+                    prim_ast.make_variable_access_node("y")
+                )
+            ]
+        )
+    ]
+    
+    # Execute AST
+    for node in nodes:
+        result = interpreter_evaluate(interpreter, node, env)
+    
+    print("\n=== End Demo ===")
+
+fn main():
+    demo_prim_concept()
+
+if __name__ == "__main__":
+    main()

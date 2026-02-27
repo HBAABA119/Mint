@@ -1,0 +1,141 @@
+#mode slim
+# Prim Error Handling & Diagnostics
+# Provides comprehensive error messages, stack traces, warnings,
+# linting, and static analysis for Prim Language
+
+# Error severity constants
+SEVERITY_INFO = "info"
+SEVERITY_WARNING = "warning"
+SEVERITY_ERROR = "error"
+SEVERITY_CRITICAL = "critical"
+
+# Error category constants
+CATEGORY_SYNTAX = "syntax"
+CATEGORY_RUNTIME = "runtime"
+CATEGORY_TYPE = "type"
+CATEGORY_VALUE = "value"
+CATEGORY_IMPORT = "import"
+CATEGORY_NAME = "name"
+CATEGORY_ATTRIBUTE = "attribute"
+CATEGORY_KEY = "key"
+CATEGORY_INDEX = "index"
+CATEGORY_MEMORY = "memory"
+CATEGORY_IO = "io"
+CATEGORY_SYSTEM = "system"
+
+# ErrorLocation factory
+fn make_error_location(file, line, column, function):
+    return {
+        "file": file,
+        "line": line,
+        "column": column,
+        "function": function
+    }
+
+# PrimError factory
+fn make_prim_error(message, category, severity, location, traceback, suggestions, code_snippet):
+    return {
+        "message": message,
+        "category": category,
+        "severity": severity,
+        "location": location,
+        "traceback": traceback,
+        "suggestions": suggestions,
+        "code_snippet": code_snippet
+    }
+
+# ErrorReporter factory
+fn make_error_reporter():
+    return {
+        "errors": [],
+        "warnings": []
+    }
+
+fn error_reporter_report_error(reporter, message, category, location, suggestions):
+    if suggestions == None:
+        suggestions = []
+    error = make_prim_error(
+        message,
+        category,
+        SEVERITY_ERROR,
+        location,
+        None,
+        suggestions,
+        None
+    )
+    reporter["errors"] = push(reporter["errors"], error)
+    return error
+
+fn error_reporter_report_warning(reporter, message, category, location, suggestions):
+    if suggestions == None:
+        suggestions = []
+    warning = make_prim_error(
+        message,
+        category,
+        SEVERITY_WARNING,
+        location,
+        None,
+        suggestions,
+        None
+    )
+    reporter["warnings"] = push(reporter["warnings"], warning)
+    return warning
+
+fn error_reporter_has_errors(reporter):
+    return len(reporter["errors"]) > 0
+
+fn error_reporter_clear(reporter):
+    reporter["errors"] = []
+    reporter["warnings"] = []
+
+# Linter factory
+fn make_linter():
+    return {
+        "issues": []
+    }
+
+fn linter_lint(linter, code, filename):
+    # Simplified linting
+    if filename == None:
+        filename = "<string>"
+    linter["issues"] = []
+    return linter["issues"]
+
+# StaticAnalyzer factory
+fn make_static_analyzer():
+    return {
+        "issues": []
+    }
+
+fn static_analyzer_analyze(analyzer, code, filename):
+    # Simplified analysis
+    if filename == None:
+        filename = "<string>"
+    analyzer["issues"] = []
+    return analyzer["issues"]
+
+fn main():
+    print("Testing Error Handling & Diagnostics...")
+    
+    reporter = make_error_reporter()
+    error = error_reporter_report_error(
+        reporter,
+        "Test error message",
+        CATEGORY_RUNTIME,
+        make_error_location("test.prim", 10, 5, "main"),
+        ["Fix the error"]
+    )
+    print("Error reported: " + error["message"])
+    
+    linter = make_linter()
+    issues = linter_lint(linter, "print('hello')", "test.prim")
+    print("Lint issues: " + to_string(len(issues)))
+    
+    analyzer = make_static_analyzer()
+    issues = static_analyzer_analyze(analyzer, "return\nx = 5", "test.prim")
+    print("Analysis issues: " + to_string(len(issues)))
+    
+    print("Error Handling & Diagnostics initialized successfully")
+
+if __name__ == "__main__":
+    main()

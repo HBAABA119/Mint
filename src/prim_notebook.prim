@@ -1,0 +1,400 @@
+#mode slim
+# Prim Notebook Interface
+# Provides interactive development environment with cell execution, rich output formatting,
+# collaboration features, version control integration, and notebook serialization.
+
+# import json
+# import uuid
+# from typing import List, Dict, Any, Optional, Callable
+# from dataclasses import dataclass, field
+# from enum import Enum
+# from datetime import datetime
+
+
+CellType_CODE = "code"
+CellType_MARKDOWN = "markdown"
+CellType_RAW = "raw"CellStatus_IDLE = "idle"
+CellStatus_RUNNING = "running"
+CellStatus_COMPLETED = "completed"
+CellStatus_ERROR = "error"OutputType_TEXT = "text"
+OutputType_HTML = "html"
+OutputType_MARKDOWN = "markdown"
+OutputType_IMAGE = "image"
+OutputType_JAVASCRIPT = "javascript"
+OutputType_LATEX = "latex"class
+# Class Cell
+    # Notebook cell
+    id: str = field(default_factory=lambda: str(uuid.uuid4()))
+    cell_type = CellType.CODE
+    content: str = ""
+    status = CellStatus.IDLE
+    outputs] = field(default_factory=list)
+    execution_count: int = 0
+    metadata = field(default_factory=dict)
+
+    fn cell_add_output(obj, output_type, data: str, metadata = None):
+        # Add output to cell
+        obj["outputs"].append({
+            "output_type": output_type.value,
+            "data": data,
+            "metadata": metadata or {},
+            "timestamp": datetime.now().isoformat()
+        })
+
+    fn cell_clear_outputs(obj):
+        # Clear cell outputs
+        obj["outputs"] = []
+
+
+# Class Notebook
+    # Interactive notebook
+
+    fn make_notebook(name: str = "notebook"):
+        obj = {}
+        obj["name"] = name
+        obj["cells"] = []
+        obj["metadata"] = {
+            "created": datetime.now().isoformat(),
+            "modified": datetime.now().isoformat(),
+            "version": "1.0"
+        }
+        obj["current_cell_index"] = 0
+
+    def add_cell(self, cell_type = CellType.CODE, content: str = "") :
+        # Add a cell to the notebook
+        cell = Cell(cell_type=cell_type, content=content)
+        obj["cells"].append(cell)
+        return cell
+
+    fn notebook_insert_cell(obj, index: int, cell):
+        # Insert cell at index
+        obj["cells"].insert(index, cell)
+
+    fn notebook_delete_cell(obj, index: int):
+        # Delete cell at index
+        if 0 <= index < len(obj["cells"]):
+            del obj["cells"][index]
+
+    def get_cell(self, index: int) :
+        # Get cell at index
+        if 0 <= index < len(obj["cells"]):
+            return obj["cells"][index]
+        return null
+
+    fn notebook_move_cell_up(obj, index: int):
+        # Move cell up
+        if index > 0:
+            obj["cells"][index], obj["cells"][index - 1] = obj["cells"][index - 1], obj["cells"][index]
+
+    fn notebook_move_cell_down(obj, index: int):
+        # Move cell down
+        if index < len(obj["cells"]) - 1:
+            obj["cells"][index], obj["cells"][index + 1] = obj["cells"][index + 1], obj["cells"][index]
+
+    def execute_cell(self, index: int, executor = null) :
+        # Execute a cell
+        cell = notebook_get_cell(obj, index)
+        if not cell:
+            return {"error": "Cell not found"}
+
+        cell.status = CellStatus.RUNNING
+        cell.execution_count += 1
+
+        try:
+            if executor and cell.cell_type == CellType.CODE:
+                result = executor(cell.content)
+                cell.add_output(OutputType.TEXT, str(result))
+                cell.status = CellStatus.COMPLETED
+                return {"success", "result": result}
+            elif cell.cell_type == CellType.MARKDOWN:
+                cell.status = CellStatus.COMPLETED
+                return {"success", "rendered": cell.content}
+            else:
+                cell.status = CellStatus.COMPLETED
+                return {"success"}
+
+        except Exception as e:
+            cell.status = CellStatus.ERROR
+            cell.add_output(OutputType.TEXT, "Error: {str(e)}")
+            return {"success", "error": str(e)}
+
+    def execute_all(self, executor = null) ]:
+        # Execute all cells
+        results = []
+        for i, cell in enumerate(obj["cells"]):
+            if cell.cell_type == CellType.CODE:
+                result = notebook_execute_cell(obj, i, executor)
+                results = push(results, result)
+        return results
+
+    def execute_all_above(self, index: int, executor = null) ]:
+        # Execute all cells above index
+        results = []
+        for i in range(index):
+            cell = obj["cells"][i]
+            if cell.cell_type == CellType.CODE:
+                result = notebook_execute_cell(obj, i, executor)
+                results = push(results, result)
+        return results
+
+    fn notebook_clear_outputs(obj):
+        # Clear all cell outputs
+        for cell in obj["cells"]:
+            cell.clear_outputs()
+
+    def to_dict(self) :
+        # Convert notebook to dictionary
+        return {
+            "name": obj["name"],
+            "metadata": obj["metadata"],
+            "cells": [
+                {
+                    "id": cell.id,
+                    "cell_type": cell.cell_type.value,
+                    "content": cell.content,
+                    "status": cell.status.value,
+                    "outputs": cell.outputs,
+                    "execution_count": cell.execution_count,
+                    "metadata": cell.metadata
+                }
+                for cell in obj["cells"]
+            ]
+        }
+
+    def to_json(self) -> str:
+        # Convert notebook to JSON
+        return json.dumps(notebook_to_dict(obj, ), indent=2)
+
+    @classmethod
+    def from_dict(cls, data) -> 'Notebook':
+        # Create notebook from dictionary
+        notebook = cls(dict_get(data, "name", "notebook"))
+        notebook.metadata = dict_get(data, "metadata", {})
+
+        for cell_data in dict_get(data, "cells", []):
+            cell = Cell(
+                id=dict_get(cell_data, "id"),
+                cell_type=CellType(dict_get(cell_data, "cell_type", CellType.CODE)),
+                content=dict_get(cell_data, "content", ""),
+                status=CellStatus(dict_get(cell_data, "status", CellStatus.IDLE)),
+                execution_count=dict_get(cell_data, "execution_count", 0),
+                metadata=dict_get(cell_data, "metadata", {})
+            )
+            cell.outputs = dict_get(cell_data, "outputs", [])
+            notebook.cells = push(cells, cell)
+
+        return notebook
+
+    @classmethod
+    def from_json(cls, json_str: str) -> 'Notebook':
+        # Create notebook from JSON
+        data = json.loads(json_str)
+        return cls.from_dict(data)
+
+    fn notebook_save(obj, filepath: str):
+        # Save notebook to file
+        with open(filepath, 'w') as f:
+            f.write(notebook_to_json(obj, ))
+
+    @classmethod
+    def load(cls, filepath: str) -> 'Notebook':
+        # Load notebook from file
+        with open(filepath, 'r') as f:
+            return cls.from_json(f.read())
+
+
+# Class RichOutput
+    # Rich output formatting
+
+    @staticmethod
+    def format_html(html: str) -> str:
+        # Format HTML output
+        return "<div class='output'>{html}</div>"
+
+    @staticmethod
+    def format_markdown(markdown: str) -> str:
+        # Format Markdown output
+        return "<div class='markdown'>{markdown}</div>"
+
+    @staticmethod
+    def format_latex(latex: str) -> str:
+        # Format LaTeX output
+        return "<div class='latex'>$$ {latex} $$</div>"
+
+    @staticmethod
+    def format_image(image_data: str, image_type: str = "png") -> str:
+        # Format image output
+        return "<img src='data:image/{image_type};base64,{image_data}' />"
+
+    @staticmethod
+    def format_javascript(code: str) -> str:
+        # Format JavaScript output
+        return "<script>{code}</script>"
+
+
+# Class Collaboration
+    # Collaboration features
+
+    fn make_collaboration():
+        obj = {}
+        obj["collaborators"]] = {}
+        obj["comments"]] = []
+        obj["changes"]] = []
+
+    fn collaboration_add_collaborator(obj, user_id: str, name: str, email: str):
+        # Add collaborator
+        obj["collaborators"][user_id] = {
+            "name": name,
+            "email": email,
+            "joined": datetime.now().isoformat()
+        }
+
+    fn collaboration_remove_collaborator(obj, user_id: str):
+        # Remove collaborator
+        if user_id in obj["collaborators"]:
+            del obj["collaborators"][user_id]
+
+    fn collaboration_add_comment(obj, cell_id: str, user_id: str, text: str):
+        # Add comment to cell
+        obj["comments"].append({
+            "id": str(uuid.uuid4()),
+            "cell_id": cell_id,
+            "user_id": user_id,
+            "text": text,
+            "timestamp": datetime.now().isoformat()
+        })
+
+    def get_comments(self, cell_id: str) ]:
+        # Get comments for cell
+        return [c for c in obj["comments"] if c["cell_id"] == cell_id]
+
+    fn collaboration_track_change(obj, user_id: str, cell_id: str, change_type: str, details):
+        # Track change
+        obj["changes"].append({
+            "id": str(uuid.uuid4()),
+            "user_id": user_id,
+            "cell_id": cell_id,
+            "change_type": change_type,
+            "details": details,
+            "timestamp": datetime.now().isoformat()
+        })
+
+
+# Class VersionControl
+    # Version control integration
+
+    fn make_versioncontrol():
+        obj = {}
+        obj["commits"]] = []
+        obj["branches"] = {"main": ""}
+
+    def commit(self, message: str, author: str, notebook) -> str:
+        # Create commit
+        commit_id = str(uuid.uuid4())
+        obj["commits"].append({
+            "id": commit_id,
+            "message": message,
+            "author": author,
+            "notebook": notebook.to_dict(),
+            "timestamp": datetime.now().isoformat()
+        })
+        obj["branches"]["main"] = commit_id
+        return commit_id
+
+    def get_commit(self, commit_id: str) ]:
+        # Get commit by ID
+        for commit in obj["commits"]:
+            if commit["id"] == commit_id:
+                return commit
+        return null
+
+    def get_history(self) ]:
+        # Get commit history
+        return obj["commits"].copy()
+
+    def create_branch(self, name: str, from_commit = null) -> str:
+        # Create branch
+        commit_id = from_commit or obj["branches"].get("main", "")
+        obj["branches"][name] = commit_id
+        return name
+
+    def checkout(self, branch_name: str) :
+        # Checkout branch
+        if branch_name not in obj["branches"]:
+            return null
+
+        commit_id = obj["branches"][branch_name]
+        commit = versioncontrol_get_commit(obj, commit_id)
+        if commit:
+            return Notebook.from_dict(commit["notebook"])
+        return null
+
+
+def create_notebook(name: str = "notebook") :
+    # Create a new notebook
+    return Notebook(name)
+
+
+fn main():
+    # Main entry point for testing
+    print("Testing Notebook Interface...")
+
+    # Create notebook
+    notebook = create_notebook("test_notebook")
+
+    # Add cells
+    cell1 = notebook.add_cell(CellType.CODE, "print('Hello, World!')")
+    cell2 = notebook.add_cell(CellType.MARKDOWN, "# Title\nThis is a markdown cell.")
+    cell3 = notebook.add_cell(CellType.CODE, "x = 10\ny = 20\nprint(x + y)")
+
+    print("Notebook created with {len(notebook.cells)} cells")
+
+    # Execute cells
+    def executor(code: str) -> str:
+        # Simple executor for testing
+        try:
+            exec_globals = {}
+            exec(code, exec_globals)
+            return "Executed successfully"
+        except Exception as e:
+            return "Error: {str(e)}"
+
+    result = notebook.execute_cell(0, executor)
+    print("Cell 0 execution: {result}")
+
+    result = notebook.execute_all(executor)
+    print("Executed {len(result)} code cells")
+
+    # Test serialization
+    json_str = notebook.to_json()
+    print("Notebook JSON: {len(json_str)} characters")
+
+    # Test deserialization
+    loaded = Notebook.from_json(json_str)
+    print("Loaded notebook: {loaded.name}")
+
+    # Test saving/loading
+    notebook.save("test_notebook.json")
+    loaded_notebook = Notebook.load("test_notebook.json")
+    print("Saved and loaded notebook: {loaded_notebook.name}")
+
+    # Test collaboration
+    collab = Collaboration()
+    collab.add_collaborator("user1", "Alice", "alice@example.com")
+    collab.add_comment(cell1.id, "user1", "This is a comment")
+    print("Collaborators: {len(collab.collaborators)}")
+    print("Comments: {len(collab.comments)}")
+
+    # Test version control
+    vc = VersionControl()
+    commit_id = vc.commit("Initial commit", "user1", notebook)
+    print("Created commit: {commit_id}")
+
+    history = vc.get_history()
+    print("Commit history: {len(history)} commits")
+
+    print("\nNotebook Interface initialized successfully")
+
+
+if __name__ == "__main__":
+    main()

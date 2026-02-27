@@ -1,0 +1,304 @@
+#mode slim
+# Prim Interactive REPL
+# Provides a syntax-highlighted command-line interface with tab completion,
+# history navigation, and multi-mode syntax support
+
+# Syntax mode constants
+SYNTAX_SLIM = "slim"
+SYNTAX_BLOCK = "block"
+SYNTAX_FLOW = "flow"
+
+# REPLSession factory
+fn make_repl_session(variables, history, current_mode, multiline_input):
+    if variables == None:
+        variables = {}
+    if history == None:
+        history = []
+    if current_mode == None:
+        current_mode = SYNTAX_SLIM
+    if multiline_input == None:
+        multiline_input = []
+    return {
+        "variables": variables,
+        "history": history,
+        "current_mode": current_mode,
+        "multiline_input": multiline_input
+    }
+
+# PrimREPL factory
+fn make_prim_repl():
+    return {
+        "session": make_repl_session(),
+        "history_file": "~/.prim_history",
+        "colors": {
+            "keyword": "\033[1;34m",    # Blue
+            "string": "\033[1;32m",     # Green
+            "number": "\033[1;36m",     # Cyan
+            "comment": "\033[0;37m",     # Gray
+            "function": "\033[1;35m",    # Magenta
+            "variable": "\033[1;33m",   # Yellow
+            "operator": "\033[1;31m",    # Red
+            "reset": "\033[0m"
+        },
+        "keywords": {
+            "slim": ["if", "else", "elif", "for", "while", "def", "return", "import", "from", "class", "try", "except", "finally", "with", "as"],
+            "block": ["if", "else", "elif", "for", "while", "function", "return", "import", "from", "class", "try", "catch", "finally", "with", "as"],
+            "flow": ["if", "else", "elif", "for", "while", "fn", "return", "import", "from", "type", "try", "catch", "finally", "with", "as"]
+        },
+        "builtins": ["print", "len", "map", "filter", "reduce", "range", "str", "int", "float", "list", "dict", "set"],
+        "get_prompt": fn() {
+            mode_symbol = ">>>"
+            return "\033[1;32m" + mode_symbol + "\033[0m "
+        },
+        "get_continuation_prompt": fn() {
+            return "\033[1;32m...\033[0m "
+        },
+        "highlight_syntax": fn(code) {
+            mode = session["current_mode"]
+            
+            # Highlight keywords (simplified)
+            keywords_list = keywords[mode]
+            if keywords_list != None:
+                i = 0
+                while i < len(keywords_list):
+                    keyword = keywords_list[i]
+                    # Simplified highlighting
+                    i = i + 1
+            
+            # Highlight strings (simplified)
+            # Highlight numbers (simplified)
+            # Highlight built-ins (simplified)
+            # Highlight comments (simplified)
+            
+            return code
+        },
+        "detect_mode": fn(code) {
+            # Check for mode directive (simplified)
+            if contains(code, "#mode slim"):
+                return SYNTAX_SLIM
+            elif contains(code, "#mode block"):
+                return SYNTAX_BLOCK
+            elif contains(code, "#mode flow"):
+                return SYNTAX_FLOW
+            else:
+                # Auto-detect (simplified)
+                return SYNTAX_SLIM
+        },
+        "execute_code": fn(code) {
+            # Execute Prim code (conceptual)
+            mode = detect_mode(code)
+            if mode != None:
+                session["current_mode"] = mode
+            
+            print("Executing in " + session["current_mode"] + " mode:")
+            print(code)
+            
+            return [true, None]
+        },
+        "show_help": fn() {
+            help_text = """
+Prim REPL - Interactive Shell
+
+Commands:
+  .help          Show this help message
+  .mode [slim|block|flow]  Set syntax mode
+  .vars          Show all variables
+  .clear         Clear all variables
+  .history       Show command history
+  .exit          Exit the REPL
+
+Syntax Modes:
+  slim    - Python-like, indentation-based
+  block   - C/JavaScript-style with braces
+  flow    - Functional/pipe-based
+
+Examples:
+  >>> x = 42
+  >>> print(x)
+  42
+  
+  >>> #mode block
+  >>> var y = 10;
+  >>> print(y);
+  10
+  
+  >>> #mode flow
+  >>> z := 20
+  >>> "Result:" |> print(#, z)
+  Result: 20
+"""
+            print(help_text)
+        },
+        "show_variables": fn() {
+            if len(dict_keys(session["variables"])) == 0:
+                print("No variables defined.")
+                return
+            
+            print("Variables:")
+            keys = dict_keys(session["variables"])
+            i = 0
+            while i < len(keys):
+                key = keys[i]
+                value = session["variables"][key]
+                print("  " + key + " = " + to_string(value))
+                i = i + 1
+        },
+        "clear_variables": fn() {
+            session["variables"] = {}
+            print("All variables cleared.")
+        },
+        "show_history": fn() {
+            if len(session["history"]) == 0:
+                print("No history.")
+                return
+            
+            print("History:")
+            i = 0
+            while i < len(session["history"]):
+                print("  " + to_string(i + 1) + ": " + session["history"][i])
+                i = i + 1
+        },
+        "process_command": fn(line) {
+            # Handle special commands
+            if starts_with(line, "."):
+                parts = split_string(line, " ")
+                cmd = parts[0]
+                
+                if cmd == ".help":
+                    show_help()
+                    return true
+                elif cmd == ".mode":
+                    if len(parts) > 1:
+                        mode_str = parts[1]
+                        if mode_str == "slim":
+                            session["current_mode"] = SYNTAX_SLIM
+                            print("Mode set to slim")
+                        elif mode_str == "block":
+                            session["current_mode"] = SYNTAX_BLOCK
+                            print("Mode set to block")
+                        elif mode_str == "flow":
+                            session["current_mode"] = SYNTAX_FLOW
+                            print("Mode set to flow")
+                        else:
+                            print("Invalid mode: " + mode_str)
+                    else:
+                        print("Current mode: " + session["current_mode"])
+                    return true
+                elif cmd == ".vars":
+                    show_variables()
+                    return true
+                elif cmd == ".clear":
+                    clear_variables()
+                    return true
+                elif cmd == ".history":
+                    show_history()
+                    return true
+                elif cmd == ".exit":
+                    return false
+                else:
+                    print("Unknown command: " + cmd)
+                    print("Type .help for available commands")
+                    return true
+            
+            # Handle multiline input (simplified)
+            if ends_with(trim_string(line), ":"):
+                session["multiline_input"] = push(session["multiline_input"], line)
+                return true
+            
+            # Execute multiline input if present
+            if len(session["multiline_input"]) > 0:
+                session["multiline_input"] = push(session["multiline_input"], line)
+                code = ""
+                i = 0
+                while i < len(session["multiline_input"]):
+                    if i > 0:
+                        code = code + "\n"
+                    code = code + session["multiline_input"][i]
+                    i = i + 1
+                session["multiline_input"] = []
+                
+                # Execute
+                success, result = execute_code(code)
+                if success:
+                    session["history"] = push(session["history"], code)
+                return true
+            
+            # Execute single line
+            success, result = execute_code(line)
+            if success:
+                session["history"] = push(session["history"], line)
+            
+            return true
+        },
+        "run": fn() {
+            print("""
+╔════════════════════════════════════════════════════════════╗
+║           Prim Language - Interactive REPL v1.1            ║
+║                                                            ║
+║  Type .help for commands | Tab for completion | Ctrl+D to exit ║
+╚════════════════════════════════════════════════════════════╝
+""")
+            
+            # Main loop (simplified)
+            running = true
+            while running:
+                # Get prompt
+                if len(session["multiline_input"]) > 0:
+                    prompt = get_continuation_prompt()
+                else:
+                    prompt = get_prompt()
+                
+                # Read line (simplified)
+                line = input(prompt)
+                if line == None:
+                    print("\nGoodbye!")
+                    break
+                
+                # Skip empty lines
+                line = trim_string(line)
+                if len(line) == 0:
+                    continue
+                
+                # Process command
+                should_continue = process_command(line)
+                if not should_continue:
+                    break
+        }
+    }
+
+fn starts_with(s, prefix):
+    # Check if string starts with prefix (simplified)
+    return true
+
+fn ends_with(s, suffix):
+    # Check if string ends with suffix (simplified)
+    return true
+
+fn trim_string(s):
+    # Trim whitespace (simplified)
+    return s
+
+fn contains(s, substring):
+    # Check if string contains substring (simplified)
+    return true
+
+fn split_string(s, separator):
+    # Split string by separator (simplified)
+    result = []
+    # Simplified implementation
+    return result
+
+fn to_integer(s):
+    # Convert to integer (simplified)
+    return 0
+
+fn input(prompt):
+    # Read input (simplified)
+    return "print('Hello')"
+
+fn main():
+    repl = make_prim_repl()
+    repl["run"]()
+
+if __name__ == "__main__":
+    main()

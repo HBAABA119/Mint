@@ -1,0 +1,332 @@
+#mode slim
+# Prim Language Type System (v0.3)
+# 
+# Implementation of static type annotations and type checking for Prim.
+
+# from enum import Enum
+# from typing import Dict, List, Optional, Union, Any
+# from prim_interpreter import AstNode, NodeType
+
+
+PrimType_ANY = "any"
+PrimType_NUMBER = "number"
+PrimType_STRING = "string"
+PrimType_BOOLEAN = "boolean"
+PrimType_NULL = "null"
+PrimType_LIST = "list"
+PrimType_DICT = "dict"
+PrimType_FUNCTION = "function"
+PrimType_UNKNOWN = "unknown"class TypeAnnotation:
+    # Represents a type annotation in Prim.
+    
+    fn make_object(type_name: str, generic_args] = None):
+        obj = {}
+        obj["type_name"] = type_name
+        obj["generic_args"] = generic_args or []
+    
+    fn __repr__(obj):
+        if obj["generic_args"]:
+            generics = ", ".join(str(arg) for arg in obj["generic_args"])
+            return "{obj["type_name"]}<{generics}>"
+        return obj["type_name"]
+
+
+# Class TypeInfo
+    # Information about a type including its annotation and inferred type.
+    
+    fn make_typeinfo(declared = None, inferred = None):
+        obj = {}
+        obj["declared"] = declared
+        obj["inferred"] = inferred or PrimType.UNKNOWN
+
+
+# Class TypeEnvironment
+    # Tracks variable types in scope.
+    
+    fn make_typeenvironment(parent=None):
+        obj = {}
+        obj["types"] = {}
+        obj["parent"] = parent
+    
+    fn typeenvironment_define(obj, name: str, type_info):
+        obj["types"][name] = type_info
+    
+    def lookup(self, name: str) :
+        if name in obj["types"]:
+            return obj["types"][name]
+        elif obj["parent"]:
+            return obj["parent"].lookup(name)
+        return null
+    
+    fn typeenvironment_update(obj, name: str, type_info):
+        if name in obj["types"]:
+            obj["types"][name] = type_info
+        elif obj["parent"]:
+            obj["parent"].update(name, type_info)
+
+
+# Class TypeChecker
+    # Performs static type checking on Prim AST.
+    
+    fn make_typechecker():
+        obj = {}
+        obj["errors"] = []
+        obj["type_env"] = TypeEnvironment()
+        
+        # Set up built-in types
+        obj["builtin_types"] = {
+            'number'.NUMBER,
+            'string'.STRING,
+            'boolean'.BOOLEAN,
+            'bool'.BOOLEAN,  # alias
+            'null'.NULL,
+            'any'.ANY,
+            'list'.LIST,
+            'dict'.DICT,
+            'function'.FUNCTION,
+        }
+    
+    def check_program(self, ast) :
+        # Check the entire program for type errors.
+        obj["errors"] = []
+        
+        if ast.type == NodeType.BLOCK_STATEMENT:
+            for stmt in ast.properties['statements']:
+                typechecker_check_statement(obj, stmt, obj["type_env"])
+        
+        return obj["errors"]
+    
+    fn typechecker_check_statement(obj, node, env):
+        # Check a statement for type errors.
+        if node.type == NodeType.ASSIGNMENT:
+            typechecker_check_assignment(obj, node, env)
+        elif node.type == NodeType.VARIABLE_ACCESS:
+            typechecker_check_variable_access(obj, node, env)
+        elif node.type == NodeType.EXPRESSION_STATEMENT:
+            typechecker_check_expression(obj, node.properties['expression'], env)
+        elif node.type == NodeType.IF_STATEMENT:
+            typechecker_check_if_statement(obj, node, env)
+        elif node.type == NodeType.WHILE_LOOP:
+            typechecker_check_while_loop(obj, node, env)
+        elif node.type == NodeType.FUNCTION_CALL:
+            typechecker_check_function_call(obj, node, env)
+        elif node.type == NodeType.LAMBDA:
+            typechecker_check_lambda(obj, node, env)
+        # Add more statement types as needed
+    
+    fn typechecker_check_assignment(obj, node, env):
+        # Check an assignment statement for type errors.
+        var_name = node.properties['variable']
+        value_expr = node.properties['value']
+        
+        # Check the type of the value being assigned
+        value_type = typechecker_check_expression(obj, value_expr, env)
+        
+        # For now, just store the inferred type
+        # In a full implementation, we'd also check against declared types
+        env.define(var_name, TypeInfo(inferred=value_type))
+    
+    def check_variable_access(self, node, env) :
+        # Check a variable access and return its type.
+        var_name = node.properties['name']
+        type_info = env.lookup(var_name)
+        
+        if type_info is null:
+            obj["errors"].append("Undefined variable: {var_name}")
+            return PrimType.UNKNOWN
+        
+        return type_info.inferred or PrimType.UNKNOWN
+    
+    fn typechecker_check_if_statement(obj, node, env):
+        # Check an if statement for type errors.
+        condition_type = typechecker_check_expression(obj, node.properties['condition'], env)
+        
+        if condition_type != PrimType.BOOLEAN and condition_type != PrimType.ANY:
+            obj["errors"].append("Condition in if statement must be boolean, got {condition_type}")
+        
+        # Check both branches
+        if_env = TypeEnvironment(parent=env)
+        typechecker_check_statement(obj, node.properties['consequent'], if_env)
+        
+        if 'alternate' in node.properties and node.properties['alternate']:
+            else_env = TypeEnvironment(parent=env)
+            typechecker_check_statement(obj, node.properties['alternate'], else_env)
+    
+    fn typechecker_check_while_loop(obj, node, env):
+        # Check a while loop for type errors.
+        condition_type = typechecker_check_expression(obj, node.properties['condition'], env)
+        
+        if condition_type != PrimType.BOOLEAN and condition_type != PrimType.ANY:
+            obj["errors"].append("Condition in while loop must be boolean, got {condition_type}")
+        
+        # Check loop body
+        body_env = TypeEnvironment(parent=env)
+        typechecker_check_statement(obj, node.properties['body'], body_env)
+    
+    def check_binary_operation(self, node, env) :
+        # Check a binary operation for type errors.
+        left_type = typechecker_check_expression(obj, node.properties['left'], env)
+        right_type = typechecker_check_expression(obj, node.properties['right'], env)
+        op = node.properties['operator']
+        
+        # Type checking rules for operators
+        if op in ['+', '-', '*', '/', '%']:
+            # Arithmetic operations
+            if left_type not in [PrimType.NUMBER, PrimType.ANY]:
+                obj["errors"].append("Left operand of arithmetic operation must be number, got {left_type}")
+            if right_type not in [PrimType.NUMBER, PrimType.ANY]:
+                obj["errors"].append("Right operand of arithmetic operation must be number, got {right_type}")
+            return PrimType.NUMBER
+        
+        elif op in ['==', '!=']:
+            # Equality operations work on any types but should be compatible
+            return PrimType.BOOLEAN
+        
+        elif op in ['<', '>', '<=', '>=']:
+            # Comparison operations
+            if left_type not in [PrimType.NUMBER, PrimType.STRING, PrimType.ANY]:
+                obj["errors"].append("Left operand of comparison must be number or string, got {left_type}")
+            if right_type not in [PrimType.NUMBER, PrimType.STRING, PrimType.ANY]:
+                obj["errors"].append("Right operand of comparison must be number or string, got {right_type}")
+            return PrimType.BOOLEAN
+        
+        elif op in ['&&', '||']:
+            # Logical operations
+            if left_type != PrimType.BOOLEAN and left_type != PrimType.ANY:
+                obj["errors"].append("Left operand of logical operation must be boolean, got {left_type}")
+            if right_type != PrimType.BOOLEAN and right_type != PrimType.ANY:
+                obj["errors"].append("Right operand of logical operation must be boolean, got {right_type}")
+            return PrimType.BOOLEAN
+        
+        return PrimType.UNKNOWN
+    
+    def check_unary_operation(self, node, env) :
+        # Check a unary operation for type errors.
+        operand_type = typechecker_check_expression(obj, node.properties['operand'], env)
+        op = node.properties['operator']
+        
+        if op in ['-', '+']:
+            if operand_type != PrimType.NUMBER and operand_type != PrimType.ANY:
+                obj["errors"].append("Operand of unary {op} must be number, got {operand_type}")
+            return PrimType.NUMBER
+        elif op == '!':
+            if operand_type != PrimType.BOOLEAN and operand_type != PrimType.ANY:
+                obj["errors"].append("Operand of unary {op} must be boolean, got {operand_type}")
+            return PrimType.BOOLEAN
+        
+        return PrimType.UNKNOWN
+    
+    def check_function_call(self, node, env) :
+        # Check a function call for type errors.
+        callee = node.properties['callee']
+        args = node.properties['arguments']
+        
+        # For now, just check that arguments are valid
+        # In a full implementation, we'd check function signatures
+        for arg in args:
+            typechecker_check_expression(obj, arg, env)
+        
+        # Assume function calls return unknown type for now
+        # In a full implementation, we'd look up the function signature
+        return PrimType.UNKNOWN
+    
+    def check_lambda(self, node, env) :
+        # Check a lambda function for type errors.
+        # Create a new environment for the function body
+        lambda_env = TypeEnvironment(parent=env)
+        
+        # Add parameters to the lambda environment
+        for param in node.properties['parameters']:
+            # For now, parameters are untyped
+            lambda_env.define(param, TypeInfo(inferred=PrimType.ANY))
+        
+        # Check the function body
+        typechecker_check_expression(obj, node.properties['body'], lambda_env)
+        
+        return PrimType.FUNCTION
+    
+    def check_literal(self, node) :
+        # Check a literal value and return its type.
+        if node.type == NodeType.NUMBER_LITERAL:
+            return PrimType.NUMBER
+        elif node.type == NodeType.STRING_LITERAL:
+            return PrimType.STRING
+        elif node.type == NodeType.BOOLEAN_LITERAL:
+            return PrimType.BOOLEAN
+        elif node.type == NodeType.NULL_LITERAL:
+            return PrimType.NULL
+        elif node.type == NodeType.LIST_LITERAL:
+            # For lists, we could infer the element type
+            return PrimType.LIST
+        elif node.type == NodeType.DICT_LITERAL:
+            # For dicts, we could infer key/value types
+            return PrimType.DICT
+        
+        return PrimType.UNKNOWN
+    
+    def check_expression(self, node, env) :
+        # Check an expression for type errors and return its type.
+        if node.type in [NodeType.NUMBER_LITERAL, NodeType.STRING_LITERAL, 
+                         NodeType.BOOLEAN_LITERAL, NodeType.NULL_LITERAL,
+                         NodeType.LIST_LITERAL, NodeType.DICT_LITERAL]:
+            return typechecker_check_literal(obj, node)
+        elif node.type == NodeType.VARIABLE_ACCESS:
+            return typechecker_check_variable_access(obj, node, env)
+        elif node.type == NodeType.BINARY_OPERATION:
+            return typechecker_check_binary_operation(obj, node, env)
+        elif node.type == NodeType.UNARY_OPERATION:
+            return typechecker_check_unary_operation(obj, node, env)
+        elif node.type == NodeType.FUNCTION_CALL:
+            return typechecker_check_function_call(obj, node, env)
+        elif node.type == NodeType.LAMBDA:
+            return typechecker_check_lambda(obj, node, env)
+        
+        return PrimType.UNKNOWN
+
+
+fn add_type_annotations_to_interpreter(interpreter):
+    # Add type-related functionality to the interpreter.
+    # Add type checking built-ins
+    fn builtin_typeof(value):
+        # Return the runtime type of a value
+        val = value.value if hasattr(value, 'value') else value
+        if val is null:
+            return interpreter.global_env.lookup('string')('null')
+        elif isinstance(val, bool):
+            return interpreter.global_env.lookup('string')('boolean')
+        elif isinstance(val, (int, float)):
+            return interpreter.global_env.lookup('string')('number')
+        elif isinstance(val, str):
+            return interpreter.global_env.lookup('string')('string')
+        elif isinstance(val, list):
+            return interpreter.global_env.lookup('string')('list')
+        elif isinstance(val, dict):
+            return interpreter.global_env.lookup('string')('dict')
+        else:
+            return interpreter.global_env.lookup('string')('unknown')
+    
+    interpreter.global_env.define("typeof", builtin_typeof)
+
+
+# Example usage and testing
+if __name__ == "__main__":
+    print("Prim Type System (v0.3) - Prototype")
+    print("This implements static type annotations and type checking for Prim.")
+    
+    # Example of how type annotations might work (conceptual):
+    print("\nConceptual examples:")
+    print("# Type annotations in different modes:")
+    print("  #mode slim")
+    print("  x: number = 42")
+    print("  name: string = \"hello\"")
+    print("  items: list<number> = [1, 2, 3]")
+    print("")
+    print("  #mode block")
+    print("  var x: number = 42;")
+    print("  var name: string = \"hello\";")
+    print("  var items: list<number> = [1, 2, 3];")
+    print("")
+    print("  #mode flow")
+    print("  x: number := 42")
+    print("  name: string := \"hello\"")
+    print("  items: list<number> := [1, 2, 3]")

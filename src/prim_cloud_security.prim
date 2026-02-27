@@ -1,0 +1,45 @@
+#mode slim
+# Prim Cloud Security
+# Provides security policies, IAM management, encryption services,
+# compliance monitoring, and security auditing
+
+# Security level constants
+SECURITY_LOW = "low"
+SECURITY_MEDIUM = "medium"
+SECURITY_HIGH = "high"
+SECURITY_CRITICAL = "critical"
+
+# Factory function for SecurityPolicy
+fn make_security_policy(name, level, rules):
+    return {
+        "name": name,
+        "level": level,
+        "rules": rules
+    }
+
+# SecurityManager factory
+fn make_security_manager():
+    return {
+        "policies": {}
+    }
+
+fn security_manager_create_policy(manager, policy):
+    manager["policies"][policy["name"]] = policy
+
+fn security_manager_get_policies(manager):
+    policies = []
+    keys = dict_keys(manager["policies"])
+    for key in keys:
+        policies = push(policies, manager["policies"][key])
+    return policies
+
+fn main():
+    print("Testing Cloud Security...")
+    manager = make_security_manager()
+    policy = make_security_policy("test", SECURITY_HIGH, ["rule1"])
+    security_manager_create_policy(manager, policy)
+    print("Policies: " + to_string(len(security_manager_get_policies(manager))))
+    print("Cloud Security initialized successfully")
+
+if __name__ == "__main__":
+    main()

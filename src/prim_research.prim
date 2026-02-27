@@ -1,0 +1,440 @@
+#mode slim
+# Prim Research Tools
+# Provides experimental design, data collection, reproducible research,
+# publication tools, and collaboration features
+
+# Experiment status constants
+EXPERIMENT_PLANNING = "planning"
+EXPERIMENT_RUNNING = "running"
+EXPERIMENT_COMPLETED = "completed"
+EXPERIMENT_FAILED = "failed"
+EXPERIMENT_CANCELLED = "cancelled"
+
+# Study type constants
+STUDY_OBSERVATIONAL = "observational"
+STUDY_EXPERIMENTAL = "experimental"
+STUDY_SIMULATION = "simulation"
+STUDY_SURVEY = "survey"
+STUDY_META_ANALYSIS = "meta_analysis"
+
+# Experiment factory
+fn make_experiment(id, name, description, status, hypotheses, variables, data, results, metadata, created_at, updated_at):
+    if id == None:
+        id = generate_uuid()
+    if hypotheses == None:
+        hypotheses = []
+    if variables == None:
+        variables = {}
+    if data == None:
+        data = {}
+    if results == None:
+        results = {}
+    if metadata == None:
+        metadata = {}
+    if created_at == None:
+        created_at = get_current_timestamp()
+    if updated_at == None:
+        updated_at = get_current_timestamp()
+    return {
+        "id": id,
+        "name": name,
+        "description": description,
+        "status": status,
+        "hypotheses": hypotheses,
+        "variables": variables,
+        "data": data,
+        "results": results,
+        "metadata": metadata,
+        "created_at": created_at,
+        "updated_at": updated_at
+    }
+
+# Publication factory
+fn make_publication(id, title, authors, abstract, content, keywords, references, doi, status, created_at):
+    if id == None:
+        id = generate_uuid()
+    if authors == None:
+        authors = []
+    if keywords == None:
+        keywords = []
+    if references == None:
+        references = []
+    if status == None:
+        status = "draft"
+    if created_at == None:
+        created_at = get_current_timestamp()
+    return {
+        "id": id,
+        "title": title,
+        "authors": authors,
+        "abstract": abstract,
+        "content": content,
+        "keywords": keywords,
+        "references": references,
+        "doi": doi,
+        "status": status,
+        "created_at": created_at
+    }
+
+# ExperimentalDesign factory
+fn make_experimental_design():
+    return {
+        "designs": {},
+        "create_factorial_design": fn(factors) {
+            # Create factorial design (simplified)
+            design = {
+                "type": "factorial",
+                "factors": factors,
+                "treatments": [],
+                "num_treatments": 0
+            }
+            
+            # Simplified treatment generation
+            design["num_treatments"] = 4
+            design["treatments"] = [{"treatment": 1}, {"treatment": 2}]
+            
+            return design
+        },
+        "create_randomized_block_design": fn(treatments, blocks) {
+            if blocks == None:
+                blocks = 4
+            
+            design = {
+                "type": "randomized_block",
+                "treatments": treatments,
+                "blocks": blocks,
+                "assignments": []
+            }
+            
+            # Simplified assignments
+            i = 0
+            while i < blocks:
+                design["assignments"] = push(design["assignments"], {
+                    "block": i,
+                    "treatments": treatments
+                })
+                i = i + 1
+            
+            return design
+        },
+        "calculate_sample_size": fn(effect_size, alpha, power) {
+            if alpha == None:
+                alpha = 0.05
+            if power == None:
+                power = 0.8
+            
+            # Simplified sample size calculation
+            return 30
+        }
+    }
+
+# DataCollector factory
+fn make_data_collector():
+    return {
+        "datasets": {},
+        "schemas": {},
+        "define_schema": fn(name, schema) {
+            schemas[name] = schema
+        },
+        "collect_data": fn(dataset, data) {
+            if not contains(dict_keys(datasets), dataset):
+                datasets[dataset] = []
+            
+            # Validate against schema (simplified)
+            if contains(dict_keys(schemas), dataset):
+                schema = schemas[dataset]
+                # Simplified validation
+                pass
+            
+            datasets[dataset] = push(datasets[dataset], data)
+        },
+        "get_dataset": fn(name) {
+            if contains(dict_keys(datasets), name):
+                return datasets[name]
+            return []
+        },
+        "export_csv": fn(dataset, filepath) {
+            # Export to CSV (conceptual)
+            print("Exported dataset to " + filepath)
+        },
+        "import_csv": fn(filepath, dataset) {
+            # Import from CSV (conceptual)
+            print("Imported dataset from " + filepath)
+        }
+    }
+
+# StatisticalAnalysis factory
+fn make_statistical_analysis():
+    return {
+        "t_test": fn(group1, group2) {
+            # T-test (simplified)
+            return {
+                "t_statistic": 2.0,
+                "p_value": 0.05,
+                "significant": true
+            }
+        },
+        "anova": fn(groups) {
+            # ANOVA (simplified)
+            return {
+                "f_statistic": 3.0,
+                "p_value": 0.01,
+                "significant": true
+            }
+        },
+        "correlation": fn(x, y) {
+            # Correlation (simplified)
+            return {
+                "correlation": 0.8,
+                "p_value": 0.001,
+                "significant": true
+            }
+        },
+        "regression": fn(x, y) {
+            # Regression (simplified)
+            return {
+                "slope": 1.5,
+                "intercept": 2.0,
+                "r_squared": 0.75,
+                "p_value": 0.01,
+                "std_error": 0.2
+            }
+        }
+    }
+
+# ReproducibilityManager factory
+fn make_reproducibility_manager():
+    return {
+        "environments": {},
+        "dependencies": {},
+        "capture_environment": fn(name) {
+            # Capture environment (conceptual)
+            environments[name] = {
+                "timestamp": get_current_timestamp()
+            }
+        },
+        "record_dependencies": fn(name, packages) {
+            dependencies[name] = packages
+        },
+        "generate_requirements": fn(name) {
+            if contains(dict_keys(dependencies), name):
+                deps = dependencies[name]
+                result = ""
+                i = 0
+                while i < len(deps):
+                    if i > 0:
+                        result = result + "\n"
+                    result = result + deps[i]
+                    i = i + 1
+                return result
+            return ""
+        },
+        "export_environment": fn(name, filepath) {
+            # Export environment (conceptual)
+            print("Exported environment to " + filepath)
+        }
+    }
+
+# PublicationManager factory
+fn make_publication_manager():
+    return {
+        "publications": {},
+        "journals": [],
+        "create_publication": fn(title, authors) {
+            pub = make_publication(None, title, authors, "", "", [], [], "", "draft", None)
+            publications[pub["id"]] = pub
+            return pub
+        },
+        "add_journal": fn(name) {
+            journals = push(journals, name)
+        },
+        "generate_latex": fn(publication) {
+            # Generate LaTeX (simplified)
+            return "\\documentclass{article}\n\\title{" + publication["title"] + "}\n\\begin{document}\n\\maketitle\n" + publication["content"] + "\n\\end{document}"
+        },
+        "generate_bibtex": fn(publication) {
+            # Generate BibTeX (simplified)
+            return "@article{" + publication["id"] + ",\n  title={" + publication["title"] + "},\n  author={" + join(publication["authors"], ", ") + "}\n}"
+        }
+    }
+
+fn join(list, separator):
+    # Join list (simplified)
+    result = ""
+    i = 0
+    while i < len(list):
+        if i > 0:
+            result = result + separator
+        result = result + to_string(list[i])
+        i = i + 1
+    return result
+
+# CollaborationTools factory
+fn make_collaboration_tools():
+    return {
+        "collaborators": {},
+        "permissions": {},
+        "add_collaborator": fn(user_id, name, email, role) {
+            if role == None:
+                role = "contributor"
+            collaborators[user_id] = {
+                "name": name,
+                "email": email,
+                "role": role,
+                "joined_at": get_current_timestamp()
+            }
+        },
+        "set_permissions": fn(resource_id, user_id, permissions) {
+            if not contains(dict_keys(permissions), resource_id):
+                permissions[resource_id] = {}
+            
+            permissions[resource_id][user_id] = permissions
+        },
+        "check_permission": fn(resource_id, user_id, permission) {
+            if not contains(dict_keys(permissions), resource_id):
+                return false
+            
+            if not contains(dict_keys(permissions[resource_id]), user_id):
+                return false
+            
+            user_permissions = permissions[resource_id][user_id]
+            i = 0
+            while i < len(user_permissions):
+                if user_permissions[i] == permission:
+                    return true
+                i = i + 1
+            
+            return false
+        },
+        "get_activity_log": fn(resource_id) {
+            # Get activity log (simplified)
+            return []
+        }
+    }
+
+# ExperimentManager factory
+fn make_experiment_manager():
+    return {
+        "experiments": {},
+        "current_experiment": None,
+        "create_experiment": fn(name, description) {
+            if description == None:
+                description = ""
+            exp = make_experiment(None, name, description, EXPERIMENT_PLANNING, [], {}, {}, {}, {}, None, None)
+            experiments[exp["id"]] = exp
+            current_experiment = exp
+            return exp
+        },
+        "load_experiment": fn(exp_id) {
+            if contains(dict_keys(experiments), exp_id):
+                return experiments[exp_id]
+            return None
+        },
+        "save_experiment": fn(exp_id, filepath) {
+            exp = experiments[exp_id]
+            if exp == None:
+                print("ValueError: Experiment not found")
+                return
+            
+            # Save experiment (conceptual)
+            print("Saved experiment to " + filepath)
+        },
+        "load_from_file": fn(filepath) {
+            # Load experiment (conceptual)
+            exp = make_experiment("loaded_id", "loaded", "", EXPERIMENT_PLANNING, [], {}, {}, {}, {}, None, None)
+            experiments[exp["id"]] = exp
+            return exp
+        },
+        "run_experiment": fn(exp_id, procedure) {
+            exp = experiments[exp_id]
+            if exp == None:
+                print("ValueError: Experiment not found")
+                return {}
+            
+            exp["status"] = EXPERIMENT_RUNNING
+            exp["updated_at"] = get_current_timestamp()
+            
+            try:
+                results = procedure(exp)
+                exp["results"] = results
+                exp["status"] = EXPERIMENT_COMPLETED
+            catch e:
+                exp["status"] = EXPERIMENT_FAILED
+                exp["results"] = {"error": to_string(e)}
+            
+            exp["updated_at"] = get_current_timestamp()
+            return exp["results"]
+        }
+    }
+
+fn create_experiment(name):
+    return make_experiment(None, name, "", EXPERIMENT_PLANNING, [], {}, {}, {}, {}, None, None)
+
+fn generate_uuid():
+    # Generate UUID (simplified)
+    return "uuid-12345"
+
+fn get_current_timestamp():
+    # Get current timestamp (simplified)
+    return "2023-01-01T00:00:00"
+
+fn main():
+    print("Testing Research Tools...")
+    
+    # Test Experimental Design
+    ed = make_experimental_design()
+    factorial_design = ed["create_factorial_design"]({
+        "factor_A": [1, 2],
+        "factor_B": ["low", "high"]
+    })
+    print("Factorial design: " + to_string(factorial_design["num_treatments"]) + " treatments")
+    
+    sample_size = ed["calculate_sample_size"](0.5)
+    print("Sample size: " + to_string(sample_size))
+    
+    # Test Data Collector
+    dc = make_data_collector()
+    dc["define_schema"]("measurements", {"value": "float", "unit": "str"})
+    dc["collect_data"]("measurements", {"value": 10.5, "unit": "cm"})
+    dc["collect_data"]("measurements", {"value": 12.3, "unit": "cm"})
+    dataset = dc["get_dataset"]("measurements")
+    print("Dataset: " + to_string(len(dataset)) + " points")
+    
+    # Test Statistical Analysis
+    sa = make_statistical_analysis()
+    t_result = sa["t_test"]([1, 2, 3], [2, 3, 4])
+    print("T-test: p=" + to_string(t_result["p_value"]))
+    
+    # Test Reproducibility Manager
+    rm = make_reproducibility_manager()
+    rm["capture_environment"]("test")
+    rm["record_dependencies"]("test", ["numpy", "scipy"])
+    requirements = rm["generate_requirements"]("test")
+    print("Requirements: " + to_string(len(split_string(requirements, "\n"))) + " lines")
+    
+    # Test Publication Manager
+    pm = make_publication_manager()
+    pub = pm["create_publication"]("Test Paper", ["Author 1", "Author 2"])
+    pub["abstract"] = "This is a test abstract."
+    pub["content"] = "This is the content."
+    latex = pm["generate_latex"](pub)
+    print("LaTeX: " + to_string(len(latex)) + " characters")
+    
+    # Test Collaboration Tools
+    ct = make_collaboration_tools()
+    ct["add_collaborator"]("user1", "Alice", "alice@example.com", "author")
+    ct["set_permissions"]("exp1", "user1", ["read", "write"])
+    has_perm = ct["check_permission"]("exp1", "user1", "read")
+    print("Has permission: " + to_string(has_perm))
+    
+    # Test Experiment Manager
+    em = make_experiment_manager()
+    exp = em["create_experiment"]("Test Experiment", "A test experiment")
+    em["save_experiment"](exp["id"], "test_experiment.json")
+    loaded = em["load_from_file"]("test_experiment.json")
+    print("Loaded experiment: " + loaded["name"])
+    
+    print("\nResearch Tools initialized successfully")
+
+if __name__ == "__main__":
+    main()

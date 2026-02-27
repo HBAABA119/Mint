@@ -1,0 +1,341 @@
+#mode slim
+# Prim Software Transactional Memory
+# Provides STM implementation, transaction management, conflict detection,
+# optimistic concurrency, and memory transactions.
+
+# import threading
+# import time
+# from typing import List, Dict, Any, Optional, Callable
+# from dataclasses import dataclass, field
+# from enum import Enum
+
+
+TransactionStatus_ACTIVE = "active"
+TransactionStatus_COMMITTED = "committed"
+TransactionStatus_ABORTED = "aborted"
+TransactionStatus_RETRY = "retry"class
+# Class Transaction
+    # STM transaction
+    id: str
+    status = TransactionStatus.ACTIVE
+    read_set = field(default_factory=dict)
+    write_set = field(default_factory=dict)
+    start_time: float = field(default_factory=time.time)
+    end_time = null
+
+
+# Class STMVar
+    # STM variable
+
+    fn make_stmvar(name: str, initial_value = None):
+        obj = {}
+        obj["name"] = name
+        obj["value"] = initial_value
+        obj["version"] = 0
+        obj["lock"] = threading.Lock()
+
+    def read(self, transaction) :
+        # Read value with transaction
+        if transaction.status != TransactionStatus.ACTIVE:
+            raise RuntimeError("Transaction not active")
+
+        # Check write set first
+        if obj["name"] in transaction.write_set:
+            return transaction.write_set[obj["name"]]
+
+        # Read current value
+        with obj["lock"]:
+            transaction.read_set[obj["name"]] = (obj["value"], obj["version"])
+            return obj["value"]
+
+    fn stmvar_write(obj, transaction, value):
+        # Write value with transaction
+        if transaction.status != TransactionStatus.ACTIVE:
+            raise RuntimeError("Transaction not active")
+
+        transaction.write_set[obj["name"]] = value
+
+    def commit(self, transaction) -> bool:
+        # Commit transaction
+        with obj["lock"]:
+            # Validate read set
+            for var_name, (value, version) in transaction.read_set.items():
+                if var_name == obj["name"] and obj["version"] != version:
+                    return false
+
+            # Apply writes
+            if obj["name"] in transaction.write_set:
+                obj["value"] = transaction.write_set[obj["name"]]
+                obj["version"] += 1
+
+        return true
+
+
+# Class STM
+    # Software Transactional Memory
+
+    fn make_stm():
+        obj = {}
+        obj["vars"] = {}
+        obj["transaction_counter"] = 0
+        obj["lock"] = threading.Lock()
+        obj["stats"] = {
+            "transactions": 0,
+            "commits": 0,
+            "aborts": 0,
+            "retries": 0
+        }
+
+    def create_var(self, name: str, initial_value = null) :
+        # Create STM variable
+        var = STMVar(name, initial_value)
+        obj["vars"][name] = var
+        return var
+
+    def begin(self) :
+        # Begin transaction
+        with obj["lock"]:
+            obj["transaction_counter"] += 1
+
+        transaction = Transaction(id="tx_{obj["transaction_counter"]}")
+        obj["stats"]["transactions"] += 1
+        return transaction
+
+    def commit(self, transaction) -> bool:
+        # Commit transaction
+        if transaction.status != TransactionStatus.ACTIVE:
+            return false
+
+        # Validate and commit
+        for var_name in transaction.write_set:
+            if var_name in obj["vars"]:
+                if not obj["vars"][var_name].commit(transaction):
+                    transaction.status = TransactionStatus.ABORTED
+                    obj["stats"]["aborts"] += 1
+                    return false
+
+        transaction.status = TransactionStatus.COMMITTED
+        transaction.end_time = time.time()
+        obj["stats"]["commits"] += 1
+        return true
+
+    fn stm_abort(obj, transaction):
+        # Abort transaction
+        transaction.status = TransactionStatus.ABORTED
+        transaction.end_time = time.time()
+        obj["stats"]["aborts"] += 1
+
+    def read(self, transaction, var_name: str) :
+        # Read variable
+        if var_name not in obj["vars"]:
+            raise ValueError("Variable {var_name} not found")
+
+        return obj["vars"][var_name].read(transaction)
+
+    fn stm_write(obj, transaction, var_name: str, value):
+        # Write variable
+        if var_name not in obj["vars"]:
+            raise ValueError("Variable {var_name} not found")
+
+        obj["vars"][var_name].write(transaction, value)
+
+    def run_transaction(self, func) :
+        # Run function in transaction
+        max_retries = 10
+
+        for attempt in range(max_retries):
+            transaction = stm_begin(obj, )
+
+            try:
+                result = func(transaction, self)
+
+                if stm_commit(obj, transaction):
+                    return result
+
+                # Retry
+                transaction.status = TransactionStatus.RETRY
+                obj["stats"]["retries"] += 1
+
+            except Exception as e:
+                stm_abort(obj, transaction)
+                raise e
+
+        raise RuntimeError("Transaction failed after max retries")
+
+    def get_stats(self) :
+        # Get STM statistics
+        return obj["stats"].copy()
+
+
+# Class OptimisticSTM
+    # Optimistic concurrency control
+
+    fn make_optimisticstm():
+        obj = {}
+        obj["stm"] = STM()
+        obj["conflicts"] = 0
+
+    def execute(self, func) :
+        # Execute with optimistic concurrency
+        return obj["stm"].run_transaction(func)
+
+    def get_conflict_count(self) -> int:
+        # Get conflict count
+        return obj["conflicts"]
+
+
+# Class PessimisticSTM
+    # Pessimistic concurrency control
+
+    fn make_pessimisticstm():
+        obj = {}
+        obj["stm"] = STM()
+        obj["locks"] = {}
+
+    fn pessimisticstm_acquire_lock(obj, var_name: str):
+        # Acquire lock for variable
+        if var_name not in obj["locks"]:
+            obj["locks"][var_name] = threading.Lock()
+        obj["locks"][var_name].acquire()
+
+    fn pessimisticstm_release_lock(obj, var_name: str):
+        # Release lock for variable
+        if var_name in obj["locks"]:
+            obj["locks"][var_name].release()
+
+    def execute(self, func, vars) :
+        # Execute with pessimistic concurrency
+        # Acquire locks
+        for var_name in vars:
+            pessimisticstm_acquire_lock(obj, var_name)
+
+        try:
+            return obj["stm"].run_transaction(func)
+        finally:
+            # Release locks
+            for var_name in vars:
+                pessimisticstm_release_lock(obj, var_name)
+
+
+# Class TransactionLog
+    # Transaction logging
+
+    fn make_transactionlog():
+        obj = {}
+        obj["log"]] = []
+
+    fn transactionlog_log_transaction(obj, transaction):
+        # Log transaction
+        obj["log"].append({
+            "id": transaction.id,
+            "status": transaction.status.value,
+            "read_set": list(transaction.read_set.keys()),
+            "write_set": list(transaction.write_set.keys()),
+            "start_time": transaction.start_time,
+            "end_time": transaction.end_time
+        })
+
+    def get_log(self) ]:
+        # Get transaction log
+        return obj["log"].copy()
+
+
+# Class STMCluster
+    # Distributed STM cluster
+
+    fn make_stmcluster():
+        obj = {}
+        obj["nodes"] = []
+        obj["coordinator"] = null
+
+    fn stmcluster_add_node(obj, node):
+        # Add node to cluster
+        obj["nodes"].append(node)
+        if not obj["coordinator"]:
+            obj["coordinator"] = node
+
+    def distributed_commit(self, transaction) -> bool:
+        # Two-phase commit
+        # Phase 1
+        prepare_ok = true
+        for node in obj["nodes"]:
+            # Validate on all nodes
+            if not stmcluster__validate_transaction(obj, node, transaction):
+                prepare_ok = false
+                break
+
+        # Phase 2 or Abort
+        if prepare_ok:
+            for node in obj["nodes"]:
+                stmcluster__commit_transaction(obj, node, transaction)
+            return true
+        else:
+            for node in obj["nodes"]:
+                stmcluster__abort_transaction(obj, node, transaction)
+            return false
+
+    def _validate_transaction(self, node, transaction) -> bool:
+        # Validate transaction on node
+        # Simplified validation
+        return true
+
+    fn stmcluster__commit_transaction(obj, node, transaction):
+        # Commit transaction on node
+        node.commit(transaction)
+
+    fn stmcluster__abort_transaction(obj, node, transaction):
+        # Abort transaction on node
+        node.abort(transaction)
+
+
+def create_stm() :
+    # Create STM instance
+    return STM()
+
+
+fn main():
+    # Main entry point for testing
+    print("Testing Software Transactional Memory...")
+
+    # Create STM
+    stm = create_stm()
+
+    # Create variables
+    counter = stm.create_var("counter", 0)
+    balance = stm.create_var("balance", 100)
+
+    # Run transaction
+    fn transfer(tx, stm):
+        # Read balance
+        bal = stm.read(tx, "balance")
+        # Write new balance
+        stm.write(tx, "balance", bal - 10)
+        return bal - 10
+
+    result = stm.run_transaction(transfer)
+    print("Transfer result: {result}")
+
+    # Get stats
+    stats = stm.get_stats()
+    print("STM stats: {stats}")
+
+    # Test optimistic STM
+    opt_stm = OptimisticSTM()
+    result = opt_stm.execute(transfer)
+    print("Optimistic result: {result}")
+
+    # Test transaction log
+    log = TransactionLog()
+    tx = stm.begin()
+    log.log_transaction(tx)
+    stm.commit(tx)
+    log.log_transaction(tx)
+
+    transaction_log = log.get_log()
+    print("Transaction log: {len(transaction_log)} entries")
+
+    print("\nSoftware Transactional Memory initialized successfully")
+
+
+if __name__ == "__main__":
+    main()

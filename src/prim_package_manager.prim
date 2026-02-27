@@ -1,0 +1,138 @@
+#mode slim
+# Prim Package Manager (prism-get) v1.0
+# Provides dependency resolution, package installation,
+# version management, and package distribution
+
+# Package type constants
+PACKAGE_LIBRARY = "library"
+PACKAGE_BINARY = "binary"
+PACKAGE_FRAMEWORK = "framework"
+PACKAGE_TOOL = "tool"
+
+# Dependency type constants
+DEPENDENCY_REQUIRED = "required"
+DEPENDENCY_OPTIONAL = "optional"
+DEPENDENCY_DEV = "dev"
+
+# Registry settings
+REGISTRY_PATH = "d:/Aayan/codinglanguage/registry"
+METADATA_PATH = REGISTRY_PATH + "/metadata"
+PACKAGES_PATH = REGISTRY_PATH + "/packages"
+
+# Dependency factory
+fn make_dependency(name, version, type_):
+    return {
+        "name": name,
+        "version": version,
+        "type": type_
+    }
+
+# Package factory
+fn make_package(name, version, description, type_, dependencies, author, license, repository, files):
+    return {
+        "name": name,
+        "version": version,
+        "description": description,
+        "type": type_,
+        "dependencies": dependencies,
+        "author": author,
+        "license": license,
+        "repository": repository,
+        "files": files
+    }
+
+# PackageManager factory
+fn make_package_manager(cache_dir):
+    if cache_dir == None:
+        cache_dir = ".prim_cache"
+    
+    obj = {
+        "cache_dir": cache_dir,
+        "installed": {},
+        "registry_url": "https://registry.prim-lang.org"
+    }
+    
+    fn package_manager_install(obj, package_name, version):
+        if version == None:
+            version = "latest"
+        
+        print("Searching for " + package_name + " (" + version + ")...")
+        
+        # Load metadata
+        metadata = package_manager_fetch_metadata(obj, package_name)
+        if metadata == None:
+            print("Error: Package '" + package_name + "' not found in registry.")
+            return false
+        
+        # Resolve version
+        pkg_data = None
+        if version == "latest":
+            pkg_data = metadata["latest"]
+        else:
+            pkg_data = dict_get(metadata["versions"], version)
+            
+        if pkg_data == None:
+            print("Error: Version '" + version + "' not found for package '" + package_name + "'.")
+            return false
+            
+        # Check dependencies
+        deps = pkg_data["dependencies"]
+        i = 0
+        while i < len(deps):
+            dep = deps[i]
+            if not package_manager_install(obj, dep["name"], dep["version"]):
+                print("Error: Failed to install dependency '" + dep["name"] + "'.")
+                return false
+            i = i + 1
+            
+        # Perform "installation" (simulated by copying to cache)
+        print("Downloading " + package_name + "@" + pkg_data["version"] + "...")
+        package_manager_download(obj, package_name, pkg_data["version"])
+        
+        obj["installed"][package_name] = pkg_data
+        print("Successfully installed " + package_name + "@" + pkg_data["version"])
+        return true
+
+    fn package_manager_fetch_metadata(obj, name):
+        # In a real tool, this would be an HTTP request
+        # Here we simulate by looking in the registry/metadata directory
+        path = METADATA_PATH + "/" + name + ".json"
+        # Simulated check (always returns a mock for demonstration)
+        if name == "quantum-core":
+            return {
+                "name": "quantum-core",
+                "latest": {"version": "1.2.0", "dependencies": []},
+                "versions": {
+                    "1.2.0": {"version": "1.2.0", "dependencies": []},
+                    "1.1.0": {"version": "1.1.0", "dependencies": []}
+                }
+            }
+        elif name == "prim-ai":
+            return {
+                "name": "prim-ai",
+                "latest": {"version": "0.5.0", "dependencies": [
+                    {"name": "quantum-core", "version": "1.2.0"}
+                ]},
+                "versions": {
+                    "0.5.0": {"version": "0.5.0", "dependencies": [
+                        {"name": "quantum-core", "version": "1.2.0"}
+                    ]}
+                }
+            }
+        return None
+
+    fn package_manager_download(obj, name, version):
+        # Simulated download
+        target = obj["cache_dir"] + "/" + name + "-" + version
+        print("  -> Saved to " + target)
+
+    obj["install"] = fn(name, ver) { return package_manager_install(obj, name, ver) }
+    
+    return obj
+
+fn main():
+    pm = make_package_manager(None)
+    pm["install"]("prim-ai", "latest")
+
+if __name__ == "__main__":
+    main()

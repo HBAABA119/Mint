@@ -1,0 +1,45 @@
+#mode slim
+# Prim Self-evolution
+# Provides self-modification, self-improvement, evolutionary algorithms,
+# adaptive evolution, and self-evolving systems
+
+# Evolution type constants
+EVOLUTION_MODIFICATION = "modification"
+EVOLUTION_IMPROVEMENT = "improvement"
+EVOLUTION_ADAPTATION = "adaptation"
+EVOLUTION_LEARNING = "learning"
+
+# Factory function for SelfEvolvingSystem
+fn make_self_evolving_system(name, type_, generation):
+    return {
+        "name": name,
+        "type": type_,
+        "generation": generation
+    }
+
+# SelfEvolution factory
+fn make_self_evolution():
+    return {
+        "systems": {}
+    }
+
+fn self_evolution_add_system(evolution, system):
+    evolution["systems"][system["name"]] = system
+
+fn self_evolution_evolve(evolution, name):
+    if contains(dict_keys(evolution["systems"]), name):
+        evolution["systems"][name]["generation"] = evolution["systems"][name]["generation"] + 1
+        return {"generation": evolution["systems"][name]["generation"]}
+    return None
+
+fn main():
+    print("Testing Self-evolution...")
+    evolution = make_self_evolution()
+    system = make_self_evolving_system("evolving", EVOLUTION_IMPROVEMENT, 0)
+    self_evolution_add_system(evolution, system)
+    result = self_evolution_evolve(evolution, "evolving")
+    print("Result: " + to_string(result))
+    print("Self-evolution initialized successfully")
+
+if __name__ == "__main__":
+    main()

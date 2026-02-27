@@ -1,0 +1,48 @@
+#mode slim
+# Prim Process Management
+# Provides process creation, scheduling, IPC, resource management,
+# and process monitoring
+
+# Process state constants
+PROCESS_NEW = "new"
+PROCESS_READY = "ready"
+PROCESS_RUNNING = "running"
+PROCESS_BLOCKED = "blocked"
+PROCESS_TERMINATED = "terminated"
+
+# Factory function for Process
+fn make_process(pid, state, priority, parent):
+    return {
+        "pid": pid,
+        "state": state,
+        "priority": priority,
+        "parent": parent
+    }
+
+# ProcessManager factory
+fn make_process_manager():
+    return {
+        "processes": {},
+        "pid_counter": 0
+    }
+
+fn process_manager_create_process(manager, parent, priority):
+    manager["pid_counter"] = manager["pid_counter"] + 1
+    process = make_process(manager["pid_counter"], PROCESS_READY, priority, parent)
+    manager["processes"][process["pid"]] = process
+    return process
+
+fn process_manager_get_process(manager, pid):
+    if contains(dict_keys(manager["processes"]), pid):
+        return manager["processes"][pid]
+    return None
+
+fn main():
+    print("Testing Process Management...")
+    manager = make_process_manager()
+    process = process_manager_create_process(manager, None, 1)
+    print("Process: " + to_string(process["pid"]))
+    print("Process Management initialized successfully")
+
+if __name__ == "__main__":
+    main()

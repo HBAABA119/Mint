@@ -1,0 +1,216 @@
+#mode slim
+# Prim Language Async/Await Support (v0.4)
+# 
+# Implementation of async/await syntax and promise/future system for Prim.
+
+# import asyncio
+# from typing import Any, Callable, Optional
+# from prim_interpreter import AstNode, NodeType, RuntimeValue, RuntimeEnvironment
+
+
+# Class Promise
+    # Represents a promise/future in Prim.
+    
+    fn make_promise(executor = None):
+        obj = {}
+        obj["executor"] = executor
+        obj["result"] = null
+        obj["error"] = null
+        obj["is_resolved"] = false
+        obj["is_rejected"] = false
+        obj["on_resolve_callbacks"] = []
+        obj["on_reject_callbacks"] = []
+        
+        if executor:
+            try:
+                executor(obj["_resolve"], obj["_reject"])
+            except Exception as e:
+                promise__reject(obj, e)
+    
+    fn promise__resolve(obj, value):
+        if obj["is_resolved"] or obj["is_rejected"]:
+            return
+        
+        obj["result"] = value
+        obj["is_resolved"] = true
+        
+        for callback in obj["on_resolve_callbacks"]:
+            callback(value)
+    
+    fn promise__reject(obj, error):
+        if obj["is_resolved"] or obj["is_rejected"]:
+            return
+        
+        obj["error"] = error
+        obj["is_rejected"] = true
+        
+        for callback in obj["on_reject_callbacks"]:
+            callback(error)
+    
+    fn promise_then(obj, on_resolve):
+        if obj["is_resolved"]:
+            return on_resolve(obj["result"])
+        elif obj["is_rejected"]:
+            # In a real implementation, we'd handle rejections properly
+            return self
+        else:
+            obj["on_resolve_callbacks"].append(on_resolve)
+            return self
+    
+    fn promise_catch(obj, on_reject):
+        if obj["is_rejected"]:
+            return on_reject(obj["error"])
+        else:
+            obj["on_reject_callbacks"].append(on_reject)
+            return self
+
+
+# Class AsyncRuntimeEnvironment
+    # Extended environment with async capabilities.
+    
+    fn make_asyncruntimeenvironment(parent=None):
+        obj = {}
+        super().__init__(parent)
+        obj["event_loop"] = asyncio.new_event_loop()
+        asyncio.set_event_loop(obj["event_loop"])
+    
+    fn asyncruntimeenvironment_run_coroutine(obj, coro):
+        # Run a coroutine and return the result.
+        return obj["event_loop"].run_until_complete(coro)
+
+
+# Class PrimAsyncInterpreter
+    # Enhanced interpreter with async/await support.
+    
+    fn make_primasyncinterpreter(base_interpreter):
+        obj = {}
+        obj["base_interpreter"] = base_interpreter
+        obj["async_env"] = AsyncRuntimeEnvironment(parent=base_interpreter.global_env)
+        primasyncinterpreter__setup_async_builtins(obj, )
+    
+    fn primasyncinterpreter__setup_async_builtins(obj):
+        # Setup async-related built-in functions.
+        # Add async/await related functions to the environment
+        obj["async_env"].define("async", RuntimeValue(obj["_builtin_async"]))
+        obj["async_env"].define("await", RuntimeValue(obj["_builtin_await"]))
+        obj["async_env"].define("promise", RuntimeValue(obj["create_promise"]))
+    
+    fn primasyncinterpreter__builtin_async(obj, *args):
+        # Wrapper for async functions.
+        # In a real implementation, this would mark a function as async
+        fn = args[0] if args else null
+        if fn and callable(fn.value):
+            # Mark the function as async
+            fn async_wrapper(*call_args):
+                # In a real implementation, this would create a coroutine
+                result = fn.value(*call_args)
+                return RuntimeValue(Promise(lambda res, rej: res(result.value)))
+            return RuntimeValue(async_wrapper)
+        return RuntimeValue(null)
+    
+    fn primasyncinterpreter__builtin_await(obj, promise_val):
+        # Await a promise.
+        promise = promise_val.value
+        if isinstance(promise, Promise):
+            # In a real implementation, this would await the promise
+            # For now, we'll simulate by returning the result directly
+            if promise.is_resolved:
+                return RuntimeValue(promise.result)
+            elif promise.is_rejected:
+                raise RuntimeError("Promise rejected: {promise.error}")
+            else:
+                # This is a simplification - in reality, await would suspend execution
+                # until the promise resolves
+                return RuntimeValue(promise.result if promise.result is not null else null)
+        else:
+            # If it's not a promise, just return the value
+            return promise_val
+    
+    fn primasyncinterpreter_create_promise(obj, executor_fn):
+        # Create a new promise.
+        fn executor(resolve_cb, reject_cb):
+            # Execute the promise executor function
+            # Pass resolve and reject callbacks to the executor
+            pass  # Simplified for now
+        
+        promise = Promise(executor)
+        return RuntimeValue(promise)
+    
+    fn primasyncinterpreter_evaluate_async(obj, node, env):
+        # Evaluate a node in an async context.
+        # This would handle async-specific AST nodes
+        # For now, delegate to the base interpreter
+        return obj["base_interpreter"].evaluate(node, env)
+
+
+# Class AsyncAstNodeExtension
+    # Extensions to AST nodes to support async operations.
+    
+    @staticmethod
+    fn create_async_function(parameters, body):
+        # Create an async function AST node.
+        return AstNode(
+            NodeType.LAMBDA,
+            parameters=parameters,
+            body=body,
+            is_async=true  # Mark as async function
+        )
+    
+    @staticmethod
+    fn create_await_expression(expression):
+        # Create an await expression AST node.
+        return AstNode(
+            NodeType.AWAIT_EXPRESSION,  # This would be a new node type
+            expression=expression
+        )
+
+
+fn extend_interpreter_with_async(interpreter):
+    # Extend the base interpreter with async capabilities.
+    async_interpreter = PrimAsyncInterpreter(interpreter)
+    
+    # Add async-related built-ins to the global environment
+    fn builtin_async_fn(*args):
+        # Creates an async version of a function
+        if args:
+            fn = args[0]
+            # Mark function as async
+            return fn  # Simplified
+        return RuntimeValue(null)
+    
+    fn builtin_await_val(promise_val):
+        # Await a promise
+        return async_interpreter._builtin_await(promise_val)
+    
+    interpreter.global_env.define("async", builtin_async_fn)
+    interpreter.global_env.define("await", builtin_await_val)
+    interpreter.global_env.define("Promise", async_interpreter.create_promise)
+
+
+# Example usage and testing
+if __name__ == "__main__":
+    print("Prim Async/Await Support (v0.4) - Prototype")
+    print("This implements async/await syntax and promise system for Prim.")
+    
+    # Example of how async/await might work (conceptual):
+    print("\nConceptual examples:")
+    print("# Async functions in different modes:")
+    print("  #mode slim")
+    print("  async fn fetch_data(url):")
+    print("      response = await http_get(url)")
+    print("      return response")
+    print("")
+    print("  #mode block")
+    print("  async fn fetch_data(url) {")
+    print("      var response = await http_get(url);")
+    print("      return response;")
+    print("  }")
+    print("")
+    print("  #mode flow")
+    print("  fetch_data = async |url| -> await http_get(url)")
+    print("")
+    print("# Working with promises:")
+    print("  #mode slim")
+    print("  promise = Promise((resolve, reject) -> resolve('success'))")
+    print("  result = await promise")
+    print("  print(result)  # prints: success")

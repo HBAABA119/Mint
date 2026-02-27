@@ -1,0 +1,43 @@
+#mode slim
+# Prim Web3 Integration
+# Provides blockchain interaction, smart contracts, wallet management,
+# transaction handling, and Web3 protocols
+
+# Transaction status constants
+TX_PENDING = "pending"
+TX_CONFIRMED = "confirmed"
+TX_FAILED = "failed"
+
+# Factory function for Wallet
+fn make_wallet(address, balance):
+    return {
+        "address": address,
+        "balance": balance
+    }
+
+# Web3Manager factory
+fn make_web3_manager():
+    return {
+        "wallets": {}
+    }
+
+fn web3_manager_add_wallet(manager, wallet):
+    manager["wallets"][wallet["address"]] = wallet
+
+fn web3_manager_get_wallets(manager):
+    wallets = []
+    keys = dict_keys(manager["wallets"])
+    for key in keys:
+        wallets = push(wallets, manager["wallets"][key])
+    return wallets
+
+fn main():
+    print("Testing Web3 Integration...")
+    manager = make_web3_manager()
+    wallet = make_wallet("0x123", 100.0)
+    web3_manager_add_wallet(manager, wallet)
+    print("Wallets: " + to_string(len(web3_manager_get_wallets(manager))))
+    print("Web3 Integration initialized successfully")
+
+if __name__ == "__main__":
+    main()

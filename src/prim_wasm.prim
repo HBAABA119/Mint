@@ -1,0 +1,452 @@
+#mode slim
+# Prim WebAssembly Target
+# Provides WASM compilation, WASM runtime, WASI support, and WASM module generation
+
+# WASM type constants
+WASM_I32 = "i32"
+WASM_I64 = "i64"
+WASM_F32 = "f32"
+WASM_F64 = "f64"
+WASM_FUNC_REF = "funcref"
+WASM_EXTERN_REF = "externref"
+
+# WASM opcode constants
+OPCODE_NOP = 0x01
+OPCODE_DROP = 0x1A
+OPCODE_SELECT = 0x1B
+OPCODE_CONST_I32 = 0x41
+OPCODE_CONST_I64 = 0x42
+OPCODE_CONST_F32 = 0x43
+OPCODE_CONST_F64 = 0x44
+OPCODE_LOCAL_GET = 0x20
+OPCODE_LOCAL_SET = 0x21
+OPCODE_LOCAL_TEE = 0x22
+OPCODE_GLOBAL_GET = 0x23
+OPCODE_GLOBAL_SET = 0x24
+OPCODE_CALL = 0x10
+OPCODE_CALL_INDIRECT = 0x11
+OPCODE_I32_ADD = 0x6A
+OPCODE_I32_SUB = 0x6B
+OPCODE_I32_MUL = 0x6C
+OPCODE_I32_DIV_S = 0x6D
+OPCODE_I32_DIV_U = 0x6E
+OPCODE_I32_EQ = 0x46
+OPCODE_I32_NE = 0x47
+OPCODE_I32_LT_S = 0x48
+OPCODE_I32_LT_U = 0x49
+OPCODE_I32_GT_S = 0x4A
+OPCODE_I32_GT_U = 0x4B
+OPCODE_IF = 0x04
+OPCODE_ELSE = 0x05
+OPCODE_END = 0x0B
+OPCODE_BR = 0x0C
+OPCODE_BR_IF = 0x0D
+OPCODE_BR_TABLE = 0x0E
+OPCODE_RETURN = 0x0F
+OPCODE_LOOP = 0x03
+OPCODE_BLOCK = 0x02
+
+# WASMFunction factory
+fn make_wasm_function(name, params, returns, locals, body):
+    if params == None:
+        params = []
+    if returns == None:
+        returns = []
+    if locals == None:
+        locals = []
+    if body == None:
+        body = ""
+    return {
+        "name": name,
+        "params": params,
+        "returns": returns,
+        "locals": locals,
+        "body": body
+    }
+
+# WASMGlobal factory
+fn make_wasm_global(name, type_, mutable, init):
+    if mutable == None:
+        mutable = false
+    if init == None:
+        init = ""
+    return {
+        "name": name,
+        "type": type_,
+        "mutable": mutable,
+        "init": init
+    }
+
+# WASMModule factory
+fn make_wasm_module(types, functions, globals, imports, exports):
+    if types == None:
+        types = []
+    if functions == None:
+        functions = []
+    if globals == None:
+        globals = []
+    if imports == None:
+        imports = []
+    if exports == None:
+        exports = []
+    return {
+        "types": types,
+        "functions": functions,
+        "globals": globals,
+        "imports": imports,
+        "exports": exports
+    }
+
+# WASMCompiler factory
+fn make_wasm_compiler():
+    return {
+        "module": make_wasm_module(),
+        "current_function": None,
+        "compile_function": fn(func) {
+            current_function = func
+            
+            # Add function signature to types
+            types = push(module["types"], [func["params"], func["returns"]])
+            module["types"] = types
+            
+            # Compile function body
+            bytecode = compile_instructions(func["body"])
+            
+            # Add end opcode
+            bytecode = bytecode + to_string(OPCODE_END)
+            
+            # Update function body with compiled bytecode
+            func["body"] = bytecode
+            
+            # Add function to module
+            functions = push(module["functions"], func)
+            module["functions"] = functions
+            
+            return func["body"]
+        },
+        "compile_instructions": fn(code) {
+            # Compile instructions (simplified)
+            return code
+        },
+        "compile_module": fn() {
+            binary = ""
+            
+            # Magic number and version
+            binary = binary + "\x00asm\x01\x00\x00\x00"
+            
+            # Type section
+            if len(module["types"]) > 0:
+                binary = binary + build_type_section()
+            
+            # Import section
+            if len(module["imports"]) > 0:
+                binary = binary + build_import_section()
+            
+            # Function section
+            if len(module["functions"]) > 0:
+                binary = binary + build_function_section()
+            
+            # Global section
+            if len(module["globals"]) > 0:
+                binary = binary + build_global_section()
+            
+            # Export section
+            if len(module["exports"]) > 0:
+                binary = binary + build_export_section()
+            
+            # Code section
+            if len(module["functions"]) > 0:
+                binary = binary + build_code_section()
+            
+            return binary
+        },
+        "build_type_section": fn() {
+            section = to_string(0x01)  # Section ID
+            
+            types_data = to_string(len(module["types"]))
+            
+            i = 0
+            while i < len(module["types"]):
+                params, returns = module["types"][i]
+                
+                # Function type
+                func_type = to_string(0x60)  # Function type indicator
+                func_type = func_type + to_string(len(params))
+                
+                j = 0
+                while j < len(params):
+                    func_type = func_type + to_string(type_to_byte(params[j]))
+                    j = j + 1
+                
+                func_type = func_type + to_string(len(returns))
+                
+                j = 0
+                while j < len(returns):
+                    func_type = func_type + to_string(type_to_byte(returns[j]))
+                    j = j + 1
+                
+                types_data = types_data + func_type
+                i = i + 1
+            
+            section = section + uleb128(len(types_data)) + types_data
+            return section
+        },
+        "build_function_section": fn() {
+            section = to_string(0x03)  # Section ID
+            
+            func_data = to_string(len(module["functions"]))
+            
+            i = 0
+            while i < len(module["functions"]):
+                func_data = func_data + to_string(i)  # Type index
+                i = i + 1
+            
+            section = section + uleb128(len(func_data)) + func_data
+            return section
+        },
+        "build_import_section": fn() {
+            section = to_string(0x02)  # Section ID
+            
+            import_data = to_string(len(module["imports"]))
+            
+            i = 0
+            while i < len(module["imports"]):
+                module_name, name, kind, params, returns = module["imports"][i]
+                
+                # Module name
+                import_data = import_data + string(module_name)
+                # Name
+                import_data = import_data + string(name)
+                # Kind (function = 0x00)
+                import_data = import_data + to_string(0x00)
+                # Type index
+                import_data = import_data + to_string(0)
+                
+                i = i + 1
+            
+            section = section + uleb128(len(import_data)) + import_data
+            return section
+        },
+        "build_export_section": fn() {
+            section = to_string(0x07)  # Section ID
+            
+            export_data = to_string(len(module["exports"]))
+            
+            i = 0
+            while i < len(module["exports"]):
+                name, kind = module["exports"][i]
+                export_data = export_data + string(name)
+                export_data = export_data + to_string(0x00)  # Function export
+                export_data = export_data + uleb128(0)  # Function index
+                i = i + 1
+            
+            section = section + uleb128(len(export_data)) + export_data
+            return section
+        },
+        "build_code_section": fn() {
+            section = to_string(0x0A)  # Section ID
+            
+            code_data = to_string(len(module["functions"]))
+            
+            i = 0
+            while i < len(module["functions"]):
+                func = module["functions"][i]
+                func_code = uleb128(len(func["locals"]))
+                
+                j = 0
+                while j < len(func["locals"]):
+                    func_code = func_code + to_string(1)  # Number of locals of this type
+                    func_code = func_code + to_string(type_to_byte(func["locals"][j]))
+                    j = j + 1
+                
+                func_code = func_code + func["body"]
+                func_code = func_code + to_string(OPCODE_END)
+                
+                code_data = code_data + uleb128(len(func_code)) + func_code
+                i = i + 1
+            
+            section = section + uleb128(len(code_data)) + code_data
+            return section
+        },
+        "build_global_section": fn() {
+            section = to_string(0x06)  # Section ID
+            
+            global_data = to_string(len(module["globals"]))
+            
+            i = 0
+            while i < len(module["globals"]):
+                global_var = module["globals"][i]
+                # Type
+                global_data = global_data + to_string(type_to_byte(global_var["type"]))
+                # Mutability
+                global_data = global_data + to_string(1 if global_var["mutable"] else 0)
+                # Init expression
+                global_data = global_data + global_var["init"]
+                global_data = global_data + to_string(OPCODE_END)
+                i = i + 1
+            
+            section = section + uleb128(len(global_data)) + global_data
+            return section
+        },
+        "type_to_byte": fn(wasm_type) {
+            type_map = {
+                WASM_I32: 0x7F,
+                WASM_I64: 0x7E,
+                WASM_F32: 0x7D,
+                WASM_F64: 0x7C,
+                WASM_FUNC_REF: 0x70,
+                WASM_EXTERN_REF: 0x6F
+            }
+            return type_map[wasm_type] if contains(dict_keys(type_map), wasm_type) else 0x7F
+        },
+        "string": fn(s) {
+            # Encode string to WASM format
+            return uleb128(len(s)) + s
+        },
+        "uleb128": fn(value) {
+            # Encode unsigned LEB128 (simplified)
+            result = ""
+            while true:
+                byte = value & 0x7F
+                value = value >> 7
+                if value != 0:
+                    byte = byte | 0x80
+                result = result + to_string(byte)
+                if value == 0:
+                    break
+            return result
+        }
+    }
+
+# WASMRuntime factory
+fn make_wasm_runtime():
+    return {
+        "memory": [],
+        "globals": {},
+        "stack": [],
+        "call_stack": [],
+        "load_module": fn(module_data) {
+            # Validate and initialize module
+            if not validate_module(module_data):
+                print("ValueError: Invalid WASM module")
+                return
+            
+            initialize_module(module_data)
+        },
+        "validate_module": fn(module_data) {
+            # Check magic number and version (simplified)
+            if len(module_data) < 8:
+                return false
+            
+            # Simplified validation
+            return true
+        },
+        "initialize_module": fn(module_data) {
+            # Parse sections and initialize (simplified)
+            pass
+        },
+        "invoke": fn(function_name, args) {
+            # Push arguments to stack
+            i = 0
+            while i < len(args):
+                stack = push(stack, args[i])
+                i = i + 1
+            
+            # Execute function (simplified)
+            result = stack[len(stack) - 1] if len(stack) > 0 else None
+            
+            return result
+        }
+    }
+
+# WASI factory
+fn make_wasi():
+    return {
+        "files": {},
+        "file_descriptors": {},
+        "next_fd": 3,  # 0=stdin, 1=stdout, 2=stderr
+        "open_file": fn(path, data) {
+            if data == None:
+                data = ""
+            
+            fd = next_fd
+            next_fd = next_fd + 1
+            file_descriptors[fd] = path
+            files[path] = data
+            return fd
+        },
+        "read_file": fn(fd, size) {
+            path = file_descriptors[fd]
+            if path != None and contains(dict_keys(files), path):
+                file_data = files[path]
+                if len(file_data) < size:
+                    return file_data
+                return substring(file_data, 0, size)
+            return ""
+        },
+        "write_file": fn(fd, data) {
+            if fd == 1:  # stdout
+                print(data)
+            elif contains(dict_keys(file_descriptors), fd):
+                path = file_descriptors[fd]
+                files[path] = data
+        },
+        "close_file": fn(fd) {
+            if contains(dict_keys(file_descriptors), fd):
+                # Remove from file_descriptors
+                new_fds = {}
+                keys = dict_keys(file_descriptors)
+                i = 0
+                while i < len(keys):
+                    key = keys[i]
+                    if key != fd:
+                        new_fds[key] = file_descriptors[key]
+                    i = i + 1
+                file_descriptors = new_fds
+        }
+    }
+
+fn compile_to_wasm(source):
+    # Compile Prim source to WASM (simplified)
+    compiler = make_wasm_compiler()
+    module = compiler["compile_module"]()
+    return module
+
+fn main():
+    print("Testing WASM compiler...")
+    
+    compiler = make_wasm_compiler()
+    
+    # Create a simple function
+    func = make_wasm_function(
+        "add",
+        [WASM_I32, WASM_I32],
+        [WASM_I32],
+        [],
+        to_string(OPCODE_LOCAL_GET) + to_string(0x00) + 
+        to_string(OPCODE_LOCAL_GET) + to_string(0x01) + 
+        to_string(OPCODE_I32_ADD)
+    )
+    
+    bytecode = compiler["compile_function"](func)
+    print("Compiled function: " + to_string(len(bytecode)) + " bytes")
+    
+    # Compile module
+    module = compiler["compile_module"]()
+    print("Compiled module: " + to_string(len(module)) + " bytes")
+    
+    # Test runtime
+    runtime = make_wasm_runtime()
+    runtime["load_module"](module)
+    print("Module loaded successfully")
+    
+    # Test WASI
+    wasi = make_wasi()
+    fd = wasi["open_file"]("test.txt", "Hello WASI!")
+    data = wasi["read_file"](fd, 100)
+    print("Read from file: " + data)
+    
+    print("\nWASM target initialized successfully")
+
+if __name__ == "__main__":
+    main()

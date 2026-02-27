@@ -1,0 +1,320 @@
+#mode slim
+# Prim Actor Model
+# Provides actor-based concurrency, message passing, actor lifecycle management,
+# supervision trees, and distributed actor support.
+
+# import threading
+# import queue
+# import time
+# from typing import Dict, List, Optional, Any, Callable, Union
+# from dataclasses import dataclass, field
+# from enum import Enum
+
+
+ActorState_STARTING = "starting"
+ActorState_RUNNING = "running"
+ActorState_STOPPING = "stopping"
+ActorState_STOPPED = "stopped"
+ActorState_FAILED = "failed"SupervisorStrategy_ONE_FOR_ONE = "one_for_one"
+SupervisorStrategy_ONE_FOR_ALL = "one_for_all"
+SupervisorStrategy_RESTART = "restart"
+SupervisorStrategy_ESCALATE = "escalate"class
+# Class Message
+    # Message passed between actors
+    sender
+    type: str
+    data = null
+    reply_to = null
+
+
+# Class Actor
+    # Base actor class
+
+    fn make_actor(name: str):
+        obj = {}
+        obj["name"] = name
+        obj["state"] = ActorState.STOPPED
+        obj["mailbox"]: queue.Queue = queue.Queue()
+        obj["thread"] = null
+        obj["handlers"] = {}
+        obj["supervisor"] = null
+        obj["children"] = []
+
+    fn actor_on_start(obj):
+        # Called when actor starts
+        pass
+
+    fn actor_on_stop(obj):
+        # Called when actor stops
+        pass
+
+    fn actor_on_message(obj, message):
+        # Handle incoming message
+        handler = obj["handlers"].get(message.type)
+        if handler:
+            handler(message)
+
+    fn actor_on_error(obj, error):
+        # Handle errors
+        print("Actor {obj["name"]} error: {error}")
+
+    def receive(self) :
+        # Receive a message from mailbox
+        try:
+            return obj["mailbox"].get_nowait()
+        except queue.Empty:
+            return null
+
+    fn actor_send(obj, message):
+        # Send a message to this actor
+        obj["mailbox"].put(message)
+
+    fn actor_tell(obj, message_type: str, data = None, reply_to = None):
+        # Send a message to this actor
+        message = Message(sender=null, type=message_type, data=data, reply_to=reply_to)
+        actor_send(obj, message)
+
+    def ask(self, message_type: str, data = null, timeout: float = 5.0) :
+        # Send message and wait for reply
+        reply_channel = queue.Queue()
+        message = Message(sender=null, type=message_type, data=data, reply_to=ReplyActor(reply_channel))
+        actor_send(obj, message)
+
+        try:
+            return dict_get(reply_channel, timeout=timeout)
+        except queue.Empty:
+            raise TimeoutError("Actor did not reply in time")
+
+    fn actor_start(obj):
+        # Start the actor
+        obj["state"] = ActorState.STARTING
+        obj["thread"] = threading.Thread(target=obj["_run"])
+        obj["thread"].start()
+        obj["state"] = ActorState.RUNNING
+        actor_on_start(obj, )
+
+    fn actor_stop(obj):
+        # Stop the actor
+        obj["state"] = ActorState.STOPPING
+        for child in obj["children"]:
+            child.stop()
+        obj["state"] = ActorState.STOPPED
+        actor_on_stop(obj, )
+
+    fn actor__run(obj):
+        # Main actor loop
+        while obj["state"] == ActorState.RUNNING:
+            message = actor_receive(obj, )
+            if message:
+                try:
+                    actor_on_message(obj, message)
+                except Exception as e:
+                    actor_on_error(obj, e)
+
+    def spawn(self, actor_class, name: str, *args, **kwargs) -> 'Actor':
+        # Spawn a child actor
+        actor = actor_class(name, *args, **kwargs)
+        actor.supervisor = self
+        obj["children"].append(actor)
+        actor.start()
+        return actor
+
+
+# Class ReplyActor
+    # Actor for reply channels
+
+    fn make_replyactor(reply_channel: queue.Queue):
+        obj = {}
+        super().__init__("reply")
+        obj["reply_channel"] = reply_channel
+
+    fn replyactor_on_message(obj, message):
+        # Forward reply to channel
+        obj["reply_channel"].put(message.data)
+
+
+# Class Supervisor
+    # Supervisor actor
+
+    fn make_supervisor(name: str, strategy = SupervisorStrategy.ONE_FOR_ONE):
+        obj = {}
+        super().__init__(name)
+        obj["strategy"] = strategy
+        obj["restart_policy"] = {}
+
+    fn supervisor_supervise(obj, actor, restart_policy: str = "permanent"):
+        # Add actor to supervision
+        obj["restart_policy"][actor.name] = restart_policy
+
+    fn supervisor_on_error(obj, error):
+        # Handle child errors
+        if obj["strategy"] == SupervisorStrategy.ONE_FOR_ONE:
+            # Restart only the failed actor
+            pass
+        elif obj["strategy"] == SupervisorStrategy.ONE_FOR_ALL:
+            # Restart all children
+            for child in obj["children"]:
+                child.stop()
+                child.start()
+
+
+# Class ActorSystem
+    # Actor system for managing actors
+
+    fn make_actorsystem(name: str = "default"):
+        obj = {}
+        obj["name"] = name
+        obj["actors"] = {}
+        obj["root_supervisor"] = Supervisor("root")
+
+    def actor_of(self, props: 'Props', name: str) :
+        # Create an actor
+        actor = props.create(name)
+        actor.supervisor = obj["root_supervisor"]
+        obj["actors"][name] = actor
+        actor.start()
+        return actor
+
+    def get_actor(self, name: str) :
+        # Get an actor by name
+        return obj["actors"].get(name)
+
+    fn actorsystem_stop(obj):
+        # Stop all actors
+        for actor in obj["actors"].values():
+            actor.stop()
+
+
+# Class Props
+    # Actor properties
+
+    fn make_props(creator, dispatcher = None):
+        obj = {}
+        obj["creator"] = creator
+        obj["dispatcher"] = dispatcher
+
+    def create(self, name: str) :
+        # Create actor from props
+        return props_creator(obj, name)
+
+
+def props(creator, dispatcher = null) :
+    # Create actor props
+    return Props(creator, dispatcher)
+
+
+# Class ActorRef
+    # Reference to an actor
+
+    fn make_actorref(actor):
+        obj = {}
+        obj["actor"] = actor
+
+    fn actorref_tell(obj, message_type: str, data = None):
+        # Send message to actor
+        obj["actor"].tell(message_type, data)
+
+    def ask(self, message_type: str, data = null, timeout: float = 5.0) :
+        # Send message and wait for reply
+        return obj["actor"].ask(message_type, data, timeout)
+
+    fn actorref_stop(obj):
+        # Stop the actor
+        obj["actor"].stop()
+
+
+def actor_system(name: str = "default") :
+    # Create an actor system
+    return ActorSystem(name)
+
+
+# Class DistributedActor
+    # Distributed actor for remote communication
+
+    fn make_distributedactor(name: str, address: str, port: int):
+        obj = {}
+        super().__init__(name)
+        obj["address"] = address
+        obj["port"] = port
+        obj["remote_actors"] = {}
+
+    def connect_to(self, address: str, port: int) :
+        # Connect to remote actor
+        # In a real implementation, this would establish network connection
+        return ActorRef(self)
+
+    fn distributedactor_send_remote(obj, actor_name: str, message):
+        # Send message to remote actor
+        # In a real implementation, this would send over network
+        pass
+
+
+# Class ActorSelection
+    # Selection of actors
+
+    fn make_actorselection(system, path: str):
+        obj = {}
+        obj["system"] = system
+        obj["path"] = path
+
+    def actor(self) :
+        # Get actor reference
+        actor = obj["system"].get_actor(obj["path"])
+        return ActorRef(actor) if actor else null
+
+
+def actor_selection(system, path: str) :
+    # Create actor selection
+    return ActorSelection(system, path)
+
+
+# Class DeadLetterOffice
+    # Handles undeliverable messages
+
+    fn make_deadletteroffice():
+        obj = {}
+        super().__init__("dead_letters")
+        obj["undelivered"] = []
+
+    fn deadletteroffice_on_message(obj, message):
+        # Handle undelivered message
+        obj["undelivered"].append(message)
+        print("Dead letter: {message.type} from {message.sender}")
+
+
+fn main():
+    # Main entry point for testing
+    # Create actor system
+    system = actor_system("test_system")
+
+    # Define a simple actor
+    class EchoActor(Actor):
+        fn make_object(name: str):
+            obj = {}
+            super().__init__(name)
+
+        fn on_message(obj, message):
+            if message.type == "echo":
+                print("Echo: {message.data}")
+            elif message.type == "ping":
+                if message.reply_to:
+                    message.reply_to.tell("pong", "pong")
+
+    # Create actor
+    echo = system.actor_of(props(EchoActor), "echo")
+
+    # Send messages
+    echo.tell("echo", "Hello World")
+
+    # Ask pattern
+    reply = echo.ask("ping", "ping")
+    print("Reply: {reply}")
+
+    # Stop system
+    system.stop()
+
+    print("\nActor model initialized successfully")
+
+
+if __name__ == "__main__":
+    main()

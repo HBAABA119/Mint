@@ -1,0 +1,282 @@
+#mode slim
+# Prim Algebraic Data Types
+# Provides sum types (union types), product types (structs/tuples), discriminated unions,
+# pattern matching integration, and type-safe enum implementations
+
+# ADT type constants
+ADT_SUM = "sum"
+ADT_PRODUCT = "product"
+ADT_ENUM = "enum"
+
+# Factory function for Variant
+fn make_variant(name, fields):
+    if fields == None:
+        fields = {}
+    return {
+        "name": name,
+        "fields": fields
+    }
+
+# SumType factory
+fn make_sum_type(name, type_params):
+    if type_params == None:
+        type_params = []
+    return {
+        "name": name,
+        "variants": {},
+        "type_params": type_params
+    }
+
+fn sum_type_add_variant(sum_type, name, fields):
+    # Add a variant to the sum type
+    sum_type["variants"][name] = make_variant(name, fields)
+
+fn sum_type_create_variant(sum_type, variant_name, kwargs):
+    # Create a value of a specific variant
+    if not contains(dict_keys(sum_type["variants"]), variant_name):
+        print("Error: Unknown variant: " + variant_name)
+        return None
+    
+    variant = sum_type["variants"][variant_name]
+    
+    # Validate field types
+    kw_keys = dict_keys(kwargs)
+    for field_name in kw_keys:
+        if not contains(dict_keys(variant["fields"]), field_name):
+            print("Error: Unknown field: " + field_name)
+            return None
+    
+    return make_sum_value(sum_type["name"], variant_name, kwargs)
+
+# SumValue factory
+fn make_sum_value(type_name, variant_name, value):
+    return {
+        "type_name": type_name,
+        "variant_name": variant_name,
+        "value": value,
+        "match": fn(cases) {
+            # Pattern match on the sum value
+            if contains(dict_keys(cases), variant_name):
+                return cases[variant_name](value)
+            if contains(dict_keys(cases), "_"):
+                return cases["_"](value)
+            print("Error: No matching case for variant: " + variant_name)
+            return None
+        }
+    }
+
+# ProductType factory
+fn make_product_type(name, fields, type_params):
+    if type_params == None:
+        type_params = []
+    return {
+        "name": name,
+        "fields": fields,
+        "type_params": type_params
+    }
+
+fn product_type_add_field(product_type, name, field_type):
+    # Add a field to the product type
+    product_type["fields"][name] = field_type
+
+fn product_type_create(product_type, kwargs):
+    # Create a value of the product type
+    # Validate field types
+    kw_keys = dict_keys(kwargs)
+    for field_name in kw_keys:
+        if not contains(dict_keys(product_type["fields"]), field_name):
+            print("Error: Unknown field: " + field_name)
+            return None
+    
+    return make_product_value(product_type["name"], kwargs)
+
+# ProductValue factory
+fn make_product_value(type_name, value):
+    return {
+        "type_name": type_name,
+        "value": value,
+        "get": fn(field_name) {
+            if not contains(dict_keys(value), field_name):
+                print("Error: Field not found: " + field_name)
+                return None
+            return value[field_name]
+        },
+        "set": fn(field_name, new_value) {
+            if not contains(dict_keys(value), field_name):
+                print("Error: Field not found: " + field_name)
+                return None
+            value[field_name] = new_value
+        }
+    }
+
+# EnumType factory
+fn make_enum_type(name, values):
+    values_map = {}
+    reverse_map = {}
+    i = 0
+    for v in values:
+        values_map[v] = i
+        reverse_map[i] = v
+        i = i + 1
+    
+    return {
+        "name": name,
+        "_values": values_map,
+        "_reverse_values": reverse_map,
+        "create": fn(value) {
+            # Create an enum value
+            if not contains(dict_keys(values_map), value):
+                print("Error: Invalid enum value: " + value)
+                return None
+            return make_enum_value(name, value)
+        },
+        "from_index": fn(index) {
+            # Create enum value from index
+            if not contains(dict_keys(reverse_map), index):
+                print("Error: Invalid enum index: " + to_string(index))
+                return None
+            return make_enum_value(name, reverse_map[index])
+        },
+        "values": fn() {
+            # Get all enum values
+            return dict_keys(values_map)
+        }
+    }
+
+# EnumValue factory
+fn make_enum_value(type_name, value):
+    return {
+        "type_name": type_name,
+        "value": value,
+        "equals": fn(other) {
+            return type_name == other["type_name"] and value == other["value"]
+        },
+        "to_string": fn() {
+            return type_name + "." + value
+        }
+    }
+
+# ADTRegistry factory
+fn make_adt_registry():
+    return {
+        "sum_types": {},
+        "product_types": {},
+        "enum_types": {}
+    }
+
+fn adt_registry_define_sum_type(registry, name, variants, type_params):
+    # Define a sum type
+    if type_params == None:
+        type_params = []
+    sum_type = make_sum_type(name, type_params)
+    
+    for variant_def in variants:
+        if type(variant_def) == "string":
+            # Simple variant with no fields
+            sum_type_add_variant(sum_type, variant_def, {})
+        elif type(variant_def) == "list":
+            # Variant with fields - tuple format: [name, fields]
+            variant_name = variant_def[0]
+            fields = {}
+            if len(variant_def) > 1:
+                fields = variant_def[1]
+            sum_type_add_variant(sum_type, variant_name, fields)
+    
+    registry["sum_types"][name] = sum_type
+    return sum_type
+
+fn adt_registry_define_product_type(registry, name, fields, type_params):
+    # Define a product type
+    if type_params == None:
+        type_params = []
+    product_type = make_product_type(name, fields, type_params)
+    registry["product_types"][name] = product_type
+    return product_type
+
+fn adt_registry_define_enum_type(registry, name, values):
+    # Define an enum type
+    enum_type = make_enum_type(name, values)
+    registry["enum_types"][name] = enum_type
+    return enum_type
+
+fn adt_registry_get_sum_type(registry, name):
+    # Get a sum type by name
+    if contains(dict_keys(registry["sum_types"]), name):
+        return registry["sum_types"][name]
+    return None
+
+fn adt_registry_get_product_type(registry, name):
+    # Get a product type by name
+    if contains(dict_keys(registry["product_types"]), name):
+        return registry["product_types"][name]
+    return None
+
+fn adt_registry_get_enum_type(registry, name):
+    # Get an enum type by name
+    if contains(dict_keys(registry["enum_types"]), name):
+        return registry["enum_types"][name]
+    return None
+
+# ADTBuilder factory
+fn make_adt_builder():
+    return {
+        "registry": make_adt_registry()
+    }
+
+fn adt_builder_sum(builder, name, variants):
+    # Define a sum type
+    variant_list = []
+    for v in variants:
+        if type(v) == "string":
+            variant_list = push(variant_list, v)
+        elif type(v) == "list":
+            variant_list = push(variant_list, v)
+    
+    return adt_registry_define_sum_type(builder["registry"], name, variant_list, [])
+
+fn adt_builder_product(builder, name, fields):
+    # Define a product type
+    return adt_registry_define_product_type(builder["registry"], name, fields, [])
+
+fn adt_builder_enum(builder, name, values):
+    # Define an enum type
+    return adt_registry_define_enum_type(builder["registry"], name, values)
+
+fn main():
+    print("Testing Algebraic Data Types...")
+    builder = make_adt_builder()
+    
+    # Test sum type
+    Option = adt_builder_sum(builder, "Option", [
+        ["Some", {"value": "object"}],
+        "None"
+    ])
+    
+    some = sum_type_create_variant(Option, "Some", {"value": 42})
+    none = sum_type_create_variant(Option, "None", {})
+    
+    print("Sum type test:")
+    print("Some: " + to_string(some))
+    print("None: " + to_string(none))
+    
+    # Test product type
+    Point = adt_builder_product(builder, "Point", {"x": "int", "y": "int"})
+    point = product_type_create(Point, {"x": 10, "y": 20})
+    
+    print("\nProduct type test:")
+    print("Point: " + to_string(point))
+    x = point["get"]("x")
+    print("X: " + to_string(x))
+    
+    # Test enum
+    Color = adt_builder_enum(builder, "Color", ["Red", "Green", "Blue"])
+    red = Color["create"]("Red")
+    
+    print("\nEnum test:")
+    print("Color: " + red["to_string"]())
+    print("Values: " + to_string(Color["values"]()))
+    
+    print("\nADT system initialized successfully")
+
+if __name__ == "__main__":
+    main()

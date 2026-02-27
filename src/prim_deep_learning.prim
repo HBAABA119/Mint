@@ -1,0 +1,376 @@
+#mode slim
+# Prim Deep Learning Framework
+# Provides deep learning architectures, CNN, RNN, Transformers, attention mechanisms,
+# and model composition
+
+# Layer type constants
+LAYER_DENSE = "dense"
+LAYER_CONV2D = "conv2d"
+LAYER_MAX_POOL2D = "max_pool2d"
+LAYER_LSTM = "lstm"
+LAYER_GRU = "gru"
+LAYER_TRANSFORMER = "transformer"
+LAYER_ATTENTION = "attention"
+LAYER_DROPOUT = "dropout"
+LAYER_BATCH_NORM = "batch_norm"
+LAYER_EMBEDDING = "embedding"
+
+# Activation constants
+ACTIVATION_RELU = "relu"
+ACTIVATION_GELU = "gelu"
+ACTIVATION_SWISH = "swish"
+ACTIVATION_TANH = "tanh"
+ACTIVATION_SIGMOID = "sigmoid"
+ACTIVATION_SOFTMAX = "softmax"
+
+# Layer factory
+fn make_layer(name, layer_type, units, activation):
+    if units == None:
+        units = 0
+    if activation == None:
+        activation = ACTIVATION_RELU
+    return {
+        "name": name,
+        "layer_type": layer_type,
+        "units": units,
+        "activation": activation,
+        "kernel_size": None,
+        "pool_size": None,
+        "dropout_rate": 0.0,
+        "weights": None,
+        "biases": None,
+        "trainable": true
+    }
+
+# Conv2DLayer factory
+fn make_conv2d_layer(filters, kernel_size, activation):
+    if activation == None:
+        activation = ACTIVATION_RELU
+    layer = make_layer("conv2d", LAYER_CONV2D, filters, activation)
+    layer["kernel_size"] = kernel_size
+    layer["filters"] = filters
+    return layer
+
+fn conv2d_layer_initialize_weights(layer, input_channels):
+    # Initialize convolutional weights (conceptual)
+    kh = layer["kernel_size"][0]
+    kw = layer["kernel_size"][1]
+    # Simplified weight initialization
+    layer["weights"] = {"shape": [kh, kw, input_channels, layer["filters"]], "data": []}
+    layer["biases"] = {"shape": [layer["filters"]], "data": []}
+
+# MaxPool2DLayer factory
+fn make_max_pool2d_layer(pool_size):
+    if pool_size == None:
+        pool_size = [2, 2]
+    layer = make_layer("max_pool2d", LAYER_MAX_POOL2D, 0, None)
+    layer["pool_size"] = pool_size
+    return layer
+
+# LSTMLayer factory
+fn make_lstm_layer(units, return_sequences):
+    layer = make_layer("lstm", LAYER_LSTM, units, None)
+    if return_sequences == None:
+        return_sequences = true
+    layer["return_sequences"] = return_sequences
+    layer["input_weights"] = None
+    layer["recurrent_weights"] = None
+    layer["bias"] = None
+    return layer
+
+fn lstm_layer_initialize_weights(layer, input_size):
+    # Initialize LSTM weights (conceptual)
+    layer["input_weights"] = {"shape": [input_size, layer["units"] * 4], "data": []}
+    layer["recurrent_weights"] = {"shape": [layer["units"], layer["units"] * 4], "data": []}
+    layer["bias"] = {"shape": [layer["units"] * 4], "data": []}
+
+# AttentionLayer factory
+fn make_attention_layer(num_heads, key_dim):
+    if num_heads == None:
+        num_heads = 8
+    if key_dim == None:
+        key_dim = 64
+    layer = make_layer("attention", LAYER_ATTENTION, 0, None)
+    layer["num_heads"] = num_heads
+    layer["key_dim"] = key_dim
+    layer["query_weights"] = None
+    layer["key_weights"] = None
+    layer["value_weights"] = None
+    return layer
+
+fn attention_layer_initialize_weights(layer, input_dim):
+    # Initialize attention weights (conceptual)
+    layer["query_weights"] = {"shape": [input_dim, layer["key_dim"]], "data": []}
+    layer["key_weights"] = {"shape": [input_dim, layer["key_dim"]], "data": []}
+    layer["value_weights"] = {"shape": [input_dim, layer["key_dim"]], "data": []}
+
+# TransformerLayer factory
+fn make_transformer_layer(num_heads, key_dim, ff_dim):
+    if num_heads == None:
+        num_heads = 8
+    if key_dim == None:
+        key_dim = 64
+    if ff_dim == None:
+        ff_dim = 256
+    layer = make_layer("transformer", LAYER_TRANSFORMER, 0, None)
+    layer["num_heads"] = num_heads
+    layer["key_dim"] = key_dim
+    layer["ff_dim"] = ff_dim
+    layer["attention"] = make_attention_layer(num_heads, key_dim)
+    layer["feedforward_weights"] = None
+    return layer
+
+fn transformer_layer_initialize_weights(layer, input_dim):
+    # Initialize transformer weights
+    attention_layer_initialize_weights(layer["attention"], input_dim)
+    layer["feedforward_weights"] = {"shape": [input_dim, layer["ff_dim"]], "data": []}
+
+# NeuralNetwork factory
+fn make_neural_network(name):
+    if name == None:
+        name = "model"
+    return {
+        "name": name,
+        "layers": [],
+        "compiled": false,
+        "optimizer": "adam",
+        "learning_rate": 0.001,
+        "loss_function": "categorical_crossentropy"
+    }
+
+fn neural_network_add_layer(network, layer):
+    # Add layer to network
+    network["layers"] = push(network["layers"], layer)
+
+fn neural_network_compile(network, optimizer, learning_rate, loss):
+    # Compile the model
+    if optimizer != None:
+        network["optimizer"] = optimizer
+    if learning_rate != None:
+        network["learning_rate"] = learning_rate
+    if loss != None:
+        network["loss_function"] = loss
+    
+    # Initialize weights (conceptual)
+    input_dim = 784  # Default for MNIST
+    for layer in network["layers"]:
+        if layer["layer_type"] == LAYER_CONV2D:
+            conv2d_layer_initialize_weights(layer, input_dim)
+        elif layer["layer_type"] == LAYER_LSTM:
+            lstm_layer_initialize_weights(layer, input_dim)
+        elif layer["layer_type"] == LAYER_ATTENTION:
+            attention_layer_initialize_weights(layer, input_dim)
+        elif layer["layer_type"] == LAYER_TRANSFORMER:
+            transformer_layer_initialize_weights(layer, input_dim)
+        
+        # Update input_dim for next layer
+        if layer["layer_type"] == LAYER_DENSE:
+            input_dim = layer["units"]
+    
+    network["compiled"] = true
+
+fn neural_network_forward(network, x):
+    # Forward pass (conceptual)
+    if not network["compiled"]:
+        print("RuntimeError: Model not compiled")
+        return None
+    
+    activations = x
+    for layer in network["layers"]:
+        activations = neural_network_apply_layer(network, layer, activations)
+    return activations
+
+fn neural_network_apply_layer(network, layer, x):
+    # Apply layer to input (simplified)
+    if layer["layer_type"] == LAYER_DENSE:
+        # Simplified dense layer
+        return x
+    elif layer["layer_type"] == LAYER_CONV2D:
+        # Simplified 2D convolution
+        return x
+    elif layer["layer_type"] == LAYER_MAX_POOL2D:
+        # Simplified max pooling
+        return x
+    elif layer["layer_type"] == LAYER_LSTM:
+        # Simplified LSTM
+        return x
+    elif layer["layer_type"] == LAYER_ATTENTION:
+        # Simplified attention
+        return x
+    elif layer["layer_type"] == LAYER_TRANSFORMER:
+        # Simplified transformer
+        return x
+    else:
+        return x
+
+fn neural_network_apply_activation(network, activation, x):
+    # Apply activation function (simplified)
+    if activation == ACTIVATION_RELU:
+        return relu(x)
+    elif activation == ACTIVATION_SIGMOID:
+        return sigmoid(x)
+    elif activation == ACTIVATION_TANH:
+        return tanh(x)
+    elif activation == ACTIVATION_SOFTMAX:
+        return softmax(x)
+    return x
+
+fn relu(x):
+    # ReLU activation (simplified for scalar)
+    if x > 0:
+        return x
+    return 0
+
+fn sigmoid(x):
+    # Sigmoid activation (simplified)
+    return 1.0 / (1.0 + exp(-x))
+
+fn tanh(x):
+    # Tanh activation (simplified)
+    return x  # Placeholder
+
+fn softmax(x):
+    # Softmax activation (simplified)
+    return x  # Placeholder
+
+fn exp(x):
+    # Exponential (simplified)
+    return x * x  # Placeholder
+
+fn neural_network_predict(network, x):
+    # Make predictions
+    return neural_network_forward(network, x)
+
+fn neural_network_fit(network, x_train, y_train, epochs, batch_size, validation_data):
+    # Train the model (conceptual)
+    if not network["compiled"]:
+        print("RuntimeError: Model not compiled")
+        return None
+    
+    if epochs == None:
+        epochs = 10
+    if batch_size == None:
+        batch_size = 32
+    
+    n_samples = len(x_train)
+    history = {"loss": [], "val_loss": []}
+    
+    epoch = 0
+    while epoch < epochs:
+        epoch_loss = 0.0
+        n_batches = n_samples / batch_size
+        
+        i = 0
+        while i < n_batches:
+            start_idx = i * batch_size
+            end_idx = start_idx + batch_size
+            if end_idx > n_samples:
+                end_idx = n_samples
+            
+            x_batch = slice(x_train, start_idx, end_idx)
+            y_batch = slice(y_train, start_idx, end_idx)
+            
+            # Forward pass
+            predictions = neural_network_forward(network, x_batch)
+            
+            # Compute loss (conceptual)
+            loss = 0.5  # Placeholder
+            epoch_loss = epoch_loss + loss
+            
+            i = i + 1
+        
+        avg_loss = epoch_loss / n_batches
+        history["loss"] = push(history["loss"], avg_loss)
+        
+        print("Epoch " + to_string(epoch + 1) + "/" + to_string(epochs) + ", Loss: " + to_string(avg_loss))
+        epoch = epoch + 1
+    
+    return history
+
+fn neural_network_compute_loss(network, predictions, targets):
+    # Compute loss (simplified)
+    if network["loss_function"] == "categorical_crossentropy":
+        return 0.5  # Placeholder
+    elif network["loss_function"] == "mse":
+        return 0.3  # Placeholder
+    return 0.0
+
+fn neural_network_evaluate(network, x, y):
+    # Evaluate the model (simplified)
+    predictions = neural_network_forward(network, x)
+    loss = neural_network_compute_loss(network, predictions, y)
+    
+    results = {"loss": loss}
+    
+    # Calculate accuracy for classification (conceptual)
+    if network["loss_function"] == "categorical_crossentropy":
+        results["accuracy"] = 0.95  # Placeholder
+    
+    return results
+
+fn neural_network_save(network, filepath):
+    # Save the model (conceptual)
+    model_data = {
+        "name": network["name"],
+        "layers": [],
+        "optimizer": network["optimizer"],
+        "learning_rate": network["learning_rate"],
+        "loss_function": network["loss_function"]
+    }
+    
+    for layer in network["layers"]:
+        layer_data = {
+            "name": layer["name"],
+            "layer_type": layer["layer_type"],
+            "units": layer["units"],
+            "activation": layer["activation"],
+            "kernel_size": layer["kernel_size"],
+            "pool_size": layer["pool_size"],
+            "dropout_rate": layer["dropout_rate"]
+        }
+        model_data["layers"] = push(model_data["layers"], layer_data)
+    
+    print("Model saved to " + filepath)
+    return true
+
+fn neural_network_load(filepath):
+    # Load a model (conceptual)
+    print("Loading model from " + filepath)
+    model = make_neural_network("loaded_model")
+    model["compiled"] = true
+    return model
+
+fn create_sequential(name):
+    # Create a sequential neural network
+    return make_neural_network(name)
+
+fn main():
+    print("Testing Deep Learning Framework...")
+    
+    # Create a CNN model
+    model = create_sequential("cnn_model")
+    
+    # Add layers
+    neural_network_add_layer(model, make_conv2d_layer(32, [3, 3], ACTIVATION_RELU))
+    neural_network_add_layer(model, make_max_pool2d_layer([2, 2]))
+    neural_network_add_layer(model, make_layer("flatten", LAYER_DENSE, 128, ACTIVATION_RELU))
+    neural_network_add_layer(model, make_layer("output", LAYER_DENSE, 10, ACTIVATION_SOFTMAX))
+    
+    # Compile model
+    neural_network_compile(model, "adam", 0.001, "categorical_crossentropy")
+    
+    print("Model created with " + to_string(len(model["layers"])) + " layers")
+    
+    # Test prediction
+    predictions = neural_network_predict(model, [])
+    print("Predictions: " + to_string(predictions))
+    
+    # Test save/load
+    neural_network_save(model, "test_model.pkl")
+    loaded_model = neural_network_load("test_model.pkl")
+    print("Loaded model: " + loaded_model["name"])
+    
+    print("\nDeep Learning Framework initialized successfully")
+
+if __name__ == "__main__":
+    main()

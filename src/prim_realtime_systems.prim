@@ -1,0 +1,55 @@
+#mode slim
+# Prim Real-time Systems
+# Provides real-time scheduling, timing services, resource management,
+# fault tolerance, and real-time monitoring
+
+# Task priority constants
+PRIORITY_LOW = 0
+PRIORITY_MEDIUM = 1
+PRIORITY_HIGH = 2
+PRIORITY_CRITICAL = 3
+
+# Factory function for RealTimeTask
+fn make_realtime_task(id, priority, deadline):
+    return {
+        "id": id,
+        "priority": priority,
+        "deadline": deadline
+    }
+
+# RealTimeScheduler factory
+fn make_realtime_scheduler():
+    return {
+        "tasks": {}
+    }
+
+fn realtime_scheduler_add_task(scheduler, task):
+    scheduler["tasks"][task["id"]] = task
+
+fn realtime_scheduler_schedule(scheduler):
+    if len(dict_keys(scheduler["tasks"])) == 0:
+        return None
+    
+    # Find highest priority task
+    highest = None
+    keys = dict_keys(scheduler["tasks"])
+    for key in keys:
+        task = scheduler["tasks"][key]
+        if highest == None or task["priority"] > highest["priority"]:
+            highest = task
+    return highest
+
+fn main():
+    print("Testing Real-time Systems...")
+    scheduler = make_realtime_scheduler()
+    task = make_realtime_task("task1", PRIORITY_HIGH, 1.0)
+    realtime_scheduler_add_task(scheduler, task)
+    scheduled = realtime_scheduler_schedule(scheduler)
+    if scheduled:
+        print("Scheduled: " + scheduled["id"])
+    else:
+        print("Scheduled: None")
+    print("Real-time Systems initialized successfully")
+
+if __name__ == "__main__":
+    main()

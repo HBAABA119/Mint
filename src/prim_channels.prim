@@ -1,0 +1,293 @@
+#mode slim
+# Prim Channel Types
+# Provides channel-based communication, buffered and unbuffered channels,
+# select statements, and channel closing semantics
+
+# Channel type constants
+CHANNEL_UNBUFFERED = "unbuffered"
+CHANNEL_BUFFERED = "buffered"
+CHANNEL_RENDEZVOUS = "rendezvous"
+
+# Channel state constants
+CHANNEL_OPEN = "open"
+CHANNEL_CLOSED = "closed"
+CHANNEL_DRAINING = "draining"
+
+# SelectCase factory
+fn make_select_case(channel, direction, value, callback):
+    return {
+        "channel": channel,
+        "direction": direction,
+        "value": value,
+        "callback": callback
+    }
+
+# Channel factory
+fn make_channel(max_size, channel_type):
+    if max_size == None:
+        max_size = 0
+    if channel_type == None:
+        channel_type = CHANNEL_UNBUFFERED
+    return {
+        "max_size": max_size,
+        "channel_type": channel_type,
+        "state": CHANNEL_OPEN,
+        "queue": [],
+        "senders": [],
+        "receivers": []
+    }
+
+fn channel_send(channel, value):
+    # Send a value through the channel
+    if channel["state"] == CHANNEL_CLOSED:
+        print("RuntimeError: Channel is closed")
+        return false
+    
+    if channel["channel_type"] == CHANNEL_UNBUFFERED:
+        # Wait for a receiver (conceptual)
+        if len(channel["receivers"]) == 0:
+            # In real implementation, would block
+            pass
+    
+    # Add to queue
+    if len(channel["queue"]) < channel["max_size"] or channel["max_size"] == 0:
+        channel["queue"] = push(channel["queue"], value)
+        return true
+    return false
+
+fn channel_receive(channel):
+    # Receive a value from the channel
+    if channel["state"] == CHANNEL_CLOSED and len(channel["queue"]) == 0:
+        return None
+    
+    if len(channel["queue"]) > 0:
+        value = channel["queue"][0]
+        channel["queue"] = slice(channel["queue"], 1, len(channel["queue"]))
+        return value
+    return None
+
+fn channel_close(channel):
+    # Close the channel
+    channel["state"] = CHANNEL_CLOSED
+
+fn channel_is_closed(channel):
+    # Check if channel is closed
+    return channel["state"] == CHANNEL_CLOSED
+
+fn channel_wait_for_receiver(channel):
+    # Wait for a receiver (rendezvous) - conceptual
+    while channel["state"] == CHANNEL_OPEN and len(channel["receivers"]) == 0:
+        # In real implementation, would wait
+        break
+
+# BufferedChannel factory
+fn make_buffered_channel(buffer_size):
+    return make_channel(buffer_size, CHANNEL_BUFFERED)
+
+# UnbufferedChannel factory
+fn make_unbuffered_channel():
+    return make_channel(0, CHANNEL_UNBUFFERED)
+
+# Select factory
+fn make_select():
+    return {
+        "cases": [],
+        "default_case": None
+    }
+
+fn select_case(select, channel, direction, value, callback):
+    # Add a case to the select
+    select["cases"] = push(select["cases"], make_select_case(channel, direction, value, callback))
+    return select
+
+fn select_default(select, callback):
+    # Set default case
+    select["default_case"] = callback
+    return select
+
+fn select_execute(select):
+    # Select the first ready case
+    for case in select["cases"]:
+        if case["direction"] == "send":
+            if case["channel"]["state"] != CHANNEL_CLOSED:
+                try:
+                    channel_send(case["channel"], case["value"])
+                    if case["callback"] != None:
+                        return case["callback"]()
+                    return true
+                catch e:
+                    continue
+        elif case["direction"] == "receive":
+            value = channel_receive(case["channel"])
+            if value != None:
+                if case["callback"] != None:
+                    return case["callback"](value)
+                return value
+    
+    # Default case
+    if select["default_case"] != None:
+        return select["default_case"]()
+    
+    return None
+
+# ChannelGroup factory
+fn make_channel_group():
+    return {
+        "channels": {}
+    }
+
+fn channel_group_add_channel(group, name, channel):
+    # Add a channel to the group
+    group["channels"][name] = channel
+
+fn channel_group_get_channel(group, name):
+    # Get a channel by name
+    if contains(dict_keys(group["channels"]), name):
+        return group["channels"][name]
+    return None
+
+fn channel_group_close_all(group):
+    # Close all channels
+    keys = dict_keys(group["channels"])
+    for name in keys:
+        channel_close(group["channels"][name])
+
+# FanIn factory
+fn make_fan_in(output_channel):
+    return {
+        "output_channel": output_channel,
+        "input_channels": []
+    }
+
+fn fan_in_add_input(fan_in, channel):
+    # Add an input channel
+    fan_in["input_channels"] = push(fan_in["input_channels"], channel)
+
+fn fan_in_execute(fan_in):
+    # Fan in from input channels to output (conceptual)
+    for channel in fan_in["input_channels"]:
+        fan_in_forward(fan_in, channel)
+
+fn fan_in_forward(fan_in, channel):
+    # Forward values from channel to output
+    while not channel_is_closed(channel):
+        value = channel_receive(channel)
+        if value != None:
+            channel_send(fan_in["output_channel"], value)
+
+# FanOut factory
+fn make_fan_out(input_channel):
+    return {
+        "input_channel": input_channel,
+        "output_channels": []
+    }
+
+fn fan_out_add_output(fan_out, channel):
+    # Add an output channel
+    fan_out["output_channels"] = push(fan_out["output_channels"], channel)
+
+fn fan_out_execute(fan_out):
+    # Fan out from input to output channels (conceptual)
+    while not channel_is_closed(fan_out["input_channel"]):
+        value = channel_receive(fan_out["input_channel"])
+        if value != None:
+            for channel in fan_out["output_channels"]:
+                channel_send(channel, value)
+
+# Pipeline factory
+fn make_channel_pipeline():
+    return {
+        "stages": []
+    }
+
+fn pipeline_add_stage(pipeline, channel, transform):
+    # Add a stage to the pipeline
+    pipeline["stages"] = push(pipeline["stages"], [channel, transform])
+    return pipeline
+
+fn pipeline_process(pipeline, input_value):
+    # Process through the pipeline
+    value = input_value
+    
+    for stage in pipeline["stages"]:
+        channel = stage[0]
+        transform = stage[1]
+        
+        if transform != None:
+            value = transform(value)
+        
+        channel_send(channel, value)
+    
+    return value
+
+fn channel(max_size):
+    # Create a channel
+    if max_size == None:
+        max_size = 0
+    return make_channel(max_size, CHANNEL_UNBUFFERED)
+
+fn buffered_channel(buffer_size):
+    # Create a buffered channel
+    return make_buffered_channel(buffer_size)
+
+fn unbuffered_channel():
+    # Create an unbuffered channel
+    return make_unbuffered_channel()
+
+fn select_fn():
+    # Create a select statement
+    return make_select()
+
+fn main():
+    print("Testing channels...")
+    
+    # Test unbuffered channel
+    unbuffered = unbuffered_channel()
+    
+    fn test_unbuffered():
+        # Simulate async operations
+        channel_send(unbuffered, "Hello")
+        channel_send(unbuffered, "World")
+        
+        msg1 = channel_receive(unbuffered)
+        msg2 = channel_receive(unbuffered)
+        return msg1 + " " + msg2
+    
+    result = test_unbuffered()
+    print("Unbuffered: " + result)
+    
+    # Test buffered channel
+    buffered = buffered_channel(2)
+    
+    fn test_buffered():
+        channel_send(buffered, "A")
+        channel_send(buffered, "B")
+        
+        msg1 = channel_receive(buffered)
+        msg2 = channel_receive(buffered)
+        
+        return msg1 + msg2
+    
+    result = test_buffered()
+    print("Buffered: " + result)
+    
+    # Test select
+    sel = select_fn()
+    
+    fn test_select():
+        ch1 = channel(0)
+        ch2 = channel(0)
+        
+        channel_send(ch1, "from ch1")
+        
+        # Simple select test
+        result = channel_receive(ch1)
+        return result
+    
+    result = test_select()
+    print("Select result: " + to_string(result))
+    
+    print("\nChannel types initialized successfully")
+
+if __name__ == "__main__":
+    main()

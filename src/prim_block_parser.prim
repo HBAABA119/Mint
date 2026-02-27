@@ -1,0 +1,678 @@
+#mode block
+// Prim Language Block Mode Parser
+// This parser handles the brace-delimited syntax similar to C/JavaScript
+
+use prim_ast;
+
+// Token type constants
+const TOKEN_IDENTIFIER = "IDENTIFIER";
+const TOKEN_NUMBER = "NUMBER";
+const TOKEN_STRING = "STRING";
+const TOKEN_OPERATOR = "OPERATOR";
+const TOKEN_PUNCTUATION = "PUNCTUATION";
+const TOKEN_EOF = "EOF";
+const TOKEN_FN = "FN";
+const TOKEN_IF = "IF";
+const TOKEN_ELSE = "ELSE";
+const TOKEN_ELIF = "ELIF";
+const TOKEN_WHILE = "WHILE";
+const TOKEN_FOR = "FOR";
+const TOKEN_RETURN = "RETURN";
+const TOKEN_VAR = "VAR";
+const TOKEN_TRUE = "TRUE";
+const TOKEN_FALSE = "FALSE";
+const TOKEN_NULL = "NULL";
+
+// Factory function for creating tokens
+fn make_token(type_, value, line, column) {
+    return {
+        "type": type_,
+        "value": value,
+        "line": line,
+        "column": column
+    };
+}
+
+// Create BlockLexer as a factory function
+fn make_block_lexer(text) {
+    return {
+        "text": text,
+        "pos": 0,
+        "line": 1,
+        "column": 1,
+        "tokens": [],
+        "length": strlen(text)
+    };
+}
+
+// Check if character is whitespace
+fn is_whitespace(char) {
+    return char == " " || char == "\t" || char == "\n" || char == "\r";
+}
+
+// Check if character is alphabetic or underscore
+fn is_alpha_or_underscore(char) {
+    return contains("_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ", char);
+}
+
+// Check if character is alphanumeric or underscore
+fn is_alnum_or_underscore(char) {
+    return contains("_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789", char);
+}
+
+// Check if character is a digit
+fn is_digit(char) {
+    return contains("0123456789", char);
+}
+
+// Tokenize function
+fn lexer_tokenize(lexer) {
+    while (lexer["pos"] < lexer["length"]) {
+        var char = slice(lexer["text"], lexer["pos"], lexer["pos"] + 1);
+        
+        // Skip whitespace
+        if (is_whitespace(char)) {
+            lexer_skip_whitespace(lexer);
+            continue;
+        }
+        
+        // Identify token type
+        if (is_alpha_or_underscore(char)) {
+            lexer_read_identifier(lexer);
+        } else if (is_digit(char)) {
+            lexer_read_number(lexer);
+        } else if (char == "\"" || char == "'") {
+            lexer_read_string(lexer, char);
+        } else if (contains("+-*/%=!<>&|", char)) {
+            lexer_read_operator(lexer);
+        } else if (contains("{}()[],;:", char)) {
+            lexer_read_punctuation(lexer);
+        } else if (char == "/") {
+            // Check if it's a comment
+            if (lexer["pos"] + 1 < lexer["length"]) {
+                var next_char = slice(lexer["text"], lexer["pos"] + 1, lexer["pos"] + 2);
+                if (next_char == "/") {
+                    lexer_read_single_line_comment(lexer);
+                    continue;
+                } else if (next_char == "*") {
+                    lexer_read_multi_line_comment(lexer);
+                    continue;
+                }
+            }
+            lexer_read_operator(lexer);
+        } else if (char == "#") {
+            lexer_read_comment(lexer);
+        } else {
+            print("Unexpected character '" + char + "' at " + to_string(lexer["line"]) + ":" + to_string(lexer["column"]));
+            lexer["pos"] = lexer["pos"] + 1;
+            lexer["column"] = lexer["column"] + 1;
+        }
+    }
+    
+    // Add EOF token
+    if (len(lexer["tokens"]) > 0) {
+        var last_token = lexer["tokens"][len(lexer["tokens"]) - 1];
+        lexer["tokens"] = push(lexer["tokens"], make_token(TOKEN_EOF, "", last_token["line"], last_token["column"]));
+    } else {
+        lexer["tokens"] = push(lexer["tokens"], make_token(TOKEN_EOF, "", 1, 1));
+    }
+    
+    return lexer["tokens"];
+}
+
+fn lexer_skip_whitespace(lexer) {
+    while (lexer["pos"] < lexer["length"]) {
+        var char = slice(lexer["text"], lexer["pos"], lexer["pos"] + 1);
+        if (!is_whitespace(char)) {
+            break;
+        }
+        if (char == "\n") {
+            lexer["line"] = lexer["line"] + 1;
+            lexer["column"] = 1;
+        } else {
+            lexer["column"] = lexer["column"] + 1;
+        }
+        lexer["pos"] = lexer["pos"] + 1;
+    }
+}
+
+fn lexer_read_identifier(lexer) {
+    var start_pos = lexer["pos"];
+    var start_col = lexer["column"];
+    
+    while (lexer["pos"] < lexer["length"]) {
+        var char = slice(lexer["text"], lexer["pos"], lexer["pos"] + 1);
+        if (!is_alnum_or_underscore(char)) {
+            break;
+        }
+        lexer["pos"] = lexer["pos"] + 1;
+        lexer["column"] = lexer["column"] + 1;
+    }
+    
+    var identifier = slice(lexer["text"], start_pos, lexer["pos"]);
+    
+    // Check if it's a keyword
+    var token_type = TOKEN_IDENTIFIER;
+    if (identifier == "fn") {
+        token_type = TOKEN_FN;
+    } else if (identifier == "if") {
+        token_type = TOKEN_IF;
+    } else if (identifier == "else") {
+        token_type = TOKEN_ELSE;
+    } else if (identifier == "elif") {
+        token_type = TOKEN_ELIF;
+    } else if (identifier == "while") {
+        token_type = TOKEN_WHILE;
+    } else if (identifier == "for") {
+        token_type = TOKEN_FOR;
+    } else if (identifier == "return") {
+        token_type = TOKEN_RETURN;
+    } else if (identifier == "var") {
+        token_type = TOKEN_VAR;
+    } else if (identifier == "true") {
+        token_type = TOKEN_TRUE;
+    } else if (identifier == "false") {
+        token_type = TOKEN_FALSE;
+    } else if (identifier == "null") {
+        token_type = TOKEN_NULL;
+    }
+    
+    lexer["tokens"] = push(lexer["tokens"], make_token(token_type, identifier, lexer["line"], start_col));
+}
+
+fn lexer_read_number(lexer) {
+    var start_pos = lexer["pos"];
+    var start_col = lexer["column"];
+    
+    while (lexer["pos"] < lexer["length"]) {
+        var char = slice(lexer["text"], lexer["pos"], lexer["pos"] + 1);
+        if (!(is_digit(char) || char == ".")) {
+            break;
+        }
+        lexer["pos"] = lexer["pos"] + 1;
+        lexer["column"] = lexer["column"] + 1;
+    }
+    
+    var number_str = slice(lexer["text"], start_pos, lexer["pos"]);
+    lexer["tokens"] = push(lexer["tokens"], make_token(TOKEN_NUMBER, number_str, lexer["line"], start_col));
+}
+
+fn lexer_read_string(lexer, quote_char) {
+    var start_pos = lexer["pos"];
+    var start_col = lexer["column"];
+    lexer["pos"] = lexer["pos"] + 1;  // Skip opening quote
+    lexer["column"] = lexer["column"] + 1;
+    
+    var value = "";
+    while (lexer["pos"] < lexer["length"]) {
+        var char = slice(lexer["text"], lexer["pos"], lexer["pos"] + 1);
+        if (char == quote_char) {
+            break;
+        }
+        if (char == "\n") {
+            print("Unterminated string at " + to_string(lexer["line"]) + ":" + to_string(lexer["column"]));
+            return;
+        }
+        if (char == "\\") {
+            // Handle escape sequences
+            lexer["pos"] = lexer["pos"] + 1;
+            lexer["column"] = lexer["column"] + 1;
+            if (lexer["pos"] >= lexer["length"]) {
+                print("Unterminated string at " + to_string(lexer["line"]) + ":" + to_string(lexer["column"]));
+                return;
+            }
+            var escaped_char = slice(lexer["text"], lexer["pos"], lexer["pos"] + 1);
+            if (escaped_char == "n") {
+                value = value + "\n";
+            } else if (escaped_char == "t") {
+                value = value + "\t";
+            } else if (escaped_char == "\\" || escaped_char == "\"" || escaped_char == "'") {
+                value = value + escaped_char;
+            } else {
+                value = value + "\\" + escaped_char;
+            }
+        } else {
+            value = value + char;
+        }
+        lexer["pos"] = lexer["pos"] + 1;
+        lexer["column"] = lexer["column"] + 1;
+    }
+    
+    if (lexer["pos"] >= lexer["length"] || slice(lexer["text"], lexer["pos"], lexer["pos"] + 1) != quote_char) {
+        print("Unterminated string at " + to_string(lexer["line"]) + ":" + to_string(lexer["column"]));
+        return;
+    }
+    
+    lexer["pos"] = lexer["pos"] + 1;  // Skip closing quote
+    lexer["column"] = lexer["column"] + 1;
+    lexer["tokens"] = push(lexer["tokens"], make_token(TOKEN_STRING, value, lexer["line"], start_col));
+}
+
+fn lexer_read_operator(lexer) {
+    var start_col = lexer["column"];
+    var op = slice(lexer["text"], lexer["pos"], lexer["pos"] + 1);
+    lexer["pos"] = lexer["pos"] + 1;
+    lexer["column"] = lexer["column"] + 1;
+    
+    // Check for two-character operators
+    if (lexer["pos"] < lexer["length"]) {
+        var two_char_op = op + slice(lexer["text"], lexer["pos"], lexer["pos"] + 1);
+        if (two_char_op == "==" || two_char_op == "!=" || two_char_op == "<=" || 
+            two_char_op == ">=" || two_char_op == "&&" || two_char_op == "||" || 
+            two_char_op == "->" || two_char_op == "++" || two_char_op == "--" ||
+            two_char_op == "+=" || two_char_op == "-=" || two_char_op == "*=" ||
+            two_char_op == "/=") {
+            op = two_char_op;
+            lexer["pos"] = lexer["pos"] + 1;
+            lexer["column"] = lexer["column"] + 1;
+        }
+    }
+    
+    lexer["tokens"] = push(lexer["tokens"], make_token(TOKEN_OPERATOR, op, lexer["line"], start_col));
+}
+
+fn lexer_read_punctuation(lexer) {
+    var char = slice(lexer["text"], lexer["pos"], lexer["pos"] + 1);
+    lexer["tokens"] = push(lexer["tokens"], make_token(TOKEN_PUNCTUATION, char, lexer["line"], lexer["column"]));
+    lexer["pos"] = lexer["pos"] + 1;
+    lexer["column"] = lexer["column"] + 1;
+}
+
+fn lexer_read_single_line_comment(lexer) {
+    // Skip until end of line
+    while (lexer["pos"] < lexer["length"]) {
+        var char = slice(lexer["text"], lexer["pos"], lexer["pos"] + 1);
+        if (char == "\n") {
+            break;
+        }
+        lexer["pos"] = lexer["pos"] + 1;
+        lexer["column"] = lexer["column"] + 1;
+    }
+}
+
+fn lexer_read_multi_line_comment(lexer) {
+    lexer["pos"] = lexer["pos"] + 1;  // Skip first '*'
+    lexer["column"] = lexer["column"] + 1;
+    
+    while (lexer["pos"] + 1 < lexer["length"]) {
+        var char1 = slice(lexer["text"], lexer["pos"], lexer["pos"] + 1);
+        var char2 = slice(lexer["text"], lexer["pos"] + 1, lexer["pos"] + 2);
+        if (char1 == "*" && char2 == "/") {
+            lexer["pos"] = lexer["pos"] + 2;  // Skip '*/'
+            lexer["column"] = lexer["column"] + 2;
+            return;
+        }
+        if (char1 == "\n") {
+            lexer["line"] = lexer["line"] + 1;
+            lexer["column"] = 1;
+        } else {
+            lexer["column"] = lexer["column"] + 1;
+        }
+        lexer["pos"] = lexer["pos"] + 1;
+    }
+    print("Unterminated multi-line comment at " + to_string(lexer["line"]) + ":" + to_string(lexer["column"]));
+}
+
+fn lexer_read_comment(lexer) {
+    // Skip until end of line (for mode directives like #mode)
+    while (lexer["pos"] < lexer["length"]) {
+        var char = slice(lexer["text"], lexer["pos"], lexer["pos"] + 1);
+        if (char == "\n") {
+            break;
+        }
+        lexer["pos"] = lexer["pos"] + 1;
+        lexer["column"] = lexer["column"] + 1;
+    }
+}
+
+// Create BlockParser as a factory function
+fn make_block_parser(tokens) {
+    return {
+        "tokens": tokens,
+        "pos": 0,
+        "current_token": len(tokens) > 0 ? tokens[0] : None
+    };
+}
+
+fn parser_advance(parser) {
+    parser["pos"] = parser["pos"] + 1;
+    if (parser["pos"] < len(parser["tokens"])) {
+        parser["current_token"] = parser["tokens"][parser["pos"]];
+    } else {
+        parser["current_token"] = None;
+    }
+}
+
+fn parser_match(parser, expected_type, expected_value) {
+    if (!parser["current_token"]) {
+        return false;
+    }
+    if (parser["current_token"]["type"] != expected_type) {
+        return false;
+    }
+    if (expected_value && parser["current_token"]["value"] != expected_value) {
+        return false;
+    }
+    return true;
+}
+
+fn parser_consume(parser, expected_type, expected_value) {
+    if (!parser_match(parser, expected_type, expected_value)) {
+        var current = parser["current_token"];
+        var msg = "Expected " + expected_type;
+        if (expected_value) {
+            msg = msg + "=" + expected_value;
+        }
+        msg = msg + ", got " + current["type"] + "='" + current["value"] + "' at " + to_string(current["line"]) + ":" + to_string(current["column"]);
+        print(msg);
+        return None;
+    }
+    var token = parser["current_token"];
+    parser_advance(parser);
+    return token;
+}
+
+fn parser_parse_program(parser) {
+    var statements = [];
+    while (parser["current_token"] && parser["current_token"]["type"] != TOKEN_EOF) {
+        var stmt = parser_parse_statement(parser);
+        if (stmt) {
+            statements = push(statements, stmt);
+        }
+    }
+    return prim_ast.make_block_statement_node(statements);
+}
+
+fn parser_parse_statement(parser) {
+    if (parser_match(parser, TOKEN_VAR)) {
+        return parser_parse_var_declaration(parser);
+    } else if (parser_match(parser, TOKEN_FN)) {
+        return parser_parse_function_definition(parser);
+    } else if (parser_match(parser, TOKEN_IF)) {
+        return parser_parse_if_statement(parser);
+    } else if (parser_match(parser, TOKEN_WHILE)) {
+        return parser_parse_while_loop(parser);
+    } else if (parser_match(parser, TOKEN_RETURN)) {
+        return parser_parse_return_statement(parser);
+    } else if (parser_match(parser, TOKEN_IDENTIFIER)) {
+        // Check for assignment
+        if (parser["pos"] + 1 < len(parser["tokens"])) {
+            var next_token = parser["tokens"][parser["pos"] + 1];
+            if (next_token["value"] == "=") {
+                return parser_parse_assignment(parser);
+            }
+        }
+        // Expression statement
+        var expr = parser_parse_expression(parser);
+        parser_consume(parser, TOKEN_PUNCTUATION, ";");
+        return prim_ast.make_expression_statement_node(expr);
+    } else {
+        // Expression statement
+        var expr = parser_parse_expression(parser);
+        parser_consume(parser, TOKEN_PUNCTUATION, ";");
+        return prim_ast.make_expression_statement_node(expr);
+    }
+}
+
+fn parser_parse_var_declaration(parser) {
+    parser_consume(parser, TOKEN_VAR);
+    var var_name = parser_consume(parser, TOKEN_IDENTIFIER)["value"];
+    parser_consume(parser, TOKEN_OPERATOR, "=");
+    var value_expr = parser_parse_expression(parser);
+    parser_consume(parser, TOKEN_PUNCTUATION, ";");
+    return prim_ast.make_assignment_node(prim_ast.make_variable_access_node(var_name), value_expr);
+}
+
+fn parser_parse_assignment(parser) {
+    var var_name = parser_consume(parser, TOKEN_IDENTIFIER)["value"];
+    parser_consume(parser, TOKEN_OPERATOR, "=");
+    var value_expr = parser_parse_expression(parser);
+    parser_consume(parser, TOKEN_PUNCTUATION, ";");
+    return prim_ast.make_assignment_node(prim_ast.make_variable_access_node(var_name), value_expr);
+}
+
+fn parser_parse_function_definition(parser) {
+    parser_consume(parser, TOKEN_FN);
+    var name = parser_consume(parser, TOKEN_IDENTIFIER)["value"];
+    parser_consume(parser, TOKEN_PUNCTUATION, "(");
+    
+    var params = [];
+    if (!parser_match(parser, TOKEN_PUNCTUATION, ")")) {
+        params = push(params, parser_consume(parser, TOKEN_IDENTIFIER)["value"]);
+        while (parser_match(parser, TOKEN_PUNCTUATION, ",")) {
+            parser_advance(parser);
+            params = push(params, parser_consume(parser, TOKEN_IDENTIFIER)["value"]);
+        }
+    }
+    
+    parser_consume(parser, TOKEN_PUNCTUATION, ")");
+    parser_consume(parser, TOKEN_PUNCTUATION, "{");
+    
+    var body_statements = [];
+    while (!parser_match(parser, TOKEN_PUNCTUATION, "}")) {
+        var stmt = parser_parse_statement(parser);
+        if (stmt) {
+            body_statements = push(body_statements, stmt);
+        }
+    }
+    
+    parser_consume(parser, TOKEN_PUNCTUATION, "}");
+    
+    var body = prim_ast.make_block_statement_node(body_statements);
+    return prim_ast.make_lambda_node(params, body);
+}
+
+fn parser_parse_if_statement(parser) {
+    parser_consume(parser, TOKEN_IF);
+    parser_consume(parser, TOKEN_PUNCTUATION, "(");
+    var condition = parser_parse_expression(parser);
+    parser_consume(parser, TOKEN_PUNCTUATION, ")");
+    parser_consume(parser, TOKEN_PUNCTUATION, "{");
+    
+    var then_statements = [];
+    while (!parser_match(parser, TOKEN_PUNCTUATION, "}")) {
+        var stmt = parser_parse_statement(parser);
+        if (stmt) {
+            then_statements = push(then_statements, stmt);
+        }
+    }
+    parser_consume(parser, TOKEN_PUNCTUATION, "}");
+    
+    var alternate = None;
+    if (parser_match(parser, TOKEN_ELSE)) {
+        parser_advance(parser);
+        parser_consume(parser, TOKEN_PUNCTUATION, "{");
+        var else_statements = [];
+        while (!parser_match(parser, TOKEN_PUNCTUATION, "}")) {
+            var stmt = parser_parse_statement(parser);
+            if (stmt) {
+                else_statements = push(else_statements, stmt);
+            }
+        }
+        parser_consume(parser, TOKEN_PUNCTUATION, "}");
+        alternate = prim_ast.make_block_statement_node(else_statements);
+    }
+    
+    var consequent = prim_ast.make_block_statement_node(then_statements);
+    return prim_ast.make_if_statement_node(condition, consequent, alternate);
+}
+
+fn parser_parse_while_loop(parser) {
+    parser_consume(parser, TOKEN_WHILE);
+    parser_consume(parser, TOKEN_PUNCTUATION, "(");
+    var condition = parser_parse_expression(parser);
+    parser_consume(parser, TOKEN_PUNCTUATION, ")");
+    parser_consume(parser, TOKEN_PUNCTUATION, "{");
+    
+    var body_statements = [];
+    while (!parser_match(parser, TOKEN_PUNCTUATION, "}")) {
+        var stmt = parser_parse_statement(parser);
+        if (stmt) {
+            body_statements = push(body_statements, stmt);
+        }
+    }
+    parser_consume(parser, TOKEN_PUNCTUATION, "}");
+    
+    var body = prim_ast.make_block_statement_node(body_statements);
+    return prim_ast.make_while_loop_node(condition, body);
+}
+
+fn parser_parse_return_statement(parser) {
+    parser_consume(parser, TOKEN_RETURN);
+    var value = None;
+    if (parser["current_token"] && !parser_match(parser, TOKEN_PUNCTUATION, ";")) {
+        value = parser_parse_expression(parser);
+    }
+    parser_consume(parser, TOKEN_PUNCTUATION, ";");
+    return prim_ast.make_return_statement_node(value);
+}
+
+// Expression parsing - same as slim parser
+fn parser_parse_expression(parser) {
+    return parser_parse_logical_or(parser);
+}
+
+fn parser_parse_logical_or(parser) {
+    var left = parser_parse_logical_and(parser);
+    while (parser_match(parser, TOKEN_OPERATOR, "||")) {
+        parser_advance(parser);
+        var right = parser_parse_logical_and(parser);
+        left = prim_ast.make_binary_operation_node("||", left, right);
+    }
+    return left;
+}
+
+fn parser_parse_logical_and(parser) {
+    var left = parser_parse_equality(parser);
+    while (parser_match(parser, TOKEN_OPERATOR, "&&")) {
+        parser_advance(parser);
+        var right = parser_parse_equality(parser);
+        left = prim_ast.make_binary_operation_node("&&", left, right);
+    }
+    return left;
+}
+
+fn parser_parse_equality(parser) {
+    var left = parser_parse_comparison(parser);
+    while (parser_match(parser, TOKEN_OPERATOR)) {
+        var val = parser["current_token"]["value"];
+        if (val == "==" || val == "!=") {
+            var op = parser_consume(parser, TOKEN_OPERATOR)["value"];
+            var right = parser_parse_comparison(parser);
+            left = prim_ast.make_binary_operation_node(op, left, right);
+        } else {
+            break;
+        }
+    }
+    return left;
+}
+
+fn parser_parse_comparison(parser) {
+    var left = parser_parse_addition(parser);
+    while (parser_match(parser, TOKEN_OPERATOR)) {
+        var val = parser["current_token"]["value"];
+        if (val == "<" || val == ">" || val == "<=" || val == ">=") {
+            var op = parser_consume(parser, TOKEN_OPERATOR)["value"];
+            var right = parser_parse_addition(parser);
+            left = prim_ast.make_binary_operation_node(op, left, right);
+        } else {
+            break;
+        }
+    }
+    return left;
+}
+
+fn parser_parse_addition(parser) {
+    var left = parser_parse_multiplication(parser);
+    while (parser_match(parser, TOKEN_OPERATOR)) {
+        var val = parser["current_token"]["value"];
+        if (val == "+" || val == "-") {
+            var op = parser_consume(parser, TOKEN_OPERATOR)["value"];
+            var right = parser_parse_multiplication(parser);
+            left = prim_ast.make_binary_operation_node(op, left, right);
+        } else {
+            break;
+        }
+    }
+    return left;
+}
+
+fn parser_parse_multiplication(parser) {
+    var left = parser_parse_unary(parser);
+    while (parser_match(parser, TOKEN_OPERATOR)) {
+        var val = parser["current_token"]["value"];
+        if (val == "*" || val == "/" || val == "%") {
+            var op = parser_consume(parser, TOKEN_OPERATOR)["value"];
+            var right = parser_parse_unary(parser);
+            left = prim_ast.make_binary_operation_node(op, left, right);
+        } else {
+            break;
+        }
+    }
+    return left;
+}
+
+fn parser_parse_unary(parser) {
+    if (parser_match(parser, TOKEN_OPERATOR)) {
+        var val = parser["current_token"]["value"];
+        if (val == "!" || val == "-" || val == "+") {
+            var op = parser_consume(parser, TOKEN_OPERATOR)["value"];
+            var operand = parser_parse_unary(parser);
+            return prim_ast.make_unary_operation_node(op, operand);
+        }
+    }
+    return parser_parse_primary(parser);
+}
+
+fn parser_parse_primary(parser) {
+    if (parser_match(parser, TOKEN_NUMBER)) {
+        var value = float(parser_consume(parser, TOKEN_NUMBER)["value"]);
+        return prim_ast.make_number_literal_node(value);
+    } else if (parser_match(parser, TOKEN_STRING)) {
+        var value = parser_consume(parser, TOKEN_STRING)["value"];
+        return prim_ast.make_string_literal_node(value);
+    } else if (parser_match(parser, TOKEN_TRUE)) {
+        parser_consume(parser, TOKEN_TRUE);
+        return prim_ast.make_boolean_literal_node(true);
+    } else if (parser_match(parser, TOKEN_FALSE)) {
+        parser_consume(parser, TOKEN_FALSE);
+        return prim_ast.make_boolean_literal_node(false);
+    } else if (parser_match(parser, TOKEN_NULL)) {
+        parser_consume(parser, TOKEN_NULL);
+        return prim_ast.make_null_literal_node();
+    } else if (parser_match(parser, TOKEN_IDENTIFIER)) {
+        var name = parser_consume(parser, TOKEN_IDENTIFIER)["value"];
+        // Check if it's a function call
+        if (parser_match(parser, TOKEN_PUNCTUATION, "(")) {
+            parser_consume(parser, TOKEN_PUNCTUATION, "(");
+            var args = [];
+            if (!parser_match(parser, TOKEN_PUNCTUATION, ")")) {
+                args = push(args, parser_parse_expression(parser));
+                while (parser_match(parser, TOKEN_PUNCTUATION, ",")) {
+                    parser_advance(parser);
+                    args = push(args, parser_parse_expression(parser));
+                }
+            }
+            parser_consume(parser, TOKEN_PUNCTUATION, ")");
+            var callee = prim_ast.make_variable_access_node(name);
+            return prim_ast.make_function_call_node(callee, args);
+        }
+        return prim_ast.make_variable_access_node(name);
+    } else if (parser_match(parser, TOKEN_PUNCTUATION, "(")) {
+        parser_consume(parser, TOKEN_PUNCTUATION, "(");
+        var expr = parser_parse_expression(parser);
+        parser_consume(parser, TOKEN_PUNCTUATION, ")");
+        return expr;
+    } else {
+        print("Unexpected token: " + to_string(parser["current_token"]));
+        return None;
+    }
+}
+
+// Parse block mode code and return AST
+fn parse_block_code(code) {
+    var lexer = make_block_lexer(code);
+    var tokens = lexer_tokenize(lexer);
+    var parser = make_block_parser(tokens);
+    return parser_parse_program(parser);
+}

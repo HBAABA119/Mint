@@ -1,0 +1,43 @@
+#mode slim
+# Prim Documentation
+# Provides documentation generation, API docs, user guides,
+# reference documentation, and doc tools
+
+# Doc type constants
+DOC_API = "api"
+DOC_GUIDE = "guide"
+DOC_REFERENCE = "reference"
+DOC_TUTORIAL = "tutorial"
+
+# Document factory
+fn make_document(name, type_, content):
+    return {
+        "name": name,
+        "type": type_,
+        "content": content
+    }
+
+# DocumentationManager factory
+fn make_documentation_manager():
+    return {
+        "documents": {}
+    }
+
+fn documentation_manager_add_document(manager, document):
+    manager["documents"][document["name"]] = document
+
+fn documentation_manager_get_document(manager, name):
+    if contains(dict_keys(manager["documents"]), name):
+        return manager["documents"][name]
+    return None
+
+fn main():
+    print("Testing Documentation...")
+    manager = make_documentation_manager()
+    doc = make_document("api", DOC_API, "API documentation")
+    documentation_manager_add_document(manager, doc)
+    print("Document: " + doc["name"])
+    print("Documentation initialized successfully")
+
+if __name__ == "__main__":
+    main()

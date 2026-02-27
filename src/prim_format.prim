@@ -1,0 +1,482 @@
+#mode slim
+# Prim Code Formatter
+# Provides consistent formatting rules across all syntax modes with customizable
+# style configurations, pre-commit hook integration, editor plugin support, and batch formatting.
+
+# import re
+# import os
+# from typing import Dict, List, Optional, Any, Tuple
+# from dataclasses import dataclass, field
+# from enum import Enum
+
+
+SyntaxMode_SLIM = "slim"
+SyntaxMode_BLOCK = "block"
+SyntaxMode_FLOW = "flow"class
+# Class FormattingStyle
+    # Formatting style configuration
+    indent_size: int = 4
+    indent_style: str = "space"  # "space" or "tab"
+    max_line_length: int = 88
+    quote_style: str = "double"  # "double" or "single"
+    trailing_comma: bool = true
+    spaces_around_operators: bool = true
+    spaces_after_comma: bool = true
+    blank_lines_top_level: int = 2
+    blank_lines_functions: int = 1
+    preserve_blank_lines: int = 1
+
+
+# Class PrimFormatter
+    # Code formatter for Prim language
+
+    fn make_primformatter(style = None):
+        obj = {}
+        obj["style"] = style or FormattingStyle()
+        obj["indent_char"] = ' ' if obj["style"].indent_style == "space" else '\t'
+
+    def format(self, code: str, mode = SyntaxMode.SLIM) -> str:
+        # Format code according to style rules
+        if mode == SyntaxMode.SLIM:
+            return primformatter__format_slim(obj, code)
+        elif mode == SyntaxMode.BLOCK:
+            return primformatter__format_block(obj, code)
+        elif mode == SyntaxMode.FLOW:
+            return primformatter__format_flow(obj, code)
+        return code
+
+    def _format_slim(self, code: str) -> str:
+        # Format slim (Python-like) mode code
+        lines = code.split('\n')
+        formatted_lines = []
+        
+        # Remove leading/trailing blank lines
+        while lines and not lines[0].strip():
+            lines.pop(0)
+        while lines and not lines[-1].strip():
+            lines.pop()
+        
+        # Track indentation level
+        indent_level = 0
+        
+        for i, line in enumerate(lines):
+            stripped = line.lstrip()
+            
+            # Skip empty lines (but preserve some)
+            if not stripped:
+                # Preserve blank lines up to style setting
+                if obj["style"].preserve_blank_lines > 0:
+                    # Check if this is within the allowed blank lines
+                    blank_count = 0
+                    for j in range(i - 1, -1, -1):
+                        if not lines[j].strip():
+                            blank_count += 1
+                        else:
+                            break
+                    if blank_count < obj["style"].preserve_blank_lines:
+                        formatted_lines = push(formatted_lines, '')
+                continue
+            
+            # Calculate current indentation
+            current_indent = len(line) - len(stripped)
+            expected_indent = indent_level * obj["style"].indent_size
+            
+            # Detect dedent
+            if stripped.startswith(('else', 'elif', 'except', 'finally')):
+                indent_level = max(0, indent_level - 1)
+                expected_indent = indent_level * obj["style"].indent_size
+            
+            # Apply indentation
+            if current_indent != expected_indent:
+                line = obj["indent_char"] * expected_indent + stripped
+            
+            # Format the line
+            formatted_line = primformatter__format_line(obj, line, SyntaxMode.SLIM)
+            formatted_lines = push(formatted_lines, formatted_line)
+            
+            # Detect indent (lines ending with :)
+            if stripped.endswith(':'):
+                indent_level += 1
+        
+        return '\n'.join(formatted_lines)
+
+    def _format_block(self, code: str) -> str:
+        # Format block (C/JS-like) mode code
+        lines = code.split('\n')
+        formatted_lines = []
+        
+        # Remove leading/trailing blank lines
+        while lines and not lines[0].strip():
+            lines.pop(0)
+        while lines and not lines[-1].strip():
+            lines.pop()
+        
+        # Track indentation level
+        indent_level = 0
+        
+        for line in lines:
+            stripped = line.strip()
+            
+            # Skip empty lines
+            if not stripped:
+                if obj["style"].preserve_blank_lines > 0:
+                    formatted_lines = push(formatted_lines, '')
+                continue
+            
+            # Calculate current indentation
+            current_indent = len(line) - len(line.lstrip())
+            expected_indent = indent_level * obj["style"].indent_size
+            
+            # Detect dedent
+            if stripped.startswith(('}', ']')) or stripped.startswith(('else', 'elif', 'except', 'finally')):
+                indent_level = max(0, indent_level - 1)
+                expected_indent = indent_level * obj["style"].indent_size
+            
+            # Apply indentation
+            if current_indent != expected_indent:
+                line = obj["indent_char"] * expected_indent + stripped
+            
+            # Format the line
+            formatted_line = primformatter__format_line(obj, line, SyntaxMode.BLOCK)
+            formatted_lines = push(formatted_lines, formatted_line)
+            
+            # Detect indent (lines ending with {)
+            if stripped.endswith('{'):
+                indent_level += 1
+        
+        return '\n'.join(formatted_lines)
+
+    def _format_flow(self, code: str) -> str:
+        # Format flow (functional) mode code
+        lines = code.split('\n')
+        formatted_lines = []
+        
+        # Remove leading/trailing blank lines
+        while lines and not lines[0].strip():
+            lines.pop(0)
+        while lines and not lines[-1].strip():
+            lines.pop()
+        
+        for line in lines:
+            stripped = line.strip()
+            
+            # Skip empty lines
+            if not stripped:
+                if obj["style"].preserve_blank_lines > 0:
+                    formatted_lines = push(formatted_lines, '')
+                continue
+            
+            # Format the line
+            formatted_line = primformatter__format_line(obj, line, SyntaxMode.FLOW)
+            formatted_lines = push(formatted_lines, formatted_line)
+        
+        return '\n'.join(formatted_lines)
+
+    def _format_line(self, line: str, mode) -> str:
+        # Format a single line
+        # Add spaces around operators
+        if obj["style"].spaces_around_operators:
+            line = primformatter__format_operators(obj, line)
+        
+        # Format quotes
+        line = primformatter__format_quotes(obj, line)
+        
+        # Format commas
+        if obj["style"].spaces_after_comma:
+            line = primformatter__format_commas(obj, line)
+        
+        # Format function calls
+        line = primformatter__format_function_calls(obj, line, mode)
+        
+        return line
+
+    def _format_operators(self, line: str) -> str:
+        # Add spaces around operators
+        operators = ['=', '==', '!=', '<=', '>=', '<', '>', '+=', '-=', '*=', '/=', '%=', '=>']
+        
+        for op in operators:
+            # Add space before and after
+            pattern = r'(\S)' + re.escape(op) + r'(\S)'
+            replacement = r'\1 ' + op + r' \2'
+            line = re.sub(pattern, replacement, line)
+        
+        return line
+
+    def _format_quotes(self, line: str) -> str:
+        # Convert quotes to preferred style
+        if obj["style"].quote_style == "double":
+            # Convert single quotes to double (simple approach)
+            # This is simplified - real implementation would be more careful
+            pass
+        return line
+
+    def _format_commas(self, line: str) -> str:
+        # Add spaces after commas
+        return re.sub(r',(\S)', r', \1', line)
+
+    def _format_function_calls(self, line: str, mode) -> str:
+        # Format function calls
+        # Add spaces after commas in function calls
+        line = re.sub(r'\(([^)]*),', r'(\1, ', line)
+        return line
+
+    def format_file(
+        self,
+        file_path: str,
+        mode = null,
+        in_place: bool = false
+    ) -> str:
+        # Format a file
+        with open(file_path, 'r') as f:
+            code = f.read()
+        
+        # Detect mode if not specified
+        if mode is null:
+            mode = primformatter__detect_mode(obj, code)
+        
+        # Format code
+        formatted_code = primformatter_format(obj, code, mode)
+        
+        # Write back if in_place
+        if in_place:
+            with open(file_path, 'w') as f:
+                f.write(formatted_code)
+        
+        return formatted_code
+
+    def _detect_mode(self, code: str) :
+        # Detect syntax mode from code
+        # Check for mode directive
+        mode_match = re.search(r'#mode\s+(\w+)', code)
+        if mode_match:
+            mode_str = mode_match.group(1).lower()
+            try:
+                return SyntaxMode(mode_str)
+            except ValueError:
+                pass
+        
+        # Auto-detect based on syntax
+        if '{' in code and '}' in code and ';' in code:
+            return SyntaxMode.BLOCK
+        elif '|>' in code or ':=' in code:
+            return SyntaxMode.FLOW
+        else:
+            return SyntaxMode.SLIM
+
+    def format_directory(
+        self,
+        directory: str,
+        pattern: str = "*.prim",
+        recursive: bool = true
+    ) :
+        # Format all files in a directory
+        formatted_files = []
+        
+        if recursive:
+            for root, dirs, files in os.walk(directory):
+                for file in files:
+                    if file.endswith('.prim'):
+                        file_path = os.path.join(root, file)
+                        primformatter_format_file(obj, file_path, in_place=true)
+                        formatted_files = push(formatted_files, file_path)
+        else:
+            for file in os.listdir(directory):
+                if file.endswith('.prim'):
+                    file_path = os.path.join(directory, file)
+                    primformatter_format_file(obj, file_path, in_place=true)
+                    formatted_files = push(formatted_files, file_path)
+        
+        return formatted_files
+
+    def check_formatting(self, code: str, mode = SyntaxMode.SLIM) :
+        # Check if code is properly formatted, return list of issues
+        issues = []
+        lines = code.split('\n')
+        
+        # Check line length
+        for i, line in enumerate(lines):
+            if len(line) > obj["style"].max_line_length:
+                issues = push(issues, "Line {i+1} max line length ({obj["style"].max_line_length})")
+        
+        # Check indentation
+        expected_indent = 0
+        for i, line in enumerate(lines):
+            stripped = line.lstrip()
+            if not stripped:
+                continue
+            
+            current_indent = len(line) - len(stripped)
+            
+            # Detect indent level
+            indent_level = current_indent // obj["style"].indent_size
+            
+            if current_indent != indent_level * obj["style"].indent_size:
+                issues = push(issues, "Line {i+1} indentation")
+        
+        return issues
+
+
+# Class PrecommitHookGenerator
+    # Generate pre-commit hooks for code formatting
+
+    @staticmethod
+    def generate_hook(formatter_path: str = "prim_format.py") -> str:
+        # Generate pre-commit hook content
+        hook_content = f# #!/bin/sh
+# # Prim code formatter pre-commit hook
+# 
+# # Format all staged .prim files
+# for file in $(git diff --cached --name-only | grep '\\.prim$'); do
+# python {formatter_path} format "$file" --in-place
+# done
+# 
+# # Re-add formatted files
+# git add -u
+        return hook_content
+
+    @staticmethod
+    fn install_hook(hook_path: str = ".git/hooks/pre-commit"):
+        # Install pre-commit hook
+        hook_content = PrecommitHookGenerator.generate_hook()
+        
+        os.makedirs(os.path.dirname(hook_path), exist_ok=true)
+        with open(hook_path, 'w') as f:
+            f.write(hook_content)
+        
+        # Make executable
+        os.chmod(hook_path, 0o755)
+
+
+# Class EditorConfigGenerator
+    # Generate EditorConfig for consistent formatting
+
+    @staticmethod
+    def generate(style) -> str:
+        # Generate .editorconfig content
+        config = f# # EditorConfig is awesome: https://EditorConfig.org
+# 
+# root = true
+# 
+# [*]
+# charset = utf-8
+# end_of_line = lf
+# insert_final_newline = true
+# trim_trailing_whitespace = true
+# 
+# [*.prim]
+# indent_style = {style.indent_style}
+# indent_size = {style.indent_size}
+# max_line_length = {style.max_line_length}
+        return config
+
+
+# Class FormatterCLI
+    # Command-line interface for formatter
+
+    fn make_formattercli():
+        obj = {}
+        obj["formatter"] = PrimFormatter()
+
+    fn formattercli_run(obj, args):
+        # Run CLI command
+        if not args:
+            formattercli_show_help(obj, )
+            return
+        
+        command = args[0]
+        command_args = args[1:]
+        
+        if command == 'format':
+            formattercli_cmd_format(obj, command_args)
+        elif command == 'check':
+            formattercli_cmd_check(obj, command_args)
+        elif command == 'install-hook':
+            formattercli_cmd_install_hook(obj, command_args)
+        elif command == 'generate-editorconfig':
+            formattercli_cmd_generate_editorconfig(obj, command_args)
+        else:
+            print("Unknown command: {command}")
+            formattercli_show_help(obj, )
+
+    fn formattercli_cmd_format(obj, args):
+        # Format files
+        in_place = '--in-place' in args or '-i' in args
+        recursive = '--recursive' in args or '-r' in args
+        
+        # Remove flags from args
+        args = [a for a in args if not a.startswith('-')]
+        
+        if not args:
+            print("Usage: format <file_or_directory> [--in-place] [--recursive]")
+            return
+        
+        path = args[0]
+        
+        if os.path.isfile(path):
+            formatted = obj["formatter"].format_file(path, in_place=in_place)
+            if not in_place:
+                print(formatted)
+        elif os.path.isdir(path):
+            files = obj["formatter"].format_directory(path, recursive=recursive)
+            print("Formatted {len(files)} file(s)")
+
+    fn formattercli_cmd_check(obj, args):
+        # Check formatting
+        if not args:
+            print("Usage: check <file>")
+            return
+        
+        file_path = args[0]
+        
+        with open(file_path, 'r') as f:
+            code = f.read()
+        
+        mode = obj["formatter"]._detect_mode(code)
+        issues = obj["formatter"].check_formatting(code, mode)
+        
+        if issues:
+            print("Found {len(issues)} formatting issue(s):")
+            for issue in issues:
+                print("  - {issue}")
+        else:
+            print("No formatting issues found")
+
+    fn formattercli_cmd_install_hook(obj, args):
+        # Install pre-commit hook
+        hook_path = args[0] if args else ".git/hooks/pre-commit"
+        PrecommitHookGenerator.install_hook(hook_path)
+        print("Pre-commit hook installed at {hook_path}")
+
+    fn formattercli_cmd_generate_editorconfig(obj, args):
+        # Generate EditorConfig
+        config = EditorConfigGenerator.generate(obj["formatter"].style)
+        print(config)
+
+    fn formattercli_show_help(obj):
+        # Show help
+        print(# Prim Code Formatter Commands:
+# format <file_or_dir> [--in-place] [--recursive]  Format files
+# check <file>                                      Check formatting
+# install-hook [path]                              Install pre-commit hook
+# generate-editorconfig                            Generate EditorConfig
+# 
+# Options:
+# -i, --in-place     Format files in place
+# -r, --recursive   Format files recursively
+# 
+# Example:
+# python prim_format.py format example.prim --in-place
+# python prim_format.py format src/ --recursive
+# python prim_format.py check example.prim)
+
+
+fn main():
+    # Main entry point
+    import sys
+    
+    cli = FormatterCLI()
+    cli.run(sys.argv[1:])
+
+
+if __name__ == "__main__":
+    main()

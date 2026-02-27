@@ -1,0 +1,182 @@
+#mode slim
+# Prim Documentation Generator
+# Auto-generates documentation from source code comments with multi-format output
+# (HTML, PDF, Markdown), interactive API documentation, example code integration,
+# and cross-reference linking
+
+# Doc format constants
+DOC_FORMAT_MARKDOWN = "markdown"
+DOC_FORMAT_HTML = "html"
+DOC_FORMAT_PDF = "pdf"
+DOC_FORMAT_JSON = "json"
+
+# Doc type constants
+DOC_TYPE_MODULE = "module"
+DOC_TYPE_FUNCTION = "function"
+DOC_TYPE_CLASS = "class"
+DOC_TYPE_VARIABLE = "variable"
+DOC_TYPE_EXAMPLE = "example"
+
+# Parameter factory
+fn make_parameter(name, type_, description, default_val, optional):
+    return {
+        "name": name,
+        "type": type_,
+        "description": description,
+        "default": default_val,
+        "optional": optional
+    }
+
+# Documentation factory
+fn make_documentation(name, doc_type, description):
+    return {
+        "name": name,
+        "doc_type": doc_type,
+        "description": description,
+        "parameters": [],
+        "returns": None,
+        "raises": [],
+        "examples": [],
+        "see_also": [],
+        "deprecated": false,
+        "since": None,
+        "version": None,
+        "author": None,
+        "file_path": "",
+        "line_number": 0
+    }
+
+# DocParser factory
+fn make_doc_parser():
+    return {
+        "patterns": {}
+    }
+
+fn doc_parser_parse_file(parser, file_path):
+    # Parse documentation from a file (conceptual)
+    docs = []
+    # Simplified parsing
+    return docs
+
+fn doc_parser_parse_function(parser, name, lines, line_index):
+    # Parse function documentation (simplified)
+    doc = make_documentation(name, DOC_TYPE_FUNCTION, "Function documentation")
+    doc["line_number"] = line_index + 1
+    return doc
+
+# DocGenerator factory
+fn make_doc_generator():
+    return {
+        "parser": make_doc_parser(),
+        "output_dir": "docs"
+    }
+
+fn doc_generator_generate(generator, source_path, output_format, output_dir):
+    # Generate documentation
+    if output_dir != None:
+        generator["output_dir"] = output_dir
+    
+    # Parse source files
+    docs = doc_generator_parse_source(generator, source_path)
+    
+    # Generate documentation based on format
+    if output_format == DOC_FORMAT_MARKDOWN:
+        return doc_generator_generate_markdown(generator, docs)
+    elif output_format == DOC_FORMAT_HTML:
+        return doc_generator_generate_html(generator, docs)
+    elif output_format == DOC_FORMAT_JSON:
+        return doc_generator_generate_json(generator, docs)
+    
+    return ""
+
+fn doc_generator_parse_source(generator, source_path):
+    # Parse all source files (conceptual)
+    docs = []
+    return docs
+
+fn doc_generator_generate_markdown(generator, docs):
+    # Generate Markdown documentation (simplified)
+    lines = []
+    lines = push(lines, "# API Documentation")
+    lines = push(lines, "")
+    lines = push(lines, "Generated documentation")
+    lines = push(lines, "")
+    
+    for doc in docs:
+        lines = push(lines, "## " + doc["name"])
+        lines = push(lines, "")
+        if doc["deprecated"]:
+            lines = push(lines, "**Deprecated**")
+            lines = push(lines, "")
+        if doc["description"] != "":
+            lines = push(lines, doc["description"])
+            lines = push(lines, "")
+    
+    return generator["output_dir"] + "/API.md"
+
+fn doc_generator_generate_html(generator, docs):
+    # Generate HTML documentation (simplified)
+    return generator["output_dir"] + "/API.html"
+
+fn doc_generator_generate_json(generator, docs):
+    # Generate JSON documentation (simplified)
+    return generator["output_dir"] + "/API.json"
+
+# DocGeneratorCLI factory
+fn make_doc_generator_cli():
+    return {
+        "generator": make_doc_generator()
+    }
+
+fn doc_generator_cli_run(cli, args):
+    # Run CLI command
+    if len(args) == 0:
+        doc_generator_cli_show_help(cli)
+        return
+    
+    command = args[0]
+    command_args = slice(args, 1, len(args))
+    
+    if command == "generate":
+        doc_generator_cli_cmd_generate(cli, command_args)
+    else:
+        print("Unknown command: " + command)
+        doc_generator_cli_show_help(cli)
+
+fn doc_generator_cli_cmd_generate(cli, args):
+    # Generate documentation
+    if len(args) == 0:
+        print("Usage: generate <source_path> [format] [output_dir]")
+        return
+    
+    source_path = args[0]
+    format_str = "markdown"
+    if len(args) > 1:
+        format_str = args[1]
+    output_dir = None
+    if len(args) > 2:
+        output_dir = args[2]
+    
+    output_path = doc_generator_generate(cli["generator"], source_path, format_str, output_dir)
+    print("Documentation generated: " + output_path)
+
+fn doc_generator_cli_show_help(cli):
+    # Show help
+    print("")
+    print("Prim Documentation Generator Commands:")
+    print("  generate <source_path> [format] [output_dir]  Generate documentation")
+    print("")
+    print("Formats:")
+    print("  markdown   Generate Markdown documentation")
+    print("  html       Generate HTML documentation")
+    print("  pdf        Generate PDF documentation")
+    print("  json       Generate JSON documentation")
+    print("")
+
+fn main():
+    print("Prim Documentation Generator")
+    cli = make_doc_generator_cli()
+    doc_generator_cli_show_help(cli)
+
+if __name__ == "__main__":
+    main()

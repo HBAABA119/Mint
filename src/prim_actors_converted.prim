@@ -1,0 +1,262 @@
+#mode slim
+# Prim Actor Model
+# Provides actor-based concurrency, message passing, actor lifecycle management,
+# supervision trees, and distributed actor support
+
+# Actor state constants
+ACTOR_STARTING = "starting"
+ACTOR_RUNNING = "running"
+ACTOR_STOPPING = "stopping"
+ACTOR_STOPPED = "stopped"
+ACTOR_FAILED = "failed"
+
+# Supervisor strategy constants
+SUPERVISOR_ONE_FOR_ONE = "one_for_one"
+SUPERVISOR_ONE_FOR_ALL = "one_for_all"
+SUPERVISOR_RESTART = "restart"
+SUPERVISOR_ESCALATE = "escalate"
+
+# Factory function for Message
+fn make_message(sender, type_, data, reply_to):
+    return {
+        "sender": sender,
+        "type": type_,
+        "data": data,
+        "reply_to": reply_to
+    }
+
+# Actor factory
+fn make_actor(name):
+    return {
+        "name": name,
+        "state": ACTOR_STOPPED,
+        "mailbox": [],
+        "handlers": {},
+        "supervisor": None,
+        "children": []
+    }
+
+fn actor_on_start(actor):
+    # Called when actor starts - override in specific actors
+    pass
+
+fn actor_on_stop(actor):
+    # Called when actor stops - override in specific actors
+    pass
+
+fn actor_on_message(actor, message):
+    # Handle incoming message
+    handler = dict_get(actor["handlers"], message["type"])
+    if handler != None:
+        handler(message)
+
+fn actor_on_error(actor, error):
+    # Handle errors
+    print("Actor " + actor["name"] + " error: " + to_string(error))
+
+fn actor_receive(actor):
+    # Receive a message from mailbox
+    if len(actor["mailbox"]) > 0:
+        message = actor["mailbox"][0]
+        actor["mailbox"] = slice(actor["mailbox"], 1, len(actor["mailbox"]))
+        return message
+    return None
+
+fn actor_send(actor, message):
+    # Send a message to this actor
+    actor["mailbox"] = push(actor["mailbox"], message)
+
+fn actor_tell(actor, message_type, data, reply_to):
+    # Send a message to this actor
+    message = make_message(None, message_type, data, reply_to)
+    actor_send(actor, message)
+
+fn actor_start(actor):
+    # Start the actor
+    actor["state"] = ACTOR_STARTING
+    actor["state"] = ACTOR_RUNNING
+    actor_on_start(actor)
+
+fn actor_stop(actor):
+    # Stop the actor
+    actor["state"] = ACTOR_STOPPING
+    for child in actor["children"]:
+        actor_stop(child)
+    actor["state"] = ACTOR_STOPPED
+    actor_on_stop(actor)
+
+fn actor_spawn(actor, creator, name, args):
+    # Spawn a child actor
+    child = creator(name, args)
+    child["supervisor"] = actor
+    actor["children"] = push(actor["children"], child)
+    actor_start(child)
+    return child
+
+# ReplyActor factory
+fn make_reply_actor(reply_channel):
+    actor = make_actor("reply")
+    actor["reply_channel"] = reply_channel
+    return actor
+
+fn reply_actor_on_message(actor, message):
+    # Forward reply to channel
+    actor["reply_channel"] = push(actor["reply_channel"], message["data"])
+
+# Supervisor factory
+fn make_supervisor(name, strategy):
+    if strategy == None:
+        strategy = SUPERVISOR_ONE_FOR_ONE
+    supervisor = make_actor(name)
+    supervisor["strategy"] = strategy
+    supervisor["restart_policy"] = {}
+    return supervisor
+
+fn supervisor_supervise(supervisor, actor, restart_policy):
+    # Add actor to supervision
+    if restart_policy == None:
+        restart_policy = "permanent"
+    supervisor["restart_policy"][actor["name"]] = restart_policy
+
+fn supervisor_on_error(supervisor, error):
+    # Handle child errors
+    if supervisor["strategy"] == SUPERVISOR_ONE_FOR_ONE:
+        # Restart only the failed actor
+        pass
+    elif supervisor["strategy"] == SUPERVISOR_ONE_FOR_ALL:
+        # Restart all children
+        for child in supervisor["children"]:
+            actor_stop(child)
+            actor_start(child)
+
+# ActorSystem factory
+fn make_actor_system(name):
+    if name == None:
+        name = "default"
+    return {
+        "name": name,
+        "actors": {},
+        "root_supervisor": make_supervisor("root", SUPERVISOR_ONE_FOR_ONE)
+    }
+
+fn actor_system_actor_of(system, props, name):
+    # Create an actor
+    actor = props["create"](name)
+    actor["supervisor"] = system["root_supervisor"]
+    system["actors"][name] = actor
+    actor_start(actor)
+    return actor
+
+fn actor_system_get_actor(system, name):
+    # Get an actor by name
+    if contains(dict_keys(system["actors"]), name):
+        return system["actors"][name]
+    return None
+
+fn actor_system_stop(system):
+    # Stop all actors
+    keys = dict_keys(system["actors"])
+    for key in keys:
+        actor_stop(system["actors"][key])
+
+# Props factory
+fn make_props(creator, dispatcher):
+    return {
+        "creator": creator,
+        "dispatcher": dispatcher,
+        "create": fn(name) { creator(name) }
+    }
+
+fn props(creator, dispatcher):
+    return make_props(creator, dispatcher)
+
+# ActorRef factory
+fn make_actor_ref(actor):
+    return {
+        "actor": actor,
+        "tell": fn(message_type, data) { actor_tell(actor, message_type, data, None) },
+        "ask": fn(message_type, data, timeout) { actor_tell(actor, message_type, data, None) },
+        "stop": fn() { actor_stop(actor) }
+    }
+
+# DistributedActor factory
+fn make_distributed_actor(name, address, port):
+    actor = make_actor(name)
+    actor["address"] = address
+    actor["port"] = port
+    actor["remote_actors"] = {}
+    return actor
+
+fn distributed_actor_connect_to(actor, address, port):
+    # Connect to remote actor
+    # In a real implementation, this would establish network connection
+    return make_actor_ref(actor)
+
+fn distributed_actor_send_remote(actor, actor_name, message):
+    # Send message to remote actor
+    # In a real implementation, this would send over network
+    pass
+
+# ActorSelection factory
+fn make_actor_selection(system, path):
+    return {
+        "system": system,
+        "path": path
+    }
+
+fn actor_selection_actor(selection):
+    # Get actor reference
+    actor = actor_system_get_actor(selection["system"], selection["path"])
+    if actor != None:
+        return make_actor_ref(actor)
+    return None
+
+fn actor_selection_fn(system, path):
+    return make_actor_selection(system, path)
+
+# DeadLetterOffice factory
+fn make_dead_letter_office():
+    office = make_actor("dead_letters")
+    office["undelivered"] = []
+    return office
+
+fn dead_letter_office_on_message(office, message):
+    # Handle undelivered message
+    office["undelivered"] = push(office["undelivered"], message)
+    print("Dead letter: " + message["type"] + " from " + to_string(message["sender"]))
+
+fn main():
+    print("Testing Actor Model...")
+    
+    # Create actor system
+    system = make_actor_system("test_system")
+    
+    # Create a simple echo actor
+    fn make_echo_actor(name):
+        actor = make_actor(name)
+        actor["on_message"] = fn(message) {
+            if message["type"] == "echo":
+                print("Echo: " + to_string(message["data"]))
+            elif message["type"] == "ping":
+                if message["reply_to"] != None:
+                    actor_tell(message["reply_to"], "pong", "pong", None)
+        }
+        return actor
+    
+    # Create props
+    echo_props = make_props(make_echo_actor, None)
+    
+    # Create actor
+    echo = actor_system_actor_of(system, echo_props, "echo")
+    
+    # Send messages
+    actor_tell(echo, "echo", "Hello World", None)
+    actor_tell(echo, "ping", "ping", None)
+    
+    # Stop system
+    actor_system_stop(system)
+    
+    print("Actor model initialized successfully")
+
+if __name__ == "__main__":
+    main()

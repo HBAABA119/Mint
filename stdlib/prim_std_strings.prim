@@ -1,0 +1,424 @@
+#mode slim
+# Prim Standard Library - String Module
+# Provides essential string operations for Prim
+
+use prim_interpreter
+
+fn std_string_length(interpreter, str_val):
+    # Get the length of a string
+    s = str_val
+    if is_runtime_value(str_val):
+        s = str_val["value"]
+    return prim_interpreter.make_runtime_value(strlen(s))
+
+fn std_string_upper(interpreter, str_val):
+    # Convert string to uppercase
+    s = str_val
+    if is_runtime_value(str_val):
+        s = str_val["value"]
+    return prim_interpreter.make_runtime_value(to_upper(s))
+
+fn std_string_lower(interpreter, str_val):
+    # Convert string to lowercase
+    s = str_val
+    if is_runtime_value(str_val):
+        s = str_val["value"]
+    return prim_interpreter.make_runtime_value(to_lower(s))
+
+fn std_string_split(interpreter, str_val, delimiter_val):
+    # Split a string by delimiter
+    s = str_val
+    if is_runtime_value(str_val):
+        s = str_val["value"]
+    
+    delimiter = None
+    if delimiter_val:
+        delimiter = delimiter_val
+        if is_runtime_value(delimiter_val):
+            delimiter = delimiter_val["value"]
+    
+    if delimiter == None:
+        # Split on whitespace by default
+        return prim_interpreter.make_runtime_value(split_whitespace(s))
+    else:
+        return prim_interpreter.make_runtime_value(split_on(s, delimiter))
+
+fn std_string_join(interpreter, lst_val, separator_val):
+    # Join a list of strings with a separator
+    lst = lst_val
+    if is_runtime_value(lst_val):
+        lst = lst_val["value"]
+    
+    separator = ""
+    if separator_val:
+        separator = separator_val
+        if is_runtime_value(separator_val):
+            separator = separator_val["value"]
+    
+    result = ""
+    i = 0
+    while i < len(lst):
+        if i > 0:
+            result = result + separator
+        item = lst[i]
+        result = result + to_string(item)
+        i = i + 1
+    
+    return prim_interpreter.make_runtime_value(result)
+
+fn std_string_trim(interpreter, str_val):
+    # Trim whitespace from both ends of a string
+    s = str_val
+    if is_runtime_value(str_val):
+        s = str_val["value"]
+    return prim_interpreter.make_runtime_value(trim(s))
+
+fn std_string_starts_with(interpreter, str_val, prefix_val):
+    # Check if string starts with a prefix
+    s = str_val
+    if is_runtime_value(str_val):
+        s = str_val["value"]
+    
+    prefix = prefix_val
+    if is_runtime_value(prefix_val):
+        prefix = prefix_val["value"]
+    
+    return prim_interpreter.make_runtime_value(starts_with(s, prefix))
+
+fn std_string_ends_with(interpreter, str_val, suffix_val):
+    # Check if string ends with a suffix
+    s = str_val
+    if is_runtime_value(str_val):
+        s = str_val["value"]
+    
+    suffix = suffix_val
+    if is_runtime_value(suffix_val):
+        suffix = suffix_val["value"]
+    
+    return prim_interpreter.make_runtime_value(ends_with(s, suffix))
+
+fn std_string_contains(interpreter, str_val, substr_val):
+    # Check if string contains a substring
+    s = str_val
+    if is_runtime_value(str_val):
+        s = str_val["value"]
+    
+    substr = substr_val
+    if is_runtime_value(substr_val):
+        substr = substr_val["value"]
+    
+    return prim_interpreter.make_runtime_value(contains(s, substr))
+
+fn std_string_replace(interpreter, str_val, old_val, new_val):
+    # Replace occurrences of a substring with another
+    s = str_val
+    if is_runtime_value(str_val):
+        s = str_val["value"]
+    
+    old = old_val
+    if is_runtime_value(old_val):
+        old = old_val["value"]
+    
+    new = new_val
+    if is_runtime_value(new_val):
+        new = new_val["value"]
+    
+    return prim_interpreter.make_runtime_value(string_replace(s, old, new))
+
+fn std_string_pad_start(interpreter, str_val, length_val, pad_val):
+    # Pad string at the start to reach specified length
+    s = str_val
+    if is_runtime_value(str_val):
+        s = str_val["value"]
+    
+    length = length_val
+    if is_runtime_value(length_val):
+        length = length_val["value"]
+    length = int(length)
+    
+    pad_char = " "
+    if pad_val:
+        pad_char = pad_val
+        if is_runtime_value(pad_val):
+            pad_char = pad_val["value"]
+    
+    current_len = strlen(s)
+    if current_len >= length:
+        return prim_interpreter.make_runtime_value(s)
+    
+    padding_needed = length - current_len
+    padding = ""
+    i = 0
+    while i < padding_needed:
+        padding = padding + pad_char
+        i = i + 1
+    
+    return prim_interpreter.make_runtime_value(padding + s)
+
+fn std_string_pad_end(interpreter, str_val, length_val, pad_val):
+    # Pad string at the end to reach specified length
+    s = str_val
+    if is_runtime_value(str_val):
+        s = str_val["value"]
+    
+    length = length_val
+    if is_runtime_value(length_val):
+        length = length_val["value"]
+    length = int(length)
+    
+    pad_char = " "
+    if pad_val:
+        pad_char = pad_val
+        if is_runtime_value(pad_val):
+            pad_char = pad_val["value"]
+    
+    current_len = strlen(s)
+    if current_len >= length:
+        return prim_interpreter.make_runtime_value(s)
+    
+    padding_needed = length - current_len
+    padding = ""
+    i = 0
+    while i < padding_needed:
+        padding = padding + pad_char
+        i = i + 1
+    
+    return prim_interpreter.make_runtime_value(s + padding)
+
+fn std_string_slice(interpreter, str_val, start_val, end_val):
+    # Extract a substring from start to end index
+    s = str_val
+    if is_runtime_value(str_val):
+        s = str_val["value"]
+    
+    start = start_val
+    if is_runtime_value(start_val):
+        start = start_val["value"]
+    start = int(start)
+    
+    end = strlen(s)
+    if end_val:
+        end = end_val
+        if is_runtime_value(end_val):
+            end = end_val["value"]
+        end = int(end)
+    
+    return prim_interpreter.make_runtime_value(slice(s, start, end))
+
+fn is_runtime_value(val):
+    return is_dict(val) and contains(dict_keys(val), "value")
+
+fn is_dict(val):
+    return type(val) == "dict"
+
+# String helper functions
+fn to_upper(s):
+    result = ""
+    i = 0
+    while i < strlen(s):
+        char = slice(s, i, i + 1)
+        # Convert lowercase to uppercase
+        if char == "a":
+            result = result + "A"
+        elif char == "b":
+            result = result + "B"
+        elif char == "c":
+            result = result + "C"
+        elif char == "d":
+            result = result + "D"
+        elif char == "e":
+            result = result + "E"
+        elif char == "f":
+            result = result + "F"
+        elif char == "g":
+            result = result + "G"
+        elif char == "h":
+            result = result + "H"
+        elif char == "i":
+            result = result + "I"
+        elif char == "j":
+            result = result + "J"
+        elif char == "k":
+            result = result + "K"
+        elif char == "l":
+            result = result + "L"
+        elif char == "m":
+            result = result + "M"
+        elif char == "n":
+            result = result + "N"
+        elif char == "o":
+            result = result + "O"
+        elif char == "p":
+            result = result + "P"
+        elif char == "q":
+            result = result + "Q"
+        elif char == "r":
+            result = result + "R"
+        elif char == "s":
+            result = result + "S"
+        elif char == "t":
+            result = result + "T"
+        elif char == "u":
+            result = result + "U"
+        elif char == "v":
+            result = result + "V"
+        elif char == "w":
+            result = result + "W"
+        elif char == "x":
+            result = result + "X"
+        elif char == "y":
+            result = result + "Y"
+        elif char == "z":
+            result = result + "Z"
+        else:
+            result = result + char
+        i = i + 1
+    return result
+
+fn to_lower(s):
+    result = ""
+    i = 0
+    while i < strlen(s):
+        char = slice(s, i, i + 1)
+        # Convert uppercase to lowercase
+        if char == "A":
+            result = result + "a"
+        elif char == "B":
+            result = result + "b"
+        elif char == "C":
+            result = result + "c"
+        elif char == "D":
+            result = result + "d"
+        elif char == "E":
+            result = result + "e"
+        elif char == "F":
+            result = result + "f"
+        elif char == "G":
+            result = result + "g"
+        elif char == "H":
+            result = result + "h"
+        elif char == "I":
+            result = result + "i"
+        elif char == "J":
+            result = result + "j"
+        elif char == "K":
+            result = result + "k"
+        elif char == "L":
+            result = result + "l"
+        elif char == "M":
+            result = result + "m"
+        elif char == "N":
+            result = result + "n"
+        elif char == "O":
+            result = result + "o"
+        elif char == "P":
+            result = result + "p"
+        elif char == "Q":
+            result = result + "q"
+        elif char == "R":
+            result = result + "r"
+        elif char == "S":
+            result = result + "s"
+        elif char == "T":
+            result = result + "t"
+        elif char == "U":
+            result = result + "u"
+        elif char == "V":
+            result = result + "v"
+        elif char == "W":
+            result = result + "w"
+        elif char == "X":
+            result = result + "x"
+        elif char == "Y":
+            result = result + "y"
+        elif char == "Z":
+            result = result + "z"
+        else:
+            result = result + char
+        i = i + 1
+    return result
+
+fn split_whitespace(s):
+    result = []
+    current = ""
+    i = 0
+    while i < strlen(s):
+        char = slice(s, i, i + 1)
+        if char == " " or char == "\t" or char == "\n" or char == "\r":
+            if strlen(current) > 0:
+                result = push(result, current)
+                current = ""
+        else:
+            current = current + char
+        i = i + 1
+    if strlen(current) > 0:
+        result = push(result, current)
+    return result
+
+fn split_on(s, delimiter):
+    result = []
+    current = ""
+    delim_len = strlen(delimiter)
+    i = 0
+    while i < strlen(s):
+        if i + delim_len <= strlen(s) and slice(s, i, i + delim_len) == delimiter:
+            result = push(result, current)
+            current = ""
+            i = i + delim_len
+        else:
+            current = current + slice(s, i, i + 1)
+            i = i + 1
+    result = push(result, current)
+    return result
+
+fn starts_with(s, prefix):
+    if strlen(prefix) > strlen(s):
+        return false
+    i = 0
+    while i < strlen(prefix):
+        if slice(s, i, i + 1) != slice(prefix, i, i + 1):
+            return false
+        i = i + 1
+    return true
+
+fn ends_with(s, suffix):
+    if strlen(suffix) > strlen(s):
+        return false
+    s_len = strlen(s)
+    suffix_len = strlen(suffix)
+    i = 0
+    while i < suffix_len:
+        if slice(s, s_len - suffix_len + i, s_len - suffix_len + i + 1) != slice(suffix, i, i + 1):
+            return false
+        i = i + 1
+    return true
+
+fn string_replace(s, old, new):
+    result = ""
+    old_len = strlen(old)
+    i = 0
+    while i < strlen(s):
+        if i + old_len <= strlen(s) and slice(s, i, i + old_len) == old:
+            result = result + new
+            i = i + old_len
+        else:
+            result = result + slice(s, i, i + 1)
+            i = i + 1
+    return result
+
+fn register_string_functions(interpreter):
+    # Register string utility functions with the interpreter
+    env = interpreter["global_env"]
+    prim_interpreter.env_define(env, "strlen", std_string_length)
+    prim_interpreter.env_define(env, "upper", std_string_upper)
+    prim_interpreter.env_define(env, "lower", std_string_lower)
+    prim_interpreter.env_define(env, "split", std_string_split)
+    prim_interpreter.env_define(env, "join", std_string_join)
+    prim_interpreter.env_define(env, "trim", std_string_trim)
+    prim_interpreter.env_define(env, "starts_with", std_string_starts_with)
+    prim_interpreter.env_define(env, "ends_with", std_string_ends_with)
+    prim_interpreter.env_define(env, "contains", std_string_contains)
+    prim_interpreter.env_define(env, "replace", std_string_replace)
+    prim_interpreter.env_define(env, "pad_start", std_string_pad_start)
+    prim_interpreter.env_define(env, "pad_end", std_string_pad_end)
+    prim_interpreter.env_define(env, "slice", std_string_slice)

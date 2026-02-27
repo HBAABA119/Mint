@@ -1,0 +1,50 @@
+#mode slim
+# Prim Neuromorphic Computing
+# Provides spiking neural networks, neuromorphic hardware, event-driven processing,
+# neuromorphic algorithms, and brain-inspired computing
+
+# Neuron type constants
+NEURON_LIF = "lif"
+NEURON_IAF = "iaf"
+NEURON_IZHIKEVICH = "izhikevich"
+NEURON_HODGKIN_HUXLEY = "hodgkin_huxley"
+
+# Factory function for SpikingNeuron
+fn make_spiking_neuron(id, type_, threshold, membrane_potential):
+    return {
+        "id": id,
+        "type": type_,
+        "threshold": threshold,
+        "membrane_potential": membrane_potential
+    }
+
+# NeuromorphicNetwork factory
+fn make_neuromorphic_network():
+    return {
+        "neurons": {},
+        "synapses": {}
+    }
+
+fn neuromorphic_network_add_neuron(network, neuron):
+    network["neurons"][neuron["id"]] = neuron
+
+fn neuromorphic_network_connect(network, source, target):
+    if not contains(dict_keys(network["synapses"]), source):
+        network["synapses"][source] = []
+    network["synapses"][source] = push(network["synapses"][source], target)
+
+fn neuromorphic_network_spike(network, neuron_id):
+    if contains(dict_keys(network["neurons"]), neuron_id):
+        network["neurons"][neuron_id]["membrane_potential"] = network["neurons"][neuron_id]["threshold"]
+
+fn main():
+    print("Testing Neuromorphic Computing...")
+    network = make_neuromorphic_network()
+    neuron = make_spiking_neuron("n1", NEURON_LIF, 1.0, 0.0)
+    neuromorphic_network_add_neuron(network, neuron)
+    neuromorphic_network_spike(network, "n1")
+    print("Neurons: " + to_string(len(dict_keys(network["neurons"]))))
+    print("Neuromorphic Computing initialized successfully")
+
+if __name__ == "__main__":
+    main()

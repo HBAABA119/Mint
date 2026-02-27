@@ -1,0 +1,391 @@
+#mode slim
+# Prim Garbage Collector
+# Provides mark-and-sweep GC, generational GC, memory tracking, and GC statistics.
+
+# import sys
+# import gc
+# from typing import Dict, List, Set, Optional, Any, Callable
+# from dataclasses import dataclass, field
+# from enum import Enum
+# import weakref
+
+
+GCType_MARK_AND_SWEEP = "mark_and_sweep"
+GCType_GENERATIONAL = "generational"
+GCType_REFERENCE_COUNTING = "reference_counting"GCGeneration_YOUNG = "young"
+GCGeneration_OLD = "old"
+GCGeneration_PERMANENT = "permanent"class
+# Class GCStats
+    # Garbage collection statistics
+    collections: int = 0
+    objects_collected: int = 0
+    bytes_collected: int = 0
+    time_spent: float = 0.0
+    memory_before: int = 0
+    memory_after: int = 0
+
+
+# Class GCObject
+    # Tracked GC object
+
+    fn make_gcobject(obj, generation = GCGeneration.YOUNG):
+        obj = {}
+        obj["obj"] = obj
+        obj["generation"] = generation
+        obj["references"] = set()
+        obj["marked"] = false
+        obj["size"] = sys.getsizeof(obj) if obj else 0
+
+
+# Class MarkAndSweepGC
+    # Mark-and-sweep garbage collector
+
+    fn make_markandsweepgc():
+        obj = {}
+        obj["objects"] = {}
+        obj["roots"] = set()
+        obj["stats"] = GCStats()
+
+    fn markandsweepgc_track_object(obj, obj):
+        # Track an object for GC
+        if obj is null:
+            return
+
+        obj_id = id(obj)
+        if obj_id not in obj["objects"]:
+            obj["objects"][obj_id] = GCObject(obj)
+
+    fn markandsweepgc_add_root(obj, obj):
+        # Add a root object
+        obj["roots"].add(obj)
+
+    fn markandsweepgc_remove_root(obj, obj):
+        # Remove a root object
+        obj["roots"].discard(obj)
+
+    def collect(self) :
+        # Run garbage collection
+        import time
+
+        start_time = time.time()
+        obj["stats"].memory_before = markandsweepgc__get_memory_usage(obj, )
+
+        # Mark phase
+        markandsweepgc__mark(obj, )
+
+        # Sweep phase
+        markandsweepgc__sweep(obj, )
+
+        end_time = time.time()
+        obj["stats"].time_spent = end_time - start_time
+        obj["stats"].memory_after = markandsweepgc__get_memory_usage(obj, )
+        obj["stats"].collections += 1
+
+        return obj["stats"]
+
+    fn markandsweepgc__mark(obj):
+        # Mark reachable objects
+        # Reset marks
+        for gc_obj in obj["objects"].values():
+            gc_obj.marked = false
+
+        # Mark from roots
+        for root in obj["roots"]:
+            markandsweepgc__mark_object(obj, root)
+
+    fn markandsweepgc__mark_object(obj, obj):
+        # Mark an object and its references
+        if obj is null:
+            return
+
+        obj_id = id(obj)
+        if obj_id not in obj["objects"]:
+            return
+
+        gc_obj = obj["objects"][obj_id]
+        if gc_obj.marked:
+            return
+
+        gc_obj.marked = true
+
+        # Mark references
+        for ref in gc_obj.references:
+            markandsweepgc__mark_object(obj, ref.obj)
+
+    fn markandsweepgc__sweep(obj):
+        # Sweep unmarked objects
+        to_remove = []
+
+        for obj_id, gc_obj in obj["objects"].items():
+            if not gc_obj.marked:
+                to_remove = push(to_remove, obj_id)
+                obj["stats"].objects_collected += 1
+                obj["stats"].bytes_collected += gc_obj.size
+
+        for obj_id in to_remove:
+            del obj["objects"][obj_id]
+
+    def _get_memory_usage(self) -> int:
+        # Get current memory usage
+        return sum(gc_obj.size for gc_obj in obj["objects"].values())
+
+
+# Class GenerationalGC
+    # Generational garbage collector
+
+    fn make_generationalgc():
+        obj = {}
+        obj["young_generation"] = {}
+        obj["old_generation"] = {}
+        obj["promotion_threshold"] = 3
+        obj["young_collections"] = 0
+        obj["old_collections"] = 0
+        obj["stats"] = GCStats()
+
+    fn generationalgc_track_object(obj, obj):
+        # Track an object for GC
+        if obj is null:
+            return
+
+        obj_id = id(obj)
+        if obj_id not in obj["young_generation"] and obj_id not in obj["old_generation"]:
+            obj["young_generation"][obj_id] = GCObject(obj, GCGeneration.YOUNG)
+
+    def collect_young(self) :
+        # Collect young generation
+        obj["young_collections"] += 1
+        return generationalgc__collect_generation(obj, obj["young_generation"], GCGeneration.YOUNG)
+
+    def collect_old(self) :
+        # Collect old generation
+        obj["old_collections"] += 1
+        return generationalgc__collect_generation(obj, obj["old_generation"], GCGeneration.OLD)
+
+    def _collect_generation(self, generation, gen_type) :
+        # Collect a specific generation
+        import time
+
+        start_time = time.time()
+        stats = GCStats()
+
+        # Mark phase
+        for obj_id, gc_obj in generation.items():
+            gc_obj.marked = false
+
+        # Sweep phase
+        to_remove = []
+        to_promote = []
+
+        for obj_id, gc_obj in generation.items():
+            if not gc_obj.marked:
+                to_remove = push(to_remove, obj_id)
+                stats.objects_collected += 1
+                stats.bytes_collected += gc_obj.size
+            elif gen_type == GCGeneration.YOUNG:
+                # Check if object should be promoted
+                if obj["young_collections"] >= obj["promotion_threshold"]:
+                    to_promote = push(to_promote, obj_id)
+
+        for obj_id in to_remove:
+            del generation[obj_id]
+
+        for obj_id in to_promote:
+            gc_obj = generation.pop(obj_id)
+            gc_obj.generation = GCGeneration.OLD
+            obj["old_generation"][obj_id] = gc_obj
+
+        end_time = time.time()
+        stats.time_spent = end_time - start_time
+        stats.collections += 1
+
+        return stats
+
+
+# Class ReferenceCountingGC
+    # Reference counting garbage collector
+
+    fn make_referencecountinggc():
+        obj = {}
+        obj["ref_counts"] = {}
+        obj["objects"] = {}
+        obj["stats"] = GCStats()
+
+    fn referencecountinggc_track_object(obj, obj):
+        # Track an object for GC
+        if obj is null:
+            return
+
+        obj_id = id(obj)
+        if obj_id not in obj["objects"]:
+            obj["objects"][obj_id] = obj
+            obj["ref_counts"][obj_id] = 1
+
+    fn referencecountinggc_add_reference(obj, obj):
+        # Add a reference to an object
+        if obj is null:
+            return
+
+        obj_id = id(obj)
+        if obj_id in obj["ref_counts"]:
+            obj["ref_counts"][obj_id] += 1
+
+    fn referencecountinggc_remove_reference(obj, obj):
+        # Remove a reference from an object
+        if obj is null:
+            return
+
+        obj_id = id(obj)
+        if obj_id in obj["ref_counts"]:
+            obj["ref_counts"][obj_id] -= 1
+
+            if obj["ref_counts"][obj_id] <= 0:
+                del obj["ref_counts"][obj_id]
+                if obj_id in obj["objects"]:
+                    del obj["objects"][obj_id]
+                    obj["stats"].objects_collected += 1
+
+    def collect(self) :
+        # Run garbage collection (check for circular references)
+        import time
+
+        start_time = time.time()
+
+        # Check for circular references
+        to_remove = []
+        for obj_id, obj in obj["objects"].items():
+            if referencecountinggc__has_circular_reference(obj, obj):
+                to_remove = push(to_remove, obj_id)
+
+        for obj_id in to_remove:
+            del obj["objects"][obj_id]
+            if obj_id in obj["ref_counts"]:
+                del obj["ref_counts"][obj_id]
+            obj["stats"].objects_collected += 1
+
+        end_time = time.time()
+        obj["stats"].time_spent = end_time - start_time
+        obj["stats"].collections += 1
+
+        return obj["stats"]
+
+    def _has_circular_reference(self, obj, visited] = null) -> bool:
+        # Check if object has circular references
+        if visited is null:
+            visited = set()
+
+        obj_id = id(obj)
+        if obj_id in visited:
+            return true
+
+        visited.add(obj_id)
+
+        # Check references (simplified)
+        if hasattr(obj, '__dict__'):
+            for attr in vars(obj).values():
+                if referencecountinggc__has_circular_reference(obj, attr, visited):
+                    return true
+
+        return false
+
+
+# Class GarbageCollector
+    # Unified garbage collector
+
+    fn make_garbagecollector(gc_type = GCType.MARK_AND_SWEEP):
+        obj = {}
+        obj["gc_type"] = gc_type
+
+        if gc_type == GCType.MARK_AND_SWEEP:
+            obj["gc"] = MarkAndSweepGC()
+        elif gc_type == GCType.GENERATIONAL:
+            obj["gc"] = GenerationalGC()
+        elif gc_type == GCType.REFERENCE_COUNTING:
+            obj["gc"] = ReferenceCountingGC()
+        else:
+            obj["gc"] = MarkAndSweepGC()
+
+        obj["enabled"] = true
+        obj["auto_collect"] = true
+        obj["collect_threshold"] = 1000
+
+    fn garbagecollector_track_object(obj, obj):
+        # Track an object for GC
+        if obj["enabled"]:
+            obj["gc"].track_object(obj)
+
+    def collect(self) :
+        # Run garbage collection
+        if not obj["enabled"]:
+            return GCStats()
+
+        if isinstance(obj["gc"], GenerationalGC):
+            return obj["gc"].collect_young()
+        elif isinstance(obj["gc"], MarkAndSweepGC):
+            return obj["gc"].collect()
+        elif isinstance(obj["gc"], ReferenceCountingGC):
+            return obj["gc"].collect()
+
+        return GCStats()
+
+    def get_stats(self) :
+        # Get GC statistics
+        if hasattr(obj["gc"], 'stats'):
+            return obj["gc"].stats
+        return GCStats()
+
+    fn garbagecollector_enable(obj):
+        # Enable garbage collection
+        obj["enabled"] = true
+
+    fn garbagecollector_disable(obj):
+        # Disable garbage collection
+        obj["enabled"] = false
+
+    fn garbagecollector_set_auto_collect(obj, auto: bool):
+        # Set auto collection
+        obj["auto_collect"] = auto
+
+    fn garbagecollector_set_collect_threshold(obj, threshold: int):
+        # Set collection threshold
+        obj["collect_threshold"] = threshold
+
+
+def create_gc(gc_type = GCType.MARK_AND_SWEEP) :
+    # Create a garbage collector
+    return GarbageCollector(gc_type)
+
+
+fn main():
+    # Main entry point for testing
+    print("Testing garbage collector...")
+
+    # Test mark-and-sweep GC
+    gc = create_gc(GCType.MARK_AND_SWEEP)
+
+    # Create and track objects
+    obj1 = {"data": "test"}
+    obj2 = {"ref": obj1}
+
+    gc.track_object(obj1)
+    gc.track_object(obj2)
+
+    # Add root
+    gc.gc.add_root(obj1)
+
+    # Collect
+    stats = gc.collect()
+    print("GC Stats: {stats.collections} collections, {stats.objects_collected} objects collected")
+
+    # Test generational GC
+    gen_gc = create_gc(GCType.GENERATIONAL)
+    gen_gc.track_object(obj1)
+    gen_gc.track_object(obj2)
+
+    stats = gen_gc.collect()
+    print("Generational GC: {stats.collections} collections")
+
+    print("\nGarbage collector initialized successfully")
+
+
+if __name__ == "__main__":
+    main()

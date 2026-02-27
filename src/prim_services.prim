@@ -1,0 +1,365 @@
+#mode slim
+# Prim System Services
+# Provides service management, daemon processes, system monitoring,
+# logging services, and service discovery.
+
+# import time
+# import threading
+# import logging
+# from typing import List, Dict, Any, Optional, Callable
+# from dataclasses import dataclass, field
+# from enum import Enum
+
+
+ServiceState_STOPPED = "stopped"
+ServiceState_STARTING = "starting"
+ServiceState_RUNNING = "running"
+ServiceState_STOPPING = "stopping"
+ServiceState_FAILED = "failed"ServiceType_DAEMON = "daemon"
+ServiceType_SYSTEMD = "systemd"
+ServiceType_INIT = "init"
+ServiceType_WINDOWS_SERVICE = "windows_service"
+ServiceType_CUSTOM = "custom"class
+# Class Service
+    # System service
+    name: str
+    service_type
+    command: str
+    state = ServiceState.STOPPED
+    pid = null
+    auto_start: bool = false
+    dependencies = field(default_factory=list)
+
+
+# Class ServiceManager
+    # Service manager
+
+    fn make_servicemanager():
+        obj = {}
+        obj["services"] = {}
+        obj["running"] = {}
+
+    fn servicemanager_register_service(obj, service):
+        # Register service
+        obj["services"][service.name] = service
+
+    def start_service(self, name: str) -> bool:
+        # Start service
+        if name not in obj["services"]:
+            return false
+
+        service = obj["services"][name]
+
+        # Check dependencies
+        for dep in service.dependencies:
+            if dep in obj["services"] and not obj["running"].get(dep, false):
+                return false
+
+        service.state = ServiceState.STARTING
+
+        # Start service (simplified)
+        import subprocess
+        try:
+            process = subprocess.Popen(service.command, shell=true)
+            service.pid = process.pid
+            service.state = ServiceState.RUNNING
+            obj["running"][name] = true
+            return true
+        except Exception as e:
+            service.state = ServiceState.FAILED
+            return false
+
+    def stop_service(self, name: str) -> bool:
+        # Stop service
+        if name not in obj["services"]:
+            return false
+
+        service = obj["services"][name]
+
+        if service.pid:
+            try:
+                import signal
+                import os
+                os.kill(service.pid, signal.SIGTERM)
+                service.state = ServiceState.STOPPED
+                obj["running"][name] = false
+                return true
+            except Exception as e:
+                return false
+
+        return false
+
+    def restart_service(self, name: str) -> bool:
+        # Restart service
+        servicemanager_stop_service(obj, name)
+        time.sleep(1)
+        return servicemanager_start_service(obj, name)
+
+    def get_service_status(self, name: str) :
+        # Get service status
+        if name in obj["services"]:
+            return obj["services"][name].state
+        return null
+
+    def list_services(self) :
+        # List all services
+        return list(obj["services"].values())
+
+
+# Class Daemon
+    # Daemon process
+
+    fn make_daemon(name: str, func):
+        obj = {}
+        obj["name"] = name
+        obj["func"] = func
+        obj["running"] = false
+        obj["thread"] = null
+
+    fn daemon_start(obj):
+        # Start daemon
+        obj["running"] = true
+        obj["thread"] = threading.Thread(target=obj["_run_loop"], daemon=true)
+        obj["thread"].start()
+
+    fn daemon_stop(obj):
+        # Stop daemon
+        obj["running"] = false
+        if obj["thread"]:
+            obj["thread"].join()
+
+    fn daemon__run_loop(obj):
+        # Daemon main loop
+        while obj["running"]:
+            try:
+                daemon_func(obj, )
+            except Exception as e:
+                print("Daemon error: {e}")
+
+            time.sleep(1)
+
+
+# Class ServiceDiscovery
+    # Service discovery
+
+    fn make_servicediscovery():
+        obj = {}
+        obj["services"]] = {}
+
+    fn servicediscovery_register_service(obj, name: str, address: str, port: int, metadata = None):
+        # Register service
+        obj["services"][name] = {
+            "address": address,
+            "port": port,
+            "metadata": metadata or {},
+            "registered_at": time.time()
+        }
+
+    def discover_service(self, name: str) ]:
+        # Discover service
+        return obj["services"].get(name)
+
+    def list_services(self) :
+        # List available services
+        return list(obj["services"].keys())
+
+    def health_check(self, name: str) -> bool:
+        # Health check for service
+        service = obj["services"].get(name)
+        if not service:
+            return false
+
+        # Simplified health check
+        return true
+
+
+# Class LoggingService
+    # Logging service
+
+    fn make_loggingservice(name: str = "logger"):
+        obj = {}
+        obj["name"] = name
+        obj["logger"] = logging.getLogger(name)
+        obj["logger"].setLevel(logging.INFO)
+
+        # Console handler
+        console_handler = logging.StreamHandler()
+        console_handler.setLevel(logging.INFO)
+
+        # File handler
+        file_handler = logging.FileHandler("{name}.log")
+        file_handler.setLevel(logging.INFO)
+
+        # Formatter
+        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        console_handler.setFormatter(formatter)
+        file_handler.setFormatter(formatter)
+
+        obj["logger"].addHandler(console_handler)
+        obj["logger"].addHandler(file_handler)
+
+    fn loggingservice_log(obj, level: str, message: str):
+        # Log message
+        if level == "info":
+            obj["logger"].info(message)
+        elif level == "warning":
+            obj["logger"].warning(message)
+        elif level == "error":
+            obj["logger"].error(message)
+        elif level == "debug":
+            obj["logger"].debug(message)
+
+    fn loggingservice_info(obj, message: str):
+        # Log info message
+        loggingservice_log(obj, "info", message)
+
+    fn loggingservice_warning(obj, message: str):
+        # Log warning message
+        loggingservice_log(obj, "warning", message)
+
+    fn loggingservice_error(obj, message: str):
+        # Log error message
+        loggingservice_log(obj, "error", message)
+
+    fn loggingservice_debug(obj, message: str):
+        # Log debug message
+        loggingservice_log(obj, "debug", message)
+
+
+# Class SystemMonitor
+    # System monitoring service
+
+    fn make_systemmonitor():
+        obj = {}
+        obj["metrics"]] = {}
+        obj["running"] = false
+
+    fn systemmonitor_start(obj):
+        # Start monitoring
+        obj["running"] = true
+        threading.Thread(target=obj["_monitor_loop"], daemon=true).start()
+
+    fn systemmonitor_stop(obj):
+        # Stop monitoring
+        obj["running"] = false
+
+    fn systemmonitor__monitor_loop(obj):
+        # Monitoring loop
+        while obj["running"]:
+            systemmonitor__collect_metrics(obj, )
+            time.sleep(1)
+
+    fn systemmonitor__collect_metrics(obj):
+        # Collect system metrics
+        import psutil
+
+        # CPU
+        cpu = psutil.cpu_percent()
+        if "cpu" not in obj["metrics"]:
+            obj["metrics"]["cpu"] = []
+        obj["metrics"]["cpu"].append(cpu)
+
+        # Memory
+        mem = psutil.virtual_memory().percent
+        if "memory" not in obj["metrics"]:
+            obj["metrics"]["memory"] = []
+        obj["metrics"]["memory"].append(mem)
+
+        # Keep last 100 values
+        for key in obj["metrics"]:
+            if len(obj["metrics"][key]) > 100:
+                obj["metrics"][key] = obj["metrics"][key][-100:]
+
+    def get_metrics(self) ]:
+        # Get collected metrics
+        return obj["metrics"].copy()
+
+
+# Class ServiceManagerExtended
+    # Extended service manager
+
+    fn make_servicemanagerextended():
+        obj = {}
+        obj["service_manager"] = ServiceManager()
+        obj["discovery"] = ServiceDiscovery()
+        obj["logger"] = LoggingService("service_manager")
+        obj["monitor"] = SystemMonitor()
+
+    fn servicemanagerextended_start_all(obj):
+        # Start all auto-start services
+        for name, service in obj["service_manager"].services.items():
+            if service.auto_start:
+                obj["service_manager"].start_service(name)
+                obj["logger"].info("Started service: {name}")
+
+    fn servicemanagerextended_stop_all(obj):
+        # Stop all services
+        for name in obj["service_manager"].services:
+            obj["service_manager"].stop_service(name)
+            obj["logger"].info("Stopped service: {name}")
+
+    def get_status(self) :
+        # Get overall status
+        services = obj["service_manager"].list_services()
+
+        return {
+            "services": len(services),
+            "running": sum(1 for s in services if s.state == ServiceState.RUNNING),
+            "stopped": sum(1 for s in services if s.state == ServiceState.STOPPED),
+            "discovered_services": len(obj["discovery"].list_services())
+        }
+
+
+def create_service_manager() :
+    # Create service manager
+    return ServiceManagerExtended()
+
+
+fn main():
+    # Main entry point for testing
+    print("Testing System Services...")
+
+    # Create service manager
+    manager = create_service_manager()
+
+    # Register services
+    service1 = Service(
+        name="service1",
+        service_type=ServiceType.CUSTOM,
+        command="echo 'test'",
+        auto_start=true
+    )
+
+    manager.service_manager.register_service(service1)
+
+    # Start service
+    started = manager.service_manager.start_service("service1")
+    print("Service started: {started}")
+
+    # Test daemon
+    fn daemon_func():
+        print("Daemon running")
+
+    daemon = Daemon("test_daemon", daemon_func)
+    daemon.start()
+    time.sleep(1)
+    daemon.stop()
+
+    # Test service discovery
+    manager.discovery.register_service("test_service", "localhost", 8080)
+    discovered = manager.discovery.discover_service("test_service")
+    print("Discovered service: {discovered is not null}")
+
+    # Test logging
+    manager.logger.info("Test message")
+    print("Logged message")
+
+    # Get status
+    status = manager.get_status()
+    print("Status: {status}")
+
+    print("\nSystem Services initialized successfully")
+
+
+if __name__ == "__main__":
+    main()

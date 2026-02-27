@@ -1,0 +1,45 @@
+#mode slim
+# Prim P2P Networking
+# Provides peer-to-peer networking, node discovery, routing, DHT,
+# and distributed hash tables
+
+# Node status constants
+NODE_ONLINE = "online"
+NODE_OFFLINE = "offline"
+NODE_CONNECTING = "connecting"
+
+# Factory function for Peer
+fn make_peer(id, address, port, status):
+    return {
+        "id": id,
+        "address": address,
+        "port": port,
+        "status": status
+    }
+
+# P2PNetwork factory
+fn make_p2p_network():
+    return {
+        "peers": {}
+    }
+
+fn p2p_network_add_peer(network, peer):
+    network["peers"][peer["id"]] = peer
+
+fn p2p_network_get_peers(network):
+    peers = []
+    keys = dict_keys(network["peers"])
+    for key in keys:
+        peers = push(peers, network["peers"][key])
+    return peers
+
+fn main():
+    print("Testing P2P Networking...")
+    network = make_p2p_network()
+    peer = make_peer("peer1", "localhost", 8000, NODE_ONLINE)
+    p2p_network_add_peer(network, peer)
+    print("Peers: " + to_string(len(p2p_network_get_peers(network))))
+    print("P2P Networking initialized successfully")
+
+if __name__ == "__main__":
+    main()

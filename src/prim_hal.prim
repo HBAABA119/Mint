@@ -1,0 +1,290 @@
+#mode slim
+# Prim Hardware Abstraction Layer
+# Provides hardware abstraction, device drivers, interrupt handling,
+# memory-mapped I/O, and platform abstraction.
+
+# import ctypes
+# from typing import List, Dict, Any, Optional, Callable
+# from dataclasses import dataclass
+# from enum import Enum
+
+
+DeviceType_CPU = "cpu"
+DeviceType_GPU = "gpu"
+DeviceType_MEMORY = "memory"
+DeviceType_STORAGE = "storage"
+DeviceType_NETWORK = "network"
+DeviceType_INPUT = "input"
+DeviceType_OUTPUT = "output"InterruptType_HARDWARE = "hardware"
+InterruptType_SOFTWARE = "software"
+InterruptType_EXCEPTION = "exception"
+InterruptType_TIMER = "timer"class
+# Class Device
+    # Hardware device
+    id: str
+    type
+    name: str
+    base_address: int
+    registers
+    interrupt_line = null
+
+
+# Class HAL
+    # Hardware Abstraction Layer
+
+    fn make_hal():
+        obj = {}
+        obj["devices"] = {}
+        obj["memory_map"] = {}
+        obj["interrupt_handlers"] = {}
+        obj["io_ports"] = {}
+
+    fn hal_register_device(obj, device):
+        # Register hardware device
+        obj["devices"][device.id] = device
+
+    def read_register(self, device_id: str, register: str) -> int:
+        # Read device register
+        if device_id not in obj["devices"]:
+            raise ValueError("Device {device_id} not found")
+
+        device = obj["devices"][device_id]
+        if register not in device.registers:
+            raise ValueError("Register {register} not found")
+
+        # Simulated register read
+        return device.registers[register]
+
+    fn hal_write_register(obj, device_id: str, register: str, value: int):
+        # Write device register
+        if device_id not in obj["devices"]:
+            raise ValueError("Device {device_id} not found")
+
+        device = obj["devices"][device_id]
+        if register not in device.registers:
+            raise ValueError("Register {register} not found")
+
+        device.registers[register] = value
+
+    def map_memory(self, address: int, size: int) :
+        # Map physical memory to virtual address
+        if address in obj["memory_map"]:
+            return obj["memory_map"][address]
+
+        # Simulated memory mapping
+        memory = bytearray(size)
+        obj["memory_map"][address] = memory
+        return memory
+
+    fn hal_unmap_memory(obj, address: int):
+        # Unmap memory
+        if address in obj["memory_map"]:
+            del obj["memory_map"][address]
+
+    fn hal_register_interrupt_handler(obj, interrupt_line: int, handler):
+        # Register interrupt handler
+        obj["interrupt_handlers"][interrupt_line] = handler
+
+    fn hal_trigger_interrupt(obj, interrupt_line: int):
+        # Trigger interrupt
+        if interrupt_line in obj["interrupt_handlers"]:
+            obj["interrupt_handlers"][interrupt_line]()
+
+    fn hal_register_io_port(obj, port: int, handler):
+        # Register I/O port handler
+        obj["io_ports"][port] = handler
+
+    def read_io_port(self, port: int) -> int:
+        # Read from I/O port
+        if port in obj["io_ports"]:
+            return obj["io_ports"][port]()
+        return 0
+
+    fn hal_write_io_port(obj, port: int, value: int):
+        # Write to I/O port
+        if port in obj["io_ports"]:
+            obj["io_ports"][port](value)
+
+
+# Class DeviceDriver
+    # Device driver
+
+    fn make_devicedriver(hal, device):
+        obj = {}
+        obj["hal"] = hal
+        obj["device"] = device
+        obj["enabled"] = false
+
+    fn devicedriver_initialize(obj):
+        # Initialize device
+        obj["enabled"] = true
+
+    fn devicedriver_shutdown(obj):
+        # Shutdown device
+        obj["enabled"] = false
+
+    def read(self, register: str) -> int:
+        # Read from device register
+        return obj["hal"].read_register(obj["device"].id, register)
+
+    fn devicedriver_write(obj, register: str, value: int):
+        # Write to device register
+        obj["hal"].write_register(obj["device"].id, register, value)
+
+
+# Class InterruptController
+    # Interrupt controller
+
+    fn make_interruptcontroller(hal):
+        obj = {}
+        obj["hal"] = hal
+        obj["priority_levels"] = 16
+        obj["current_priority"] = 0
+        obj["interrupt_queue"] = []
+
+    fn interruptcontroller_enable_interrupt(obj, line: int, priority: int):
+        # Enable interrupt line
+        obj["hal"].register_interrupt_handler(line, lambda: interruptcontroller__handle_interrupt(obj, line, priority))
+
+    fn interruptcontroller_disable_interrupt(obj, line: int):
+        # Disable interrupt line
+        if line in obj["hal"].interrupt_handlers:
+            del obj["hal"].interrupt_handlers[line]
+
+    fn interruptcontroller__handle_interrupt(obj, line: int, priority: int):
+        # Handle interrupt
+        if priority >= obj["current_priority"]:
+            obj["interrupt_queue"].append(line)
+            obj["interrupt_queue"].sort(key=lambda x: x)
+
+    fn interruptcontroller_process_interrupts(obj):
+        # Process queued interrupts
+        while obj["interrupt_queue"]:
+            line = obj["interrupt_queue"].pop(0)
+            if line in obj["hal"].interrupt_handlers:
+                obj["hal"].interrupt_handlers[line]()
+
+
+# Class MemoryManager
+    # Memory management
+
+    fn make_memorymanager():
+        obj = {}
+        obj["pages"] = {}
+        obj["page_size"] = 4096
+        obj["total_pages"] = 1024
+
+    def allocate_page(self) :
+        # Allocate memory page
+        for page_num in range(obj["total_pages"]):
+            if page_num not in obj["pages"] or not obj["pages"][page_num]:
+                obj["pages"][page_num] = true
+                return page_num * obj["page_size"]
+
+        return null
+
+    fn memorymanager_free_page(obj, address: int):
+        # Free memory page
+        page_num = address // obj["page_size"]
+        if page_num in obj["pages"]:
+            obj["pages"][page_num] = false
+
+    def get_status(self) :
+        # Get memory status
+        used = sum(1 for p in obj["pages"].values() if p)
+        return {
+            "total_pages": obj["total_pages"],
+            "used_pages": used,
+            "free_pages": obj["total_pages"] - used
+        }
+
+
+# Class PlatformAbstraction
+    # Platform abstraction layer
+
+    fn make_platformabstraction():
+        obj = {}
+        obj["hal"] = HAL()
+        obj["memory_manager"] = MemoryManager()
+        obj["interrupt_controller"] = InterruptController(obj["hal"])
+
+    def get_platform_info(self) :
+        # Get platform information
+        import platform
+        return {
+            "system": platform.system(),
+            "machine": platform.machine(),
+            "processor": platform.processor(),
+            "architecture": platform.architecture()[0]
+        }
+
+    def initialize_device(self, device) :
+        # Initialize device driver
+        obj["hal"].register_device(device)
+        driver = DeviceDriver(obj["hal"], device)
+        driver.initialize()
+        return driver
+
+    def get_hal(self) :
+        # Get HAL instance
+        return obj["hal"]
+
+
+def create_hal() :
+    # Create HAL instance
+    return HAL()
+
+
+fn main():
+    # Main entry point for testing
+    print("Testing Hardware Abstraction Layer...")
+
+    # Create HAL
+    hal = create_hal()
+
+    # Create device
+    device = Device(
+        id="test_device",
+        type=DeviceType.CPU,
+        name="Test Device",
+        base_address=0x1000,
+        registers={"control": 0, "status": 0, "data": 0}
+    )
+
+    # Register device
+    hal.register_device(device)
+
+    # Test register operations
+    hal.write_register("test_device", "control", 1)
+    value = hal.read_register("test_device", "control")
+    print("Register value: {value}")
+
+    # Test memory mapping
+    memory = hal.map_memory(0x1000, 4096)
+    print("Memory mapped: {len(memory)} bytes")
+
+    # Test interrupt handler
+    fn handler():
+        print("Interrupt handled")
+
+    hal.register_interrupt_handler(1, handler)
+    hal.trigger_interrupt(1)
+
+    # Test platform abstraction
+    platform = PlatformAbstraction()
+    platform_info = platform.get_platform_info()
+    print("Platform: {platform_info['system']}")
+
+    # Test memory manager
+    mem_mgr = MemoryManager()
+    page = mem_mgr.allocate_page()
+    print("Allocated page: {page}")
+
+    status = mem_mgr.get_status()
+    print("Memory status: {status}")
+
+    print("\nHardware Abstraction Layer initialized successfully")
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,45 @@
+#mode slim
+# Prim Serverless Computing
+# Provides function deployment, event triggers, cold start optimization,
+# serverless orchestration, and pay-as-you-go billing
+
+# Function status constants
+FUNCTION_READY = "ready"
+FUNCTION_STARTING = "starting"
+FUNCTION_RUNNING = "running"
+FUNCTION_STOPPED = "stopped"
+
+# Factory function for ServerlessFunction
+fn make_serverless_function(name, handler, status):
+    return {
+        "name": name,
+        "handler": handler,
+        "status": status
+    }
+
+# ServerlessRuntime factory
+fn make_serverless_runtime():
+    return {
+        "functions": {}
+    }
+
+fn serverless_runtime_deploy_function(runtime, name, handler):
+    func = make_serverless_function(name, handler, FUNCTION_READY)
+    runtime["functions"][name] = func
+    return func
+
+fn serverless_runtime_invoke_function(runtime, name, args):
+    if contains(dict_keys(runtime["functions"]), name):
+        return runtime["functions"][name]["handler"](args)
+    return None
+
+fn main():
+    print("Testing Serverless Computing...")
+    runtime = make_serverless_runtime()
+    func = serverless_runtime_deploy_function(runtime, "test", fn(x) { x * 2 })
+    result = serverless_runtime_invoke_function(runtime, "test", 5)
+    print("Result: " + to_string(result))
+    print("Serverless Computing initialized successfully")
+
+if __name__ == "__main__":
+    main()

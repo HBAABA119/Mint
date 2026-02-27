@@ -1,0 +1,401 @@
+#mode slim
+# Prim Database Integration
+# Provides SQL support, connection pooling, transaction management, and ORM-like features
+
+# Database type constants
+DB_SQLITE = "sqlite"
+DB_POSTGRESQL = "postgresql"
+DB_MYSQL = "mysql"
+DB_MONGODB = "mongodb"
+
+# Isolation level constants
+ISOLATION_READ_UNCOMMITTED = "read_uncommitted"
+ISOLATION_READ_COMMITTED = "read_committed"
+ISOLATION_REPEATABLE_READ = "repeatable_read"
+ISOLATION_SERIALIZABLE = "serializable"
+
+# QueryResult factory
+fn make_query_result(rows, row_count, last_insert_id):
+    return {
+        "rows": rows,
+        "row_count": row_count,
+        "last_insert_id": last_insert_id
+    }
+
+# ConnectionConfig factory
+fn make_connection_config(database_type, host, port, database, username, password, options):
+    if options == None:
+        options = {}
+    return {
+        "database_type": database_type,
+        "host": host,
+        "port": port,
+        "database": database,
+        "username": username,
+        "password": password,
+        "options": options
+    }
+
+# ConnectionPool factory
+fn make_connection_pool(config, max_connections):
+    if max_connections == None:
+        max_connections = 5
+    return {
+        "config": config,
+        "max_connections": max_connections,
+        "connections": []
+    }
+
+fn connection_pool_get_connection(pool):
+    # Get a connection from the pool
+    if len(pool["connections"]) > 0:
+        conn = pool["connections"][len(pool["connections"]) - 1]
+        pool["connections"] = slice(pool["connections"], 0, len(pool["connections"]) - 1)
+        return conn
+    
+    if len(pool["connections"]) < pool["max_connections"]:
+        return connection_pool_create_connection(pool)
+    
+    print("RuntimeError: Connection pool exhausted")
+    return None
+
+fn connection_pool_return_connection(pool, connection):
+    # Return a connection to the pool
+    pool["connections"] = push(pool["connections"], connection)
+
+fn connection_pool_create_connection(pool):
+    # Create a new connection
+    if pool["config"]["database_type"] == DB_SQLITE:
+        db_path = pool["config"]["database"]
+        if db_path == None:
+            db_path = ":memory:"
+        # Conceptual SQLite connection
+        return {"type": DB_SQLITE, "path": db_path, "open": true}
+    else:
+        print("NotImplementedError: Database type not implemented")
+        return None
+
+fn connection_pool_close_all(pool):
+    # Close all connections
+    for conn in pool["connections"]:
+        conn["open"] = false
+    pool["connections"] = []
+
+# Database factory
+fn make_database(config):
+    return {
+        "config": config,
+        "pool": make_connection_pool(config, 5),
+        "isolation_level": ISOLATION_READ_COMMITTED
+    }
+
+fn database_connect(db):
+    # Establish connection
+    return db
+
+fn database_disconnect(db):
+    # Disconnect from database
+    connection_pool_close_all(db["pool"])
+
+fn database_execute(db, sql, params):
+    # Execute a SQL query (conceptual)
+    conn = connection_pool_get_connection(db["pool"])
+    if conn == None:
+        return make_query_result([], 0, None)
+    
+    # Conceptual execution
+    print("Executing: " + sql)
+    
+    # Return connection to pool
+    connection_pool_return_connection(db["pool"], conn)
+    
+    return make_query_result([], 1, 1)
+
+fn database_execute_many(db, sql, params_list):
+    # Execute a query multiple times (conceptual)
+    conn = connection_pool_get_connection(db["pool"])
+    if conn == None:
+        return make_query_result([], 0, None)
+    
+    print("Executing many: " + sql)
+    
+    connection_pool_return_connection(db["pool"], conn)
+    return make_query_result([], len(params_list), None)
+
+fn database_fetch_one(db, sql, params):
+    # Fetch a single row
+    result = database_execute(db, sql, params)
+    if len(result["rows"]) > 0:
+        return result["rows"][0]
+    return None
+
+fn database_fetch_all(db, sql, params):
+    # Fetch all rows
+    result = database_execute(db, sql, params)
+    return result["rows"]
+
+fn database_transaction(db, isolation_level):
+    # Begin a transaction
+    if isolation_level == None:
+        isolation_level = db["isolation_level"]
+    return make_transaction(db, isolation_level)
+
+# Transaction factory
+fn make_transaction(database, isolation_level):
+    return {
+        "database": database,
+        "isolation_level": isolation_level,
+        "conn": None,
+        "committed": false,
+        "rolled_back": false
+    }
+
+fn transaction_enter(tx):
+    # Enter transaction context
+    tx["conn"] = connection_pool_get_connection(tx["database"]["pool"])
+    print("BEGIN TRANSACTION")
+    return tx
+
+fn transaction_exit(tx, exc_type):
+    # Exit transaction context
+    if exc_type != None:
+        transaction_rollback(tx)
+    elif not tx["committed"] and not tx["rolled_back"]:
+        transaction_commit(tx)
+    connection_pool_return_connection(tx["database"]["pool"], tx["conn"])
+
+fn transaction_commit(tx):
+    # Commit the transaction
+    if tx["conn"] != None and not tx["committed"]:
+        print("COMMIT")
+        tx["committed"] = true
+
+fn transaction_rollback(tx):
+    # Rollback the transaction
+    if tx["conn"] != None and not tx["rolled_back"]:
+        print("ROLLBACK")
+        tx["rolled_back"] = true
+
+fn transaction_execute(tx, sql, params):
+    # Execute within transaction
+    if tx["conn"] == None:
+        print("RuntimeError: Transaction not active")
+        return make_query_result([], 0, None)
+    
+    print("Transaction executing: " + sql)
+    return make_query_result([], 1, 1)
+
+# QueryBuilder factory
+fn make_query_builder(table):
+    return {
+        "table": table,
+        "selects": ["*"],
+        "wheres": [],
+        "joins": [],
+        "order_bys": [],
+        "group_bys": [],
+        "limit": None,
+        "offset": None,
+        "params": []
+    }
+
+fn query_builder_select(builder, fields):
+    # Select fields
+    if len(fields) == 0:
+        builder["selects"] = ["*"]
+    else:
+        builder["selects"] = fields
+    return builder
+
+fn query_builder_where(builder, condition, params):
+    # Add where condition
+    builder["wheres"] = push(builder["wheres"], condition)
+    for p in params:
+        builder["params"] = push(builder["params"], p)
+    return builder
+
+fn query_builder_join(builder, table, on):
+    # Add join
+    builder["joins"] = push(builder["joins"], "JOIN " + table + " ON " + on)
+    return builder
+
+fn query_builder_order_by(builder, field, direction):
+    # Add order by
+    if direction == None:
+        direction = "ASC"
+    builder["order_bys"] = push(builder["order_bys"], field + " " + direction)
+    return builder
+
+fn query_builder_group_by(builder, fields):
+    # Add group by
+    for f in fields:
+        builder["group_bys"] = push(builder["group_bys"], f)
+    return builder
+
+fn query_builder_limit(builder, count):
+    # Set limit
+    builder["limit"] = count
+    return builder
+
+fn query_builder_offset(builder, count):
+    # Set offset
+    builder["offset"] = count
+    return builder
+
+fn query_builder_build(builder):
+    # Build the query
+    parts = ["SELECT", join(builder["selects"], ", "), "FROM", builder["table"]]
+    
+    if len(builder["joins"]) > 0:
+        for join_clause in builder["joins"]:
+            parts = push(parts, join_clause)
+    
+    if len(builder["wheres"]) > 0:
+        parts = push(parts, "WHERE")
+        parts = push(parts, join(builder["wheres"], " AND "))
+    
+    if len(builder["group_bys"]) > 0:
+        parts = push(parts, "GROUP BY")
+        parts = push(parts, join(builder["group_bys"], ", "))
+    
+    if len(builder["order_bys"]) > 0:
+        parts = push(parts, "ORDER BY")
+        parts = push(parts, join(builder["order_bys"], ", "))
+    
+    if builder["limit"] != None:
+        parts = push(parts, "LIMIT " + to_string(builder["limit"]))
+    
+    if builder["offset"] != None:
+        parts = push(parts, "OFFSET " + to_string(builder["offset"]))
+    
+    return [join(parts, " "), builder["params"]]
+
+fn join(strings, separator):
+    # Join strings with separator
+    result = ""
+    i = 0
+    while i < len(strings):
+        if i > 0:
+            result = result + separator
+        result = result + strings[i]
+        i = i + 1
+    return result
+
+# Model factory
+fn make_model(database, table):
+    return {
+        "database": database,
+        "table": table,
+        "primary_key": "id"
+    }
+
+fn model_find(model, id):
+    # Find by ID
+    sql = "SELECT * FROM " + model["table"] + " WHERE " + model["primary_key"] + " = ?"
+    return database_fetch_one(model["database"], sql, [id])
+
+fn model_find_all(model, kwargs):
+    # Find all matching records
+    if len(dict_keys(kwargs)) == 0:
+        return database_fetch_all(model["database"], "SELECT * FROM " + model["table"], [])
+    
+    conditions = []
+    params = []
+    keys = dict_keys(kwargs)
+    for k in keys:
+        conditions = push(conditions, k + " = ?")
+        params = push(params, kwargs[k])
+    
+    sql = "SELECT * FROM " + model["table"] + " WHERE " + join(conditions, " AND ")
+    return database_fetch_all(model["database"], sql, params)
+
+fn model_create(model, kwargs):
+    # Create a new record
+    fields = []
+    placeholders = []
+    params = []
+    
+    keys = dict_keys(kwargs)
+    for k in keys:
+        fields = push(fields, k)
+        placeholders = push(placeholders, "?")
+        params = push(params, kwargs[k])
+    
+    sql = "INSERT INTO " + model["table"] + " (" + join(fields, ", ") + ") VALUES (" + join(placeholders, ", ") + ")"
+    result = database_execute(model["database"], sql, params)
+    return result["last_insert_id"]
+
+fn model_update(model, id, kwargs):
+    # Update a record
+    if len(dict_keys(kwargs)) == 0:
+        return false
+    
+    assignments = []
+    params = []
+    
+    keys = dict_keys(kwargs)
+    for k in keys:
+        assignments = push(assignments, k + " = ?")
+        params = push(params, kwargs[k])
+    
+    params = push(params, id)
+    
+    sql = "UPDATE " + model["table"] + " SET " + join(assignments, ", ") + " WHERE " + model["primary_key"] + " = ?"
+    result = database_execute(model["database"], sql, params)
+    return result["row_count"] > 0
+
+fn model_delete(model, id):
+    # Delete a record
+    sql = "DELETE FROM " + model["table"] + " WHERE " + model["primary_key"] + " = ?"
+    result = database_execute(model["database"], sql, [id])
+    return result["row_count"] > 0
+
+fn connect(database_type, kwargs):
+    # Connect to a database
+    config = make_connection_config(database_type, None, None, None, None, None, None)
+    
+    # Update config with kwargs
+    keys = dict_keys(kwargs)
+    for k in keys:
+        config[k] = kwargs[k]
+    
+    return make_database(config)
+
+fn query_builder_fn(table):
+    # Create a query builder
+    return make_query_builder(table)
+
+fn main():
+    print("Testing database integration...")
+    
+    # Connect to in-memory SQLite database
+    db = connect(DB_SQLITE, {"database": ":memory:"})
+    
+    # Create a table
+    database_execute(db, "CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT, email TEXT)", [])
+    
+    # Insert data
+    database_execute(db, "INSERT INTO users (name, email) VALUES (?, ?)", ["Alice", "alice@example.com"])
+    database_execute(db, "INSERT INTO users (name, email) VALUES (?, ?)", ["Bob", "bob@example.com"])
+    
+    # Query data
+    users = database_fetch_all(db, "SELECT * FROM users", [])
+    print("Users: " + to_string(users))
+    
+    # Test query builder
+    builder = query_builder_fn("users")
+    query_builder_select(builder, ["name", "email"])
+    query_builder_where(builder, "name LIKE ?", ["%A%"])
+    result = query_builder_build(builder)
+    print("Built query: " + result[0])
+    print("Params: " + to_string(result[1]))
+    
+    # Test model
+    model = make_model(db, "users")
+    user = model_find(model, 1)
+    print("Found user: " + to_string(user))
+    
+    print("\nDatabase integration initialized successfully")
+
+if __name__ == "__main__":
+    main()

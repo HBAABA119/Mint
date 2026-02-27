@@ -1,0 +1,593 @@
+#mode slim
+# Prim Simulation Framework
+# Provides Monte Carlo simulation, agent-based modeling, discrete event simulation,
+# system dynamics, and stochastic processes
+
+# Simulation type constants
+SIMULATION_MONTE_CARLO = "monte_carlo"
+SIMULATION_AGENT_BASED = "agent_based"
+SIMULATION_DISCRETE_EVENT = "discrete_event"
+SIMULATION_SYSTEM_DYNAMICS = "system_dynamics"
+SIMULATION_STOCHASTIC = "stochastic"
+
+# Agent factory
+fn make_agent(id, position, state, properties):
+    if state == None:
+        state = {}
+    if properties == None:
+        properties = {}
+    return {
+        "id": id,
+        "position": position,
+        "state": state,
+        "properties": properties
+    }
+
+# MonteCarloSimulation factory
+fn make_monte_carlo_simulation():
+    return {
+        "samples": [],
+        "trials": 0,
+        "run": fn(n_trials, distribution, args) {
+            samples = []
+            i = 0
+            while i < n_trials:
+                sample = distribution(args)
+                samples = push(samples, sample)
+                i = i + 1
+            trials = n_trials
+            return samples
+        },
+        "estimate_mean": fn() {
+            if len(samples) == 0:
+                return 0.0
+            total = 0.0
+            i = 0
+            while i < len(samples):
+                total = total + samples[i]
+                i = i + 1
+            return total / len(samples)
+        },
+        "estimate_variance": fn() {
+            if len(samples) == 0:
+                return 0.0
+            mean_val = estimate_mean()
+            total = 0.0
+            i = 0
+            while i < len(samples):
+                diff = samples[i] - mean_val
+                total = total + diff * diff
+                i = i + 1
+            return total / len(samples)
+        },
+        "confidence_interval": fn(confidence) {
+            if confidence == None:
+                confidence = 0.95
+            # Simplified confidence interval
+            mean_val = estimate_mean()
+            margin = 1.96 * sqrt(estimate_variance()) / sqrt(len(samples))
+            return [mean_val - margin, mean_val + margin]
+        },
+        "pi_estimation": fn(n_points) {
+            if n_points == None:
+                n_points = 10000
+            points_inside = 0
+            i = 0
+            while i < n_points:
+                x = random_float(-1, 1)
+                y = random_float(-1, 1)
+                if x * x + y * y <= 1:
+                    points_inside = points_inside + 1
+                i = i + 1
+            return 4 * points_inside / n_points
+        }
+    }
+
+fn random_float(min_val, max_val):
+    # Random float (simplified)
+    return min_val + 1.0
+
+fn sqrt(x):
+    # Square root (simplified)
+    return x * 0.5
+
+# AgentBasedModel factory
+fn make_agent_based_model():
+    return {
+        "agents": [],
+        "time_step": 0,
+        "history": [],
+        "add_agent": fn(agent) {
+            agents = push(agents, agent)
+        },
+        "remove_agent": fn(agent_id) {
+            new_agents = []
+            i = 0
+            while i < len(agents):
+                if agents[i]["id"] != agent_id:
+                    new_agents = push(new_agents, agents[i])
+                i = i + 1
+            agents = new_agents
+        },
+        "step": fn() {
+            time_step = time_step + 1
+            
+            # Update agents
+            i = 0
+            while i < len(agents):
+                update_agent(agents[i])
+                i = i + 1
+            
+            # Record state
+            agent_states = []
+            i = 0
+            while i < len(agents):
+                agent_states = push(agent_states, agents[i]["state"])
+                i = i + 1
+            
+            history = push(history, {
+                "time_step": time_step,
+                "agents": len(agents),
+                "state": agent_states
+            })
+        },
+        "update_agent": fn(agent) {
+            # Move agent randomly
+            dx = random_float(-1, 1)
+            dy = random_float(-1, 1)
+            agent["position"] = [agent["position"][0] + dx, agent["position"][1] + dy]
+            
+            # Update state
+            agent["state"]["x"] = agent["position"][0]
+            agent["state"]["y"] = agent["position"][1]
+        },
+        "get_statistics": fn() {
+            if len(agents) == 0:
+                return {}
+            
+            x_positions = []
+            y_positions = []
+            i = 0
+            while i < len(agents):
+                x_positions = push(x_positions, agents[i]["position"][0])
+                y_positions = push(y_positions, agents[i]["position"][1])
+                i = i + 1
+            
+            return {
+                "num_agents": len(agents),
+                "mean_x": mean(x_positions),
+                "mean_y": mean(y_positions),
+                "std_x": std_dev(x_positions),
+                "std_y": std_dev(y_positions)
+            }
+        }
+    }
+
+fn mean(values):
+    if len(values) == 0:
+        return 0.0
+    total = 0.0
+    i = 0
+    while i < len(values):
+        total = total + values[i]
+        i = i + 1
+    return total / len(values)
+
+fn std_dev(values):
+    if len(values) == 0:
+        return 0.0
+    avg = mean(values)
+    total = 0.0
+    i = 0
+    while i < len(values):
+        diff = values[i] - avg
+        total = total + diff * diff
+        i = i + 1
+    return sqrt(total / len(values))
+
+# DiscreteEventSimulation factory
+fn make_discrete_event_simulation():
+    return {
+        "events": [],
+        "current_time": 0.0,
+        "event_count": 0,
+        "schedule_event": fn(time, event) {
+            events = push(events, [time, event])
+            # Sort events (simplified)
+            events = sort_events(events)
+        },
+        "run": fn(max_time) {
+            while len(events) > 0 and current_time < max_time:
+                # Get next event
+                event_data = events[0]
+                events = slice(events, 1, len(events))
+                
+                time = event_data[0]
+                event_func = event_data[1]
+                
+                current_time = time
+                event_func()
+                event_count = event_count + 1
+        },
+        "get_time": fn() {
+            return current_time
+        },
+        "get_event_count": fn() {
+            return event_count
+        }
+    }
+
+fn sort_events(events):
+    # Sort by time (simplified)
+    return events
+
+# SystemDynamics factory
+fn make_system_dynamics():
+    return {
+        "variables": {},
+        "equations": {},
+        "time": 0.0,
+        "history": [],
+        "add_variable": fn(name, initial_value) {
+            variables[name] = initial_value
+        },
+        "add_equation": fn(name, equation) {
+            equations[name] = equation
+        },
+        "step": fn(dt) {
+            if dt == None:
+                dt = 0.1
+            
+            # Update variables using equations
+            equation_names = dict_keys(equations)
+            i = 0
+            while i < len(equation_names):
+                name = equation_names[i]
+                equation = equations[name]
+                variables[name] = equation(variables, time)
+                i = i + 1
+            
+            time = time + dt
+            
+            # Record state
+            history_entry = {"time": time}
+            var_names = dict_keys(variables)
+            i = 0
+            while i < len(var_names):
+                name = var_names[i]
+                history_entry[name] = variables[name]
+                i = i + 1
+            
+            history = push(history, history_entry)
+        },
+        "run": fn(duration, dt) {
+            if dt == None:
+                dt = 0.1
+            
+            steps = to_integer(duration / dt)
+            i = 0
+            while i < steps:
+                step(dt)
+                i = i + 1
+        },
+        "get_history": fn() {
+            return history
+        }
+    }
+
+# StochasticProcess factory
+fn make_stochastic_process():
+    return {
+        "random_walk": fn(n_steps, step_size) {
+            if step_size == None:
+                step_size = 1.0
+            
+            steps = []
+            i = 0
+            while i < n_steps:
+                step_val = random_float(-step_size, step_size)
+                steps = push(steps, step_val)
+                i = i + 1
+            
+            # Cumulative sum
+            result = []
+            total = 0.0
+            i = 0
+            while i < len(steps):
+                total = total + steps[i]
+                result = push(result, total)
+                i = i + 1
+            
+            return result
+        },
+        "brownian_motion": fn(n_steps, dt, volatility) {
+            if dt == None:
+                dt = 0.01
+            if volatility == None:
+                volatility = 1.0
+            
+            steps = []
+            i = 0
+            while i < n_steps:
+                step_val = random_float(0, 1) * volatility * sqrt(dt)
+                steps = push(steps, step_val)
+                i = i + 1
+            
+            # Cumulative sum
+            result = []
+            total = 0.0
+            i = 0
+            while i < len(steps):
+                total = total + steps[i]
+                result = push(result, total)
+                i = i + 1
+            
+            return result
+        },
+        "geometric_brownian_motion": fn(n_steps, dt, mu, sigma, initial_price) {
+            if dt == None:
+                dt = 0.01
+            if mu == None:
+                mu = 0.1
+            if sigma == None:
+                sigma = 0.2
+            if initial_price == None:
+                initial_price = 100.0
+            
+            prices = [initial_price]
+            i = 0
+            while i < n_steps:
+                dw = random_float(0, 1) * sqrt(dt)
+                s_t = prices[len(prices) - 1] * exp((mu - 0.5 * sigma * sigma) * dt + sigma * dw)
+                prices = push(prices, s_t)
+                i = i + 1
+            
+            return prices
+        },
+        "poisson_process": fn(rate, duration) {
+            events = []
+            t = 0.0
+            
+            while t < duration:
+                inter_arrival = exp(-rate)  # Simplified
+                t = t + inter_arrival
+                if t < duration:
+                    events = push(events, t)
+            
+            return events
+        }
+    }
+
+fn exp(x):
+    # Exponential function (simplified)
+    return 1 + x
+
+# QueueSimulation factory
+fn make_queue_simulation(num_servers):
+    if num_servers == None:
+        num_servers = 1
+    return {
+        "queue": [],
+        "num_servers": num_servers,
+        "servers": [],
+        "current_time": 0.0,
+        "completed_jobs": 0,
+        "wait_times": [],
+        "arrive": fn(time, service_time) {
+            current_time = time
+            
+            # Try to assign to free server
+            assigned = false
+            i = 0
+            while i < len(servers) and not assigned:
+                if servers[i] == None:
+                    servers[i] = current_time + service_time
+                    assigned = true
+                i = i + 1
+            
+            if not assigned:
+                # No free server, add to queue
+                queue = push(queue, current_time)
+        },
+        "depart": fn(time) {
+            current_time = time
+            completed_jobs = completed_jobs + 1
+            
+            # Find departing server
+            i = 0
+            while i < len(servers):
+                if servers[i] != None and servers[i] <= current_time:
+                    servers[i] = None
+                    
+                    # Assign next job from queue
+                    if len(queue) > 0:
+                        arrival_time = queue[0]
+                        queue = slice(queue, 1, len(queue))
+                        wait_time = current_time - arrival_time
+                        wait_times = push(wait_times, wait_time)
+                i = i + 1
+        },
+        "get_statistics": fn() {
+            avg_wait = 0.0
+            if len(wait_times) > 0:
+                total_wait = 0.0
+                i = 0
+                while i < len(wait_times):
+                    total_wait = total_wait + wait_times[i]
+                    i = i + 1
+                avg_wait = total_wait / len(wait_times)
+            
+            return {
+                "queue_length": len(queue),
+                "completed_jobs": completed_jobs,
+                "avg_wait_time": avg_wait
+            }
+        }
+    }
+
+# CellularAutomaton factory
+fn make_cellular_automaton(width, height):
+    if width == None:
+        width = 100
+    if height == None:
+        height = 100
+    
+    # Initialize grid (simplified as list of lists)
+    grid = []
+    i = 0
+    while i < height:
+        row = []
+        j = 0
+        while j < width:
+            row = push(row, 0)
+            j = j + 1
+        grid = push(grid, row)
+        i = i + 1
+    
+    return {
+        "width": width,
+        "height": height,
+        "grid": grid,
+        "generation": 0,
+        "initialize_random": fn(density) {
+            if density == None:
+                density = 0.5
+            
+            i = 0
+            while i < height:
+                j = 0
+                while j < width:
+                    if random_float(0, 1) < density:
+                        grid[i][j] = 1
+                    else:
+                        grid[i][j] = 0
+                    j = j + 1
+                i = i + 1
+        },
+        "step": fn() {
+            # Create new grid
+            new_grid = []
+            i = 0
+            while i < height:
+                row = []
+                j = 0
+                while j < width:
+                    row = push(row, 0)
+                    j = j + 1
+                new_grid = push(new_grid, row)
+                i = i + 1
+            
+            i = 0
+            while i < height:
+                j = 0
+                while j < width:
+                    # Count neighbors
+                    neighbors = 0
+                    di = -1
+                    while di <= 1:
+                        dj = -1
+                        while dj <= 1:
+                            if di != 0 or dj != 0:
+                                ni = i + di
+                                nj = j + dj
+                                if ni >= 0 and ni < height and nj >= 0 and nj < width:
+                                    neighbors = neighbors + grid[ni][nj]
+                            dj = dj + 1
+                        di = di + 1
+                    
+                    # Apply rules (Conway's Game of Life)
+                    if grid[i][j] == 1:
+                        if neighbors < 2 or neighbors > 3:
+                            new_grid[i][j] = 0
+                        else:
+                            new_grid[i][j] = 1
+                    else:
+                        if neighbors == 3:
+                            new_grid[i][j] = 1
+                    
+                    j = j + 1
+                i = i + 1
+            
+            grid = new_grid
+            generation = generation + 1
+        },
+        "get_grid": fn() {
+            return grid
+        }
+    }
+
+fn create_monte_carlo():
+    return make_monte_carlo_simulation()
+
+fn create_agent_based_model():
+    return make_agent_based_model()
+
+fn create_discrete_event():
+    return make_discrete_event_simulation()
+
+fn main():
+    print("Testing Simulation Framework...")
+    
+    # Test Monte Carlo
+    mc = create_monte_carlo()
+    samples = mc["run"](100, random_float)
+    print("Monte Carlo: " + to_string(len(samples)) + " samples")
+    
+    pi_estimate = mc["pi_estimation"](100)
+    print("Pi estimate: " + to_string(pi_estimate))
+    
+    # Test Agent-Based Model
+    abm = create_agent_based_model()
+    i = 0
+    while i < 10:
+        agent = make_agent(i, [random_float(0, 100), random_float(0, 100)])
+        abm["add_agent"](agent)
+        i = i + 1
+    
+    abm["step"]()
+    stats = abm["get_statistics"]()
+    print("Agent-based model: " + to_string(stats["num_agents"]) + " agents")
+    
+    # Test Discrete Event Simulation
+    des = create_discrete_event()
+    des["schedule_event"](1.0, fn() { print("Event at t=1") })
+    des["schedule_event"](2.0, fn() { print("Event at t=2") })
+    des["run"](3.0)
+    print("Discrete event: " + to_string(des["get_event_count"]()) + " events processed")
+    
+    # Test System Dynamics
+    sd = make_system_dynamics()
+    sd["add_variable"]("x", 0.0)
+    sd["add_variable"]("y", 1.0)
+    sd["add_equation"]("x", fn(vars, t) { return vars["y"] })
+    sd["add_equation"]("y", fn(vars, t) { return -vars["x"] })
+    
+    sd["run"](1.0, 0.1)
+    print("System dynamics: " + to_string(len(sd["get_history"]())) + " time steps")
+    
+    # Test Stochastic Process
+    sp = make_stochastic_process()
+    bm = sp["brownian_motion"](10)
+    print("Brownian motion: " + to_string(len(bm)) + " steps")
+    
+    gbm = sp["geometric_brownian_motion"](10)
+    print("GBM: " + to_string(len(gbm)) + " steps")
+    
+    # Test Queue Simulation
+    queue_sim = make_queue_simulation(2)
+    queue_sim["arrive"](0.0, 1.0)
+    queue_sim["arrive"](0.5, 1.5)
+    queue_sim["depart"](1.0)
+    queue_stats = queue_sim["get_statistics"]()
+    print("Queue simulation: " + to_string(queue_stats["completed_jobs"]) + " completed jobs")
+    
+    # Test Cellular Automaton
+    ca = make_cellular_automaton(10, 10)
+    ca["initialize_random"](0.3)
+    ca["step"]()
+    print("Cellular automaton: generation " + to_string(ca["generation"]))
+    
+    print("\nSimulation Framework initialized successfully")
+
+if __name__ == "__main__":
+    main()

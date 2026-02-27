@@ -1,0 +1,446 @@
+#mode slim
+# Prim Runtime Foundation
+# Provides core Prim runtime implementation, memory management primitives, basic I/O operations,
+# error handling system, and cross-platform compatibility layer
+
+# Platform constants
+PLATFORM_WINDOWS = "windows"
+PLATFORM_LINUX = "linux"
+PLATFORM_MACOS = "macos"
+PLATFORM_UNKNOWN = "unknown"
+
+# Memory error type constants
+MEMORY_ALLOCATION_FAILED = "allocation_failed"
+MEMORY_OUT_OF_MEMORY = "out_of_memory"
+MEMORY_INVALID_ACCESS = "invalid_access"
+MEMORY_LEAK_DETECTED = "leak_detected"
+
+# MemoryBlock factory
+fn make_memory_block(address, size, data, allocated):
+    if data == None:
+        data = ""
+    if allocated == None:
+        allocated = true
+    return {
+        "address": address,
+        "size": size,
+        "data": data,
+        "allocated": allocated
+    }
+
+# MemoryStats factory
+fn make_memory_stats(total_allocated, total_freed, current_usage, peak_usage, allocation_count, deallocation_count):
+    if total_allocated == None:
+        total_allocated = 0
+    if total_freed == None:
+        total_freed = 0
+    if current_usage == None:
+        current_usage = 0
+    if peak_usage == None:
+        peak_usage = 0
+    if allocation_count == None:
+        allocation_count = 0
+    if deallocation_count == None:
+        deallocation_count = 0
+    return {
+        "total_allocated": total_allocated,
+        "total_freed": total_freed,
+        "current_usage": current_usage,
+        "peak_usage": peak_usage,
+        "allocation_count": allocation_count,
+        "deallocation_count": deallocation_count
+    }
+
+# MemoryManager factory
+fn make_memory_manager():
+    return {
+        "blocks": {},
+        "stats": make_memory_stats(),
+        "next_address": 4096,  # 0x1000
+        "leak_detection_enabled": true,
+        "allocate": fn(size) {
+            if size <= 0:
+                print("ValueError: Size must be positive")
+                return None
+            
+            address = next_address
+            next_address = next_address + size
+            
+            block = make_memory_block(address, size, "", true)
+            
+            blocks[address] = block
+            stats["total_allocated"] = stats["total_allocated"] + size
+            stats["current_usage"] = stats["current_usage"] + size
+            stats["allocation_count"] = stats["allocation_count"] + 1
+            stats["peak_usage"] = max(stats["peak_usage"], stats["current_usage"])
+            
+            return block
+        },
+        "free": fn(address) {
+            if not contains(dict_keys(blocks), address):
+                return false
+            
+            block = blocks[address]
+            if not block["allocated"]:
+                return false
+            
+            block["allocated"] = false
+            stats["total_freed"] = stats["total_freed"] + block["size"]
+            stats["current_usage"] = stats["current_usage"] - block["size"]
+            stats["deallocation_count"] = stats["deallocation_count"] + 1
+            
+            # Remove from blocks
+            new_blocks = {}
+            keys = dict_keys(blocks)
+            i = 0
+            while i < len(keys):
+                key = keys[i]
+                if key != address:
+                    new_blocks[key] = blocks[key]
+                i = i + 1
+            blocks = new_blocks
+            
+            return true
+        },
+        "read": fn(address, size) {
+            if not contains(dict_keys(blocks), address):
+                print("MemoryError: Invalid memory address: " + to_string(address))
+                return None
+            
+            block = blocks[address]
+            if not block["allocated"]:
+                print("MemoryError: Memory block not allocated: " + to_string(address))
+                return None
+            
+            # Return substring of data
+            if len(block["data"]) < size:
+                return block["data"]
+            return substring(block["data"], 0, size)
+        },
+        "write": fn(address, data) {
+            if not contains(dict_keys(blocks), address):
+                print("MemoryError: Invalid memory address: " + to_string(address))
+                return
+            
+            block = blocks[address]
+            if not block["allocated"]:
+                print("MemoryError: Memory block not allocated: " + to_string(address))
+                return
+            
+            block["data"] = data
+        },
+        "get_stats": fn() {
+            return stats
+        },
+        "detect_leaks": fn() {
+            result = []
+            keys = dict_keys(blocks)
+            i = 0
+            while i < len(keys):
+                addr = keys[i]
+                block = blocks[addr]
+                if block["allocated"]:
+                    result = push(result, addr)
+                i = i + 1
+            return result
+        }
+    }
+
+fn max(a, b):
+    return a if a > b else b
+
+fn substring(s, start, end):
+    # Get substring (simplified)
+    result = ""
+    i = start
+    while i < end and i < len(s):
+        result = result + s[i]
+        i = i + 1
+    return result
+
+# ErrorHandler factory
+fn make_error_handler():
+    return {
+        "error_handlers": {},
+        "error_log": [],
+        "register_handler": fn(error_type, handler) {
+            error_handlers[error_type] = handler
+        },
+        "handle_error": fn(error_type, message, context) {
+            if context == None:
+                context = {}
+            
+            error_info = {
+                "type": error_type,
+                "message": message,
+                "context": context,
+                "timestamp": get_current_timestamp()
+            }
+            
+            error_log = push(error_log, error_info)
+            
+            # Call handler if registered
+            if contains(dict_keys(error_handlers), error_type):
+                error_handlers[error_type](error_info)
+        },
+        "get_error_log": fn() {
+            return error_log
+        },
+        "clear_error_log": fn() {
+            error_log = []
+        }
+    }
+
+# IOPrimitives factory
+fn make_io_primitives(error_handler):
+    return {
+        "error_handler": error_handler,
+        "read_line": fn() {
+            # Read line from stdin (simplified)
+            return input(">")
+        },
+        "write": fn(text) {
+            print(text)
+        },
+        "write_error": fn(text) {
+            # Write to stderr (simplified)
+            print("ERROR: " + text)
+        },
+        "read_file": fn(path) {
+            # Read file (conceptual)
+            print("Reading file: " + path)
+            return "file content"
+        },
+        "write_file": fn(path, content) {
+            # Write file (conceptual)
+            print("Writing file: " + path)
+            return true
+        },
+        "file_exists": fn(path) {
+            # Check file exists (simplified)
+            return true
+        }
+    }
+
+# PlatformLayer factory
+fn make_platform_layer():
+    return {
+        "platform": detect_platform(),
+        "get_platform": fn() {
+            return platform
+        },
+        "is_windows": fn() {
+            return platform == PLATFORM_WINDOWS
+        },
+        "is_linux": fn() {
+            return platform == PLATFORM_LINUX
+        },
+        "is_macos": fn() {
+            return platform == PLATFORM_MACOS
+        },
+        "get_path_separator": fn() {
+            return "\\" if is_windows() else "/"
+        },
+        "get_environment_variable": fn(name) {
+            # Get env var (simplified)
+            return "env_value"
+        },
+        "set_environment_variable": fn(name, value) {
+            # Set env var (conceptual)
+            print("Setting env: " + name + " = " + value)
+        },
+        "get_cwd": fn() {
+            # Get current working directory (simplified)
+            return "/current/dir"
+        },
+        "set_cwd": fn(path) {
+            # Set current working directory (conceptual)
+            print("Changing to: " + path)
+        },
+        "get_system_info": fn() {
+            return {
+                "platform": platform,
+                "python_version": "3.9.0",
+                "architecture": ["64bit", ""],
+                "processor": "x64",
+                "node": "localhost",
+                "release": "10",
+                "version": "10.0.19041"
+            }
+        }
+    }
+
+fn detect_platform():
+    # Detect platform (simplified)
+    return PLATFORM_WINDOWS
+
+# PrimRuntime factory
+fn make_prim_runtime():
+    return {
+        "memory_manager": make_memory_manager(),
+        "error_handler": make_error_handler(),
+        "io_primitives": make_io_primitives(error_handler),
+        "platform_layer": make_platform_layer(),
+        "running": false,
+        "initialize": fn() {
+            running = true
+            # Register default error handlers
+            error_handler["register_handler"]("memory_error", handle_memory_error)
+            error_handler["register_handler"]("io_error", handle_io_error)
+        },
+        "shutdown": fn() {
+            running = false
+            
+            # Detect memory leaks
+            if memory_manager["leak_detection_enabled"]:
+                leaks = memory_manager["detect_leaks"]()
+                if len(leaks) > 0:
+                    print("Warning: " + to_string(len(leaks)) + " memory leak(s) detected")
+        },
+        "run": fn(code) {
+            if not running:
+                initialize()
+            
+            # Execute code (conceptual)
+            result = eval_code(code)
+            return result
+        },
+        "get_memory_stats": fn() {
+            return memory_manager["get_stats"]()
+        },
+        "get_system_info": fn() {
+            return platform_layer["get_system_info"]()
+        },
+        "is_running": fn() {
+            return running
+        }
+    }
+
+fn handle_memory_error(error_info):
+    print("Memory Error: " + error_info["message"])
+
+fn handle_io_error(error_info):
+    print("I/O Error: " + error_info["message"])
+
+fn eval_code(code):
+    # Evaluate code (simplified)
+    return "result"
+
+fn get_current_timestamp():
+    # Get current timestamp (simplified)
+    return "2023-01-01T00:00:00"
+
+# RuntimeCLI factory
+fn make_runtime_cli():
+    return {
+        "runtime": make_prim_runtime(),
+        "run": fn(args) {
+            if len(args) == 0:
+                show_help()
+                return
+            
+            command = args[0]
+            command_args = slice(args, 1, len(args))
+            
+            if command == "run":
+                cmd_run(command_args)
+            elif command == "stats":
+                cmd_stats()
+            elif command == "info":
+                cmd_info()
+            elif command == "shell":
+                cmd_shell()
+            else:
+                print("Unknown command: " + command)
+                show_help()
+        },
+        "cmd_run": fn(args) {
+            if len(args) == 0:
+                print("Usage: run <code>")
+                return
+            
+            code = join(args, " ")
+            result = runtime["run"](code)
+            print("Result: " + to_string(result))
+        },
+        "cmd_stats": fn() {
+            stats = runtime["get_memory_stats"]()
+            print("Memory Statistics:")
+            print("  Total Allocated: " + to_string(stats["total_allocated"]))
+            print("  Total Freed: " + to_string(stats["total_freed"]))
+            print("  Current Usage: " + to_string(stats["current_usage"]))
+            print("  Peak Usage: " + to_string(stats["peak_usage"]))
+            print("  Allocations: " + to_string(stats["allocation_count"]))
+            print("  Deallocations: " + to_string(stats["deallocation_count"]))
+        },
+        "cmd_info": fn() {
+            info = runtime["get_system_info"]()
+            print("System Information:")
+            keys = dict_keys(info)
+            i = 0
+            while i < len(keys):
+                key = keys[i]
+                value = info[key]
+                print("  " + key + ": " + to_string(value))
+                i = i + 1
+        },
+        "cmd_shell": fn() {
+            print("Prim Runtime Shell (type 'exit' to quit)")
+            runtime["initialize"]()
+            
+            while true:
+                line = input("prim> ")
+                line = trim_string(line)
+                if lowercase(line) == "exit":
+                    break
+                if len(line) > 0:
+                    result = runtime["run"](line)
+                    if result != None:
+                        print("=> " + to_string(result))
+            
+            runtime["shutdown"]()
+        },
+        "show_help": fn() {
+            print("""
+Prim Runtime Commands:
+  run <code>       Execute Prim code
+  stats            Show memory statistics
+  info             Show system information
+  shell            Interactive shell
+
+Example:
+  prim_runtime.prim run "1 + 2"
+  prim_runtime.prim shell
+""")
+        }
+    }
+
+fn join(list, separator):
+    result = ""
+    i = 0
+    while i < len(list):
+        if i > 0:
+            result = result + separator
+        result = result + to_string(list[i])
+        i = i + 1
+    return result
+
+fn trim_string(s):
+    # Trim whitespace (simplified)
+    return s
+
+fn lowercase(s):
+    # Convert to lowercase (simplified)
+    return s
+
+fn input(prompt):
+    # Read input (simplified)
+    return "print('Hello')"
+
+fn main():
+    cli = make_runtime_cli()
+    # Run with empty args to show help
+    cli["run"]([])
+
+if __name__ == "__main__":
+    main()

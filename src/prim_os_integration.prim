@@ -1,0 +1,370 @@
+#mode slim
+# Prim OS Integration
+# Provides OS-level integration, process management, system calls,
+# file system operations, and platform-specific features.
+
+# import os
+# import sys
+# import platform
+# import subprocess
+# import time
+# from typing import List, Dict, Any, Optional, Callable
+# from dataclasses import dataclass
+# from enum import Enum
+
+
+OSType_WINDOWS = "windows"
+OSType_LINUX = "linux"
+OSType_MACOS = "macos"
+OSType_UNIX = "unix"ProcessState_RUNNING = "running"
+ProcessState_STOPPED = "stopped"
+ProcessState_BLOCKED = "blocked"
+ProcessState_ZOMBIE = "zombie"class
+# Class Process
+    # Process information
+    pid: int
+    name: str
+    state
+    cpu_usage: float
+    memory_usage: float
+
+
+# Class OSManager
+    # OS integration manager
+
+    fn make_osmanager():
+        obj = {}
+        obj["os_type"] = osmanager__detect_os(obj, )
+        obj["processes"] = {}
+
+    def _detect_os(self) :
+        # Detect OS type
+        system = platform.system().lower()
+
+        if system == "windows":
+            return OSType.WINDOWS
+        elif system == "linux":
+            return OSType.LINUX
+        elif system == "darwin":
+            return OSType.MACOS
+        else:
+            return OSType.UNIX
+
+    def get_os_info(self) :
+        # Get OS information
+        return {
+            "system": platform.system(),
+            "release": platform.release(),
+            "version": platform.version(),
+            "machine": platform.machine(),
+            "processor": platform.processor(),
+            "python_version": sys.version
+        }
+
+    def execute_command(self, command: str, shell: bool = true) -> subprocess.CompletedProcess:
+        # Execute shell command
+        return subprocess.run(command, shell=shell, capture_output=true, text=true)
+
+    def get_processes(self) :
+        # Get running processes
+        processes = []
+
+        try:
+            if obj["os_type"] == OSType.WINDOWS:
+                result = osmanager_execute_command(obj, "tasklist")
+                lines = result.stdout.split('\n')[3:]  # Skip header
+
+                for line in lines:
+                    if not line.strip():
+                        continue
+
+                    parts = line.split()
+                    if len(parts) >= 2:
+                        name = parts[0]
+                        pid = int(parts[1]) if parts[1].isdigit() else 0
+
+                        processes.append(Process(
+                            pid=pid,
+                            name=name,
+                            state=ProcessState.RUNNING,
+                            cpu_usage=0.0,
+                            memory_usage=0.0
+                        ))
+
+            elif obj["os_type"] in [OSType.LINUX, OSType.MACOS]:
+                result = osmanager_execute_command(obj, "ps aux")
+                lines = result.stdout.split('\n')[1:]  # Skip header
+
+                for line in lines:
+                    if not line.strip():
+                        continue
+
+                    parts = line.split(null, 10)
+                    if len(parts) >= 11:
+                        name = parts[10]
+                        pid = int(parts[1])
+                        cpu = float(parts[2])
+                        mem = float(parts[3])
+
+                        processes.append(Process(
+                            pid=pid,
+                            name=name,
+                            state=ProcessState.RUNNING,
+                            cpu_usage=cpu,
+                            memory_usage=mem
+                        ))
+
+        except Exception as e:
+            print("Error getting processes: {e}")
+
+        return processes
+
+    def kill_process(self, pid: int) -> bool:
+        # Kill process by PID
+        try:
+            if obj["os_type"] == OSType.WINDOWS:
+                osmanager_execute_command(obj, "taskkill /F /PID {pid}")
+            else:
+                osmanager_execute_command(obj, "kill {pid}")
+            return true
+        except Exception as e:
+            print("Error killing process: {e}")
+            return false
+
+
+# Class FileSystem
+    # File system operations
+
+    fn make_filesystem():
+        obj = {}
+        obj["current_directory"] = os.getcwd()
+
+    def list_directory(self, path = null) ]:
+        # List directory contents
+        target_path = path or obj["current_directory"]
+
+        try:
+            entries = []
+            for entry in os.listdir(target_path):
+                full_path = os.path.join(target_path, entry)
+                stat = os.stat(full_path)
+
+                entries.append({
+                    "name": entry,
+                    "path": full_path,
+                    "is_file": os.path.isfile(full_path),
+                    "is_dir": os.path.isdir(full_path),
+                    "size": stat.st_size,
+                    "modified": stat.st_mtime
+                })
+
+            return entries
+        except Exception as e:
+            print("Error listing directory: {e}")
+            return []
+
+    def read_file(self, path: str) :
+        # Read file contents
+        try:
+            with open(path, 'r') as f:
+                return f.read()
+        except Exception as e:
+            print("Error reading file: {e}")
+            return null
+
+    fn filesystem_write_file(obj, path: str, content: str):
+        # Write file contents
+        try:
+            with open(path, 'w') as f:
+                f.write(content)
+        except Exception as e:
+            print("Error writing file: {e}")
+
+    fn filesystem_create_directory(obj, path: str):
+        # Create directory
+        try:
+            os.makedirs(path, exist_ok=true)
+        except Exception as e:
+            print("Error creating directory: {e}")
+
+    fn filesystem_delete_file(obj, path: str):
+        # Delete file
+        try:
+            os.remove(path)
+        except Exception as e:
+            print("Error deleting file: {e}")
+
+    def get_file_info(self, path: str) ]:
+        # Get file information
+        try:
+            stat = os.stat(path)
+            return {
+                "size": stat.st_size,
+                "created": stat.st_ctime,
+                "modified": stat.st_mtime,
+                "accessed": stat.st_atime,
+                "is_file": os.path.isfile(path),
+                "is_dir": os.path.isdir(path)
+            }
+        except Exception as e:
+            print("Error getting file info: {e}")
+            return null
+
+
+# Class SystemMonitor
+    # System monitoring
+
+    fn make_systemmonitor():
+        obj = {}
+        obj["os_manager"] = OSManager()
+
+    def get_cpu_usage(self) -> float:
+        # Get CPU usage
+        try:
+            if obj["os_manager"].os_type == OSType.WINDOWS:
+                result = obj["os_manager"].execute_command("wmic cpu get loadpercentage")
+                lines = result.stdout.split('\n')
+                for line in lines:
+                    if line.strip().isdigit():
+                        return float(line.strip())
+            else:
+                result = obj["os_manager"].execute_command("top -bn1 | grep 'Cpu(s)'")
+                # Parse CPU usage from output
+                lines = result.stdout.split('\n')
+                for line in lines:
+                    if 'us' in line:
+                        parts = line.split(',')
+                        for part in parts:
+                            if 'us' in part:
+                                return float(part.strip().replace('us', '').strip())
+        except Exception as e:
+            print("Error getting CPU usage: {e}")
+
+        return 0.0
+
+    def get_memory_usage(self) :
+        # Get memory usage
+        try:
+            if obj["os_manager"].os_type == OSType.WINDOWS:
+                result = obj["os_manager"].execute_command("wmic OS get TotalVisibleMemorySize,FreePhysicalMemory")
+                lines = result.stdout.split('\n')
+                for line in lines:
+                    parts = line.split()
+                    if len(parts) >= 2 and parts[0].isdigit():
+                        total = int(parts[0])
+                        free = int(parts[1])
+                        return {
+                            "total": total,
+                            "used": total - free,
+                            "free": free
+                        }
+            else:
+                result = obj["os_manager"].execute_command("free -b")
+                lines = result.stdout.split('\n')
+                for line in lines:
+                    if line.startswith('Mem:'):
+                        parts = line.split()
+                        if len(parts) >= 3:
+                            total = int(parts[1])
+                            used = int(parts[2])
+                            free = int(parts[3])
+                            return {
+                                "total": total,
+                                "used": used,
+                                "free": free
+                            }
+        except Exception as e:
+            print("Error getting memory usage: {e}")
+
+        return {"total": 0, "used": 0, "free": 0}
+
+    def get_disk_usage(self, path: str = "/") :
+        # Get disk usage
+        try:
+            stat = os.statvfs(path)
+            total = stat.f_blocks * stat.f_frsize
+            free = stat.f_bavail * stat.f_frsize
+            used = total - free
+
+            return {
+                "total": total,
+                "used": used,
+                "free": free
+            }
+        except Exception as e:
+            print("Error getting disk usage: {e}")
+
+        return {"total": 0, "used": 0, "free": 0}
+
+
+# Class EnvironmentManager
+    # Environment variable management
+
+    fn make_environmentmanager():
+        obj = {}
+        obj["variables"] = dict(os.environ)
+
+    def get_variable(self, name: str) :
+        # Get environment variable
+        return os.dict_get(environ, name)
+
+    fn environmentmanager_set_variable(obj, name: str, value: str):
+        # Set environment variable
+        os.environ[name] = value
+        obj["variables"][name] = value
+
+    fn environmentmanager_unset_variable(obj, name: str):
+        # Unset environment variable
+        if name in os.environ:
+            del os.environ[name]
+        if name in obj["variables"]:
+            del obj["variables"][name]
+
+    def get_all_variables(self) :
+        # Get all environment variables
+        return obj["variables"].copy()
+
+
+def create_os_manager() :
+    # Create OS manager
+    return OSManager()
+
+
+fn main():
+    # Main entry point for testing
+    print("Testing OS Integration...")
+
+    # Create OS manager
+    os_manager = create_os_manager()
+
+    # Get OS info
+    os_info = os_manager.get_os_info()
+    print("OS: {os_info['system']} {os_info['release']}")
+
+    # Test file system
+    fs = FileSystem()
+    entries = fs.list_directory()
+    print("Directory entries: {len(entries)}")
+
+    # Test system monitor
+    monitor = SystemMonitor()
+    cpu = monitor.get_cpu_usage()
+    print("CPU usage: {cpu:.1f}%")
+
+    memory = monitor.get_memory_usage()
+    print("Memory: {memory['used'] / 1024 / 1024:.1f} MB used")
+
+    # Test environment manager
+    env = EnvironmentManager()
+    test_var = env.get_variable("PATH")
+    print("PATH length: {len(test_var) if test_var else 0}")
+
+    # Test process management
+    processes = os_manager.get_processes()
+    print("Processes: {len(processes)}")
+
+    print("\nOS Integration initialized successfully")
+
+
+if __name__ == "__main__":
+    main()

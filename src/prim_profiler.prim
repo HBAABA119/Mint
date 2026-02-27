@@ -1,0 +1,473 @@
+#mode slim
+# Prim Performance Profiler
+# Provides CPU usage analysis, memory allocation tracking, garbage collection monitoring,
+# function call frequency analysis, and time-based performance reports.
+
+# import sys
+# import time
+# import tracemalloc
+# import gc
+# from typing import Dict, List, Optional, Any, Tuple, Callable
+# from dataclasses import dataclass, field
+# from enum import Enum
+# from collections import defaultdict
+# import json
+
+
+ProfilerMode_CPU = "cpu"
+ProfilerMode_MEMORY = "memory"
+ProfilerMode_BOTH = "both"class
+# Class FunctionCall
+    # Function call information
+    name: str
+    file_path: str
+    line_number: int
+    call_count: int = 0
+    total_time: float = 0.0
+    min_time: float = float('inf')
+    max_time: float = 0.0
+    avg_time: float = 0.0
+    self_time: float = 0.0
+
+    fn functioncall_update_stats(obj, duration: float):
+        # Update call statistics
+        obj["call_count"] += 1
+        obj["total_time"] += duration
+        obj["min_time"] = min(obj["min_time"], duration)
+        obj["max_time"] = max(obj["max_time"], duration)
+        obj["avg_time"] = obj["total_time"] / obj["call_count"]
+
+
+fn make_memorysnapshot(timestamp, allocated, freed, current_usage, peak_usage):
+    return {"timestamp": timestamp, "allocated": allocated, "freed": freed, "current_usage": current_usage, "peak_usage": peak_usage}class
+# Class GCSnapshot
+    # Garbage collection snapshot
+    timestamp: float
+    generation: int
+    collected: int
+    uncollectable: int
+
+
+fn make_performancereport(start_time, end_time, total_duration, function_calls, memory_snapshots, gc_snapshots, memory_leaks):
+    return {"start_time": start_time, "end_time": end_time, "total_duration": total_duration, "function_calls": function_calls, "memory_snapshots": memory_snapshots, "gc_snapshots": gc_snapshots, "memory_leaks": memory_leaks}class PrimProfiler:
+    # Main performance profiler for Prim language
+
+    fn make_gcsnapshot(mode = ProfilerMode.BOTH):
+        obj = {}
+        obj["mode"] = mode
+        obj["start_time"] = null
+        obj["end_time"] = null
+        obj["is_running"] = false
+        
+        # CPU profiling
+        obj["function_calls"] = {}
+        obj["call_stack"]] = []
+        obj["function_timings"]] = defaultdict(list)
+        
+        # Memory profiling
+        obj["memory_snapshots"] = []
+        obj["memory_leaks"] = []
+        obj["peak_memory"] = 0
+        obj["initial_memory"] = 0
+        
+        # GC monitoring
+        obj["gc_snapshots"] = []
+        obj["gc_stats"] = {
+            'generation0': 0,
+            'generation1': 0,
+            'generation2': 0
+        }
+        
+        # Callbacks
+        obj["gc_callback"] = null
+
+    fn gcsnapshot_start(obj):
+        # Start profiling
+        if obj["is_running"]:
+            return
+        
+        obj["is_running"] = true
+        obj["start_time"] = time.time()
+        
+        # Start memory tracking
+        if obj["mode"] in [ProfilerMode.MEMORY, ProfilerMode.BOTH]:
+            tracemalloc.start()
+            obj["initial_memory"] = tracemalloc.get_traced_memory()[0]
+            obj["peak_memory"] = obj["initial_memory"]
+        
+        # Setup GC monitoring
+        if obj["mode"] in [ProfilerMode.MEMORY, ProfilerMode.BOTH]:
+            obj["gc_callback"] = obj["_gc_callback"]
+            gc.callbacks = push(callbacks, obj["gc_callback"])
+        
+        # Take initial snapshot
+        gcsnapshot__take_memory_snapshot(obj, )
+
+    def stop(self) :
+        # Stop profiling and generate report
+        if not obj["is_running"]:
+            raise RuntimeError("Profiler is not running")
+        
+        obj["is_running"] = false
+        obj["end_time"] = time.time()
+        
+        # Take final snapshot
+        gcsnapshot__take_memory_snapshot(obj, )
+        
+        # Stop memory tracking
+        if obj["mode"] in [ProfilerMode.MEMORY, ProfilerMode.BOTH]:
+            tracemalloc.stop()
+        
+        # Remove GC callback
+        if obj["gc_callback"] and obj["gc_callback"] in gc.callbacks:
+            gc.callbacks.remove(obj["gc_callback"])
+        
+        # Generate report
+        report = PerformanceReport(
+            start_time=obj["start_time"],
+            end_time=obj["end_time"],
+            total_duration=obj["end_time"] - obj["start_time"],
+            function_calls=list(obj["function_calls"].values()),
+            memory_snapshots=obj["memory_snapshots"],
+            gc_snapshots=obj["gc_snapshots"],
+            memory_leaks=obj["memory_leaks"]
+        )
+        
+        return report
+
+    fn gcsnapshot_function_enter(obj, name: str, file_path: str, line_number: int):
+        # Record function entry
+        if not obj["is_running"]:
+            return
+        
+        # Create or update function call info
+        key = "{file_path}:{name}"
+        if key not in obj["function_calls"]:
+            obj["function_calls"][key] = FunctionCall(
+                name=name,
+                file_path=file_path,
+                line_number=line_number
+            )
+        
+        # Push to call stack
+        obj["call_stack"].append((key, time.time()))
+
+    fn gcsnapshot_function_exit(obj, name: str, file_path: str):
+        # Record function exit
+        if not obj["is_running"] or not obj["call_stack"]:
+            return
+        
+        key = "{file_path}:{name}"
+        
+        # Find matching entry
+        for i, (stack_key, entry_time) in enumerate(obj["call_stack"]):
+            if stack_key == key:
+                duration = time.time() - entry_time
+                obj["function_calls"][key].update_stats(duration)
+                obj["function_timings"][key].append(duration)
+                del obj["call_stack"][i]
+                break
+
+    fn gcsnapshot_record_memory_allocation(obj, size: int):
+        # Record memory allocation
+        if not obj["is_running"]:
+            return
+        
+        current, peak = tracemalloc.get_traced_memory()
+        obj["peak_memory"] = max(obj["peak_memory"], peak)
+
+    fn gcsnapshot__take_memory_snapshot(obj):
+        # Take a memory snapshot
+        if obj["mode"] not in [ProfilerMode.MEMORY, ProfilerMode.BOTH]:
+            return
+        
+        try:
+            current, peak = tracemalloc.get_traced_memory()
+            snapshot = MemorySnapshot(
+                timestamp=time.time(),
+                allocated=current,
+                freed=0,  # Simplified
+                current_usage=current,
+                peak_usage=peak
+            )
+            obj["memory_snapshots"].append(snapshot)
+        except:
+            pass
+
+    fn gcsnapshot__gc_callback(obj, phase: str, info):
+        # Garbage collection callback
+        if phase == "start":
+            return
+        
+        generation = dict_get(info, 'generation', 0)
+        collected = dict_get(info, 'collected', 0)
+        uncollectable = dict_get(info, 'uncollectable', 0)
+        
+        snapshot = GCSnapshot(
+            timestamp=time.time(),
+            generation=generation,
+            collected=collected,
+            uncollectable=uncollectable
+        )
+        obj["gc_snapshots"].append(snapshot)
+        
+        # Update stats
+        if generation == 0:
+            obj["gc_stats"]['generation0'] += 1
+        elif generation == 1:
+            obj["gc_stats"]['generation1'] += 1
+        elif generation == 2:
+            obj["gc_stats"]['generation2'] += 1
+
+    def get_hotspots(self, top_n: int = 10) :
+        # Get top N functions by total time
+        return sorted(
+            obj["function_calls"].values(),
+            key=lambda f: f.total_time,
+            reverse=true
+        )[:top_n]
+
+    def get_memory_usage(self) :
+        # Get current memory usage
+        if obj["mode"] not in [ProfilerMode.MEMORY, ProfilerMode.BOTH]:
+            return {}
+        
+        try:
+            current, peak = tracemalloc.get_traced_memory()
+            return {
+                'current': current,
+                'peak': peak,
+                'initial': obj["initial_memory"],
+                'increase': current - obj["initial_memory"]
+            }
+        except:
+            return {}
+
+    def get_gc_stats(self) :
+        # Get garbage collection statistics
+        return obj["gc_stats"]
+
+    def format_report(self, report) -> str:
+        # Format performance report as text
+        lines = []
+        
+        # Header
+        lines = push(lines, "=" * 70)
+        lines = push(lines, "Prim Performance Report")
+        lines = push(lines, "=" * 70)
+        lines = push(lines, "")
+        
+        # Summary
+        lines = push(lines, "Summary:")
+        lines = push(lines, "  Total Duration: {report.total_duration:.4f} seconds")
+        lines = push(lines, "  Start Time: {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(report.start_time))}")
+        lines = push(lines, "  End Time: {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(report.end_time))}")
+        lines = push(lines, "")
+        
+        # CPU Profiling
+        if report.function_calls:
+            lines = push(lines, "-" * 70)
+            lines = push(lines, "CPU Profiling")
+            lines = push(lines, "-" * 70)
+            lines = push(lines, "")
+            
+            # Hotspots
+            hotspots = sorted(report.function_calls, key=lambda f: f.total_time, reverse=true)[:10]
+            if hotspots:
+                lines = push(lines, "Top 10 Functions by Total Time:")
+                lines = push(lines, "")
+                lines = push(lines, "{'Function':<40} {'Calls':>8} {'Total':>10} {'Avg':>10} {'Min':>10} {'Max':>10}")
+                lines = push(lines, "-" * 90)
+                
+                for func in hotspots:
+                    name = "{func.name} ({func.file_path}:{func.line_number})"
+                    lines = push(lines, "{name:<40} {func.call_count:>8} {func.total_time:>10.4f} {func.avg_time:>10.4f} {func.min_time:>10.4f} {func.max_time:>10.4f}")
+                lines = push(lines, "")
+        
+        # Memory Profiling
+        if report.memory_snapshots:
+            lines = push(lines, "-" * 70)
+            lines = push(lines, "Memory Profiling")
+            lines = push(lines, "-" * 70)
+            lines = push(lines, "")
+            
+            if report.memory_snapshots:
+                first = report.memory_snapshots[0]
+                last = report.memory_snapshots[-1]
+                
+                lines = push(lines, "Memory Usage:")
+                lines = push(lines, "  Initial: {gcsnapshot__format_bytes(obj, first.current_usage)}")
+                lines = push(lines, "  Final: {gcsnapshot__format_bytes(obj, last.current_usage)}")
+                lines = push(lines, "  Peak: {gcsnapshot__format_bytes(obj, last.peak_usage)}")
+                lines = push(lines, "  Increase: {gcsnapshot__format_bytes(obj, last.current_usage - first.current_usage)}")
+                lines = push(lines, "")
+        
+        # GC Statistics
+        if report.gc_snapshots:
+            lines = push(lines, "-" * 70)
+            lines = push(lines, "Garbage Collection")
+            lines = push(lines, "-" * 70)
+            lines = push(lines, "")
+            
+            lines = push(lines, "GC Statistics:")
+            lines = push(lines, "  Generation 0: {obj["gc_stats"]['generation0']} collections")
+            lines = push(lines, "  Generation 1: {obj["gc_stats"]['generation1']} collections")
+            lines = push(lines, "  Generation 2: {obj["gc_stats"]['generation2']} collections")
+            
+            total_collected = sum(s.collected for s in report.gc_snapshots)
+            lines = push(lines, "  Total Objects Collected: {total_collected}")
+            lines = push(lines, "")
+        
+        return "\n".join(lines)
+
+    def format_report_json(self, report) -> str:
+        # Format performance report as JSON
+        data = {
+            'summary': {
+                'total_duration': report.total_duration,
+                'start_time': report.start_time,
+                'end_time': report.end_time
+            },
+            'function_calls': [
+                {
+                    'name': f.name,
+                    'file_path': f.file_path,
+                    'line_number': f.line_number,
+                    'call_count': f.call_count,
+                    'total_time': f.total_time,
+                    'min_time': f.min_time,
+                    'max_time': f.max_time,
+                    'avg_time': f.avg_time
+                }
+                for f in report.function_calls
+            ],
+            'memory_snapshots': [
+                {
+                    'timestamp': s.timestamp,
+                    'allocated': s.allocated,
+                    'current_usage': s.current_usage,
+                    'peak_usage': s.peak_usage
+                }
+                for s in report.memory_snapshots
+            ],
+            'gc_snapshots': [
+                {
+                    'timestamp': s.timestamp,
+                    'generation': s.generation,
+                    'collected': s.collected,
+                    'uncollectable': s.uncollectable
+                }
+                for s in report.gc_snapshots
+            ],
+            'gc_stats': obj["gc_stats"]
+        }
+        
+        return json.dumps(data, indent=2)
+
+    def _format_bytes(self, bytes_size: int) -> str:
+        # Format bytes as human-readable
+        for unit in ['B', 'KB', 'MB', 'GB']:
+            if bytes_size < 1024.0:
+                return "{bytes_size:.2f} {unit}"
+            bytes_size /= 1024.0
+        return "{bytes_size:.2f} TB"
+
+
+# Class ProfilerDecorator
+    # Decorator for profiling functions
+
+    fn make_profilerdecorator(profiler):
+        obj = {}
+        obj["profiler"] = profiler
+
+    fn profilerdecorator___call__(obj, func):
+        # Wrap function for profiling
+        fn wrapper(*args, **kwargs):
+            # Get function info
+            name = func.__name__
+            file_path = func.__code__.co_filename
+            line_number = func.__code__.co_firstlineno
+            
+            # Record entry
+            obj["profiler"].function_enter(name, file_path, line_number)
+            
+            try:
+                # Execute function
+                result = func(*args, **kwargs)
+                return result
+            finally:
+                # Record exit
+                obj["profiler"].function_exit(name, file_path)
+        
+        return wrapper
+
+
+fn profile_function(profiler):
+    # Decorator factory for profiling functions
+    return ProfilerDecorator(profiler)
+
+
+# Class ProfilerCLI
+    # Command-line interface for profiler
+
+    fn make_profilercli(profiler):
+        obj = {}
+        obj["profiler"] = profiler
+
+    fn profilercli_run(obj, script_path: str, output_format: str = "text"):
+        # Profile a script
+        print("Profiling: {script_path}")
+        print("Mode: {obj["profiler"].mode.value}")
+        print("")
+        
+        # Start profiling
+        obj["profiler"].start()
+        
+        try:
+            # Execute script
+            with open(script_path, 'r') as f:
+                code = f.read()
+            
+            # Simple execution (in real implementation, use the interpreter)
+            exec(code, {})
+            
+        except Exception as e:
+            print("Error executing script: {e}")
+        finally:
+            # Stop profiling and generate report
+            report = obj["profiler"].stop()
+            
+            print("")
+            print("=" * 70)
+            print("Profiling Complete")
+            print("=" * 70)
+            print("")
+            
+            if output_format == "json":
+                print(obj["profiler"].format_report_json(report))
+            else:
+                print(obj["profiler"].format_report(report))
+
+
+fn main():
+    # Main entry point
+    import argparse
+    
+    parser = argparse.ArgumentParser(description='Prim Performance Profiler')
+    parser.add_argument('script', help='Script to profile')
+    parser.add_argument('--mode', choices=['cpu', 'memory', 'both'], default='both',
+                       help='Profiling mode')
+    parser.add_argument('--format', choices=['text', 'json'], default='text',
+                       help='Output format')
+    
+    args = parser.parse_args()
+    
+    mode = ProfilerMode(args.mode)
+    profiler = PrimProfiler(mode)
+    cli = ProfilerCLI(profiler)
+    
+    cli.run(args.script, args.format)
+
+
+if __name__ == "__main__":
+    main()

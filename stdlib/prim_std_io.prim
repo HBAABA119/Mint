@@ -1,0 +1,180 @@
+#mode slim
+# Prim Standard Library - IO Module
+# Provides input/output operations for Prim
+
+use prim_interpreter
+
+fn std_io_print(interpreter, values):
+    # Print values to stdout
+    for val in values:
+        if is_runtime_value(val):
+            print_value(val["value"])
+        else:
+            print_value(val)
+    return prim_interpreter.make_runtime_value(None)
+
+fn std_io_input(interpreter, prompt_val):
+    # Get input from stdin
+    prompt = None
+    if prompt_val:
+        if is_runtime_value(prompt_val):
+            prompt = prompt_val["value"]
+        else:
+            prompt = prompt_val
+    
+    if prompt:
+        print(prompt)
+    # Note: actual input would be platform-specific
+    return prim_interpreter.make_runtime_value("")
+
+fn std_io_read_file(interpreter, path_val):
+    # Read content from a file
+    path = path_val
+    if is_runtime_value(path_val):
+        path = path_val["value"]
+    
+    # File operations are platform-specific
+    # Return empty content for now
+    print("Reading file: " + path)
+    return prim_interpreter.make_runtime_value("")
+
+fn std_io_write_file(interpreter, path_val, content_val):
+    # Write content to a file
+    path = path_val
+    if is_runtime_value(path_val):
+        path = path_val["value"]
+    
+    content = content_val
+    if is_runtime_value(content_val):
+        content = content_val["value"]
+    
+    print("Writing to file: " + path)
+    return prim_interpreter.make_runtime_value(true)
+
+fn std_io_file_exists(interpreter, path_val):
+    # Check if a file exists
+    path = path_val
+    if is_runtime_value(path_val):
+        path = path_val["value"]
+    
+    # Platform-specific file check
+    return prim_interpreter.make_runtime_value(false)
+
+fn std_io_dir_exists(interpreter, path_val):
+    # Check if a directory exists
+    path = path_val
+    if is_runtime_value(path_val):
+        path = path_val["value"]
+    
+    return prim_interpreter.make_runtime_value(false)
+
+fn std_io_list_dir(interpreter, path_val):
+    # List files in a directory
+    path = path_val
+    if is_runtime_value(path_val):
+        path = path_val["value"]
+    
+    return prim_interpreter.make_runtime_value([])
+
+fn std_io_create_dir(interpreter, path_val):
+    # Create a directory
+    path = path_val
+    if is_runtime_value(path_val):
+        path = path_val["value"]
+    
+    print("Creating directory: " + path)
+    return prim_interpreter.make_runtime_value(true)
+
+fn std_io_delete_file(interpreter, path_val):
+    # Delete a file
+    path = path_val
+    if is_runtime_value(path_val):
+        path = path_val["value"]
+    
+    print("Deleting file: " + path)
+    return prim_interpreter.make_runtime_value(true)
+
+fn std_io_json_parse(interpreter, json_str_val):
+    # Parse JSON string
+    json_str = json_str_val
+    if is_runtime_value(json_str_val):
+        json_str = json_str_val["value"]
+    
+    # Use built-in from_json
+    result = from_json(json_str)
+    return prim_interpreter.make_runtime_value(result)
+
+fn std_io_json_stringify(interpreter, obj_val):
+    # Convert object to JSON string
+    obj = obj_val
+    if is_runtime_value(obj_val):
+        obj = obj_val["value"]
+    
+    # Use built-in to_json
+    json_str = to_json(obj)
+    return prim_interpreter.make_runtime_value(json_str)
+
+fn std_io_exit(interpreter, code_val):
+    # Exit the program
+    code = 0
+    if code_val:
+        if is_runtime_value(code_val):
+            code = code_val["value"]
+        else:
+            code = code_val
+    
+    print("Exiting with code: " + to_string(code))
+    return None
+
+fn is_runtime_value(val):
+    return is_dict(val) and contains(dict_keys(val), "value")
+
+fn print_value(val):
+    if is_string(val):
+        print(val)
+    elif is_number(val):
+        print(to_string(val))
+    elif is_bool(val):
+        if val:
+            print("true")
+        else:
+            print("false")
+    elif val == None:
+        print("null")
+    elif is_list(val):
+        print(to_json(val))
+    elif is_dict(val):
+        print(to_json(val))
+    else:
+        print(to_string(val))
+
+fn is_string(val):
+    return type(val) == "string"
+
+fn is_number(val):
+    return type(val) == "number"
+
+fn is_bool(val):
+    return type(val) == "bool"
+
+fn is_list(val):
+    return is_dict(val) and contains(dict_keys(val), "length")
+
+fn is_dict(val):
+    return type(val) == "dict"
+
+fn register_io_functions(interpreter):
+    # Register IO utility functions with the interpreter
+    env = interpreter["global_env"]
+    prim_interpreter.env_define(env, "print", std_io_print)
+    prim_interpreter.env_define(env, "input", std_io_input)
+    prim_interpreter.env_define(env, "read_file", std_io_read_file)
+    prim_interpreter.env_define(env, "write_file", std_io_write_file)
+    prim_interpreter.env_define(env, "file_exists", std_io_file_exists)
+    prim_interpreter.env_define(env, "dir_exists", std_io_dir_exists)
+    prim_interpreter.env_define(env, "list_dir", std_io_list_dir)
+    prim_interpreter.env_define(env, "create_dir", std_io_create_dir)
+    prim_interpreter.env_define(env, "delete_file", std_io_delete_file)
+    prim_interpreter.env_define(env, "json_parse", std_io_json_parse)
+    prim_interpreter.env_define(env, "json_stringify", std_io_json_stringify)
+    prim_interpreter.env_define(env, "exit", std_io_exit)

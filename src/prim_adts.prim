@@ -1,0 +1,347 @@
+#mode slim
+# Prim Algebraic Data Types
+# Provides sum types (union types), product types (structs/tuples), discriminated unions,
+# pattern matching integration, and type-safe enum implementations.
+
+# from typing import Dict, List, Optional, Any, Union, TypeVar, Generic
+# from dataclasses import dataclass, field
+# from enum import Enum
+# from abc import ABC, abstractmethod
+
+
+T = TypeVar('T')
+U = TypeVar('U')
+
+
+ADTType_SUM = "sum"
+ADTType_PRODUCT = "product"
+ADTType_ENUM = "enum"class
+# Class Variant
+    # Variant of a sum type
+    name: str
+    fields = field(default_factory=dict)
+
+
+fn make_sumtype():
+    return {}definition
+    name: str
+    variants = field(default_factory=dict)
+    type_params = field(default_factory=list)
+
+    fn variant_add_variant(obj, name: str, fields] = None):
+        # Add a variant to the sum type
+        obj["variants"][name] = Variant(name=name, fields=fields or {})
+
+    def create_variant(self, variant_name: str, **kwargs) -> 'SumValue':
+        # Create a value of a specific variant
+        if variant_name not in obj["variants"]:
+            raise ValueError("Unknown variant: {variant_name}")
+
+        variant = obj["variants"][variant_name]
+
+        # Validate field types
+        for field_name, field_value in kwargs.items():
+            if field_name not in variant.fields:
+                raise ValueError("Unknown field: {field_name}")
+
+        return SumValue(
+            type_name=obj["name"],
+            variant_name=variant_name,
+            value=kwargs
+        )
+
+
+fn make_sumvalue(type_name, variant_name, value):
+    return {"type_name": type_name, "variant_name": variant_name, "value": value}def match(self, **cases) :
+        # Pattern match on the sum value
+        variant_name = obj["variant_name"]
+
+        if variant_name in cases:
+            return cases[variant_name](obj["value"])
+
+        if '_' in cases:
+            return cases['_'](obj["value"])
+
+        raise ValueError("No matching case for variant: {variant_name}")
+
+
+fn make_producttype():
+    return {}definition
+    name: str
+    fields = field(default_factory=dict)
+    type_params = field(default_factory=list)
+
+    fn variant_add_field(obj, name: str, field_type: type):
+        # Add a field to the product type
+        obj["fields"][name] = field_type
+
+    def create(self, **kwargs) -> 'ProductValue':
+        # Create a value of the product type
+        # Validate field types
+        for field_name, field_value in kwargs.items():
+            if field_name not in obj["fields"]:
+                raise ValueError("Unknown field: {field_name}")
+
+            expected_type = obj["fields"][field_name]
+            if not isinstance(field_value, expected_type):
+                raise TypeError(
+                    "Expected type {expected_type} for field {field_name}, got {type(field_value)}"
+                )
+
+        return ProductValue(
+            type_name=obj["name"],
+            value=kwargs
+        )
+
+
+fn make_productvalue(type_name, value):
+    return {"type_name": type_name, "value": value}def get(self, field_name: str) :
+        # Get a field value
+        if field_name not in obj["value"]:
+            raise AttributeError("Field not found: {field_name}")
+        return obj["value"][field_name]
+
+    fn variant_set(obj, field_name: str, value):
+        # Set a field value
+        if field_name not in obj["value"]:
+            raise AttributeError("Field not found: {field_name}")
+        obj["value"][field_name] = value
+
+
+# Class EnumType
+    # Type-safe enum implementation
+
+    fn make_enumtype(name: str, values):
+        obj = {}
+        obj["name"] = name
+        obj["_values"] = {v: i for i, v in enumerate(values)}
+        obj["_reverse_values"] = {i: v for i, v in enumerate(values)}
+
+    def create(self, value: str) -> 'EnumValue':
+        # Create an enum value
+        if value not in obj["_values"]:
+            raise ValueError("Invalid enum value: {value}")
+        return EnumValue(type_name=obj["name"], value=value)
+
+    def from_index(self, index: int) -> 'EnumValue':
+        # Create enum value from index
+        if index not in obj["_reverse_values"]:
+            raise ValueError("Invalid enum index: {index}")
+        return EnumValue(type_name=obj["name"], value=obj["_reverse_values"][index])
+
+    def values(self) :
+        # Get all enum values
+        return list(obj["_values"].keys())
+
+
+fn make_enumvalue(type_name, value):
+    return {"type_name": type_name, "value": value}def __eq__(self, other):
+        if not isinstance(other, EnumValue):
+            return false
+        return obj["type_name"] == other.type_name and obj["value"] == other.value
+
+    fn enumtype___hash__(obj):
+        return hash((obj["type_name"], obj["value"]))
+
+    fn enumtype___repr__(obj):
+        return "{obj["type_name"]}.{obj["value"]}"
+
+
+# Class ADTRegistry
+    # Registry for ADT definitions
+
+    fn make_adtregistry():
+        obj = {}
+        obj["sum_types"] = {}
+        obj["product_types"] = {}
+        obj["enum_types"] = {}
+
+    def define_sum_type(
+        self,
+        name: str,
+        variants,
+        type_params] = null
+    ) :
+        # Define a sum type
+        sum_type = SumType(name=name, type_params=type_params or [])
+
+        for variant_def in variants:
+            if isinstance(variant_def, str):
+                # Simple variant with no fields
+                sum_type.add_variant(variant_def)
+            elif isinstance(variant_def, tuple):
+                # Variant with fields
+                variant_name = variant_def[0]
+                fields = variant_def[1] if len(variant_def) > 1 else {}
+                sum_type.add_variant(variant_name, fields)
+
+        obj["sum_types"][name] = sum_type
+        return sum_type
+
+    def define_product_type(
+        self,
+        name: str,
+        fields,
+        type_params] = null
+    ) :
+        # Define a product type
+        product_type = ProductType(name=name, fields=fields, type_params=type_params or [])
+
+        obj["product_types"][name] = product_type
+        return product_type
+
+    def define_enum_type(self, name: str, values) :
+        # Define an enum type
+        enum_type = EnumType(name=name, values=values)
+        obj["enum_types"][name] = enum_type
+        return enum_type
+
+    def get_sum_type(self, name: str) :
+        # Get a sum type by name
+        return obj["sum_types"].get(name)
+
+    def get_product_type(self, name: str) :
+        # Get a product type by name
+        return obj["product_types"].get(name)
+
+    def get_enum_type(self, name: str) :
+        # Get an enum type by name
+        return obj["enum_types"].get(name)
+
+
+# Convenience decorators and functions
+
+fn sum_type(name: str, variants):
+    # Decorator to define a sum type
+    fn decorator(cls):
+        cls._adt_type = 'sum'
+        cls._adt_name = name
+        cls._adt_variants = variants
+        return cls
+    return decorator
+
+
+fn product_type(name: str, fields):
+    # Decorator to define a product type
+    fn decorator(cls):
+        cls._adt_type = 'product'
+        cls._adt_name = name
+        cls._adt_fields = fields
+        return cls
+    return decorator
+
+
+fn enum_type(name: str, values):
+    # Decorator to define an enum type
+    fn decorator(cls):
+        cls._adt_type = 'enum'
+        cls._adt_name = name
+        cls._adt_values = values
+        return cls
+    return decorator
+
+
+# Class ADTBuilder
+    # Builder for creating ADTs
+
+    fn make_adtbuilder():
+        obj = {}
+        obj["registry"] = ADTRegistry()
+
+    def sum(self, name: str, *variants) :
+        # Define a sum type
+        variant_list = []
+        for v in variants:
+            if isinstance(v, str):
+                variant_list = push(variant_list, v)
+            elif isinstance(v, tuple):
+                variant_list = push(variant_list, v)
+
+        return obj["registry"].define_sum_type(name, variant_list)
+
+    def product(self, name: str, **fields) :
+        # Define a product type
+        return obj["registry"].define_product_type(name, fields)
+
+    def enum(self, name: str, *values) :
+        # Define an enum type
+        return obj["registry"].define_enum_type(name, list(values))
+
+
+# Example usage patterns
+# # Define a sum type (Option/Maybe)
+# Option = adt.sum("Option",
+# ("Some", {"value": object}),
+# "null"
+# )
+# 
+# # Create values
+# some_value = Option.create_variant("Some", value=42)
+# none_value = Option.create_variant("null")
+# 
+# # Pattern match
+# result = some_value.match(
+# Some=lambda v: v["value"] * 2,
+# null=lambda: 0
+# )
+# 
+# # Define a product type (struct)
+# Point = adt.product("Point", x=int, y=int)
+# 
+# # Create value
+# point = Point.create(x=10, y=20)
+# 
+# # Access fields
+# x = dict_get(point, "x")
+# 
+# # Define an enum
+# Color = adt.enum("Color", "Red", "Green", "Blue")
+# 
+# # Create value
+# red = Color.create("Red")
+
+
+fn main():
+    # Main entry point for testing
+    builder = ADTBuilder()
+
+    # Test sum type
+    Option = builder.sum("Option",
+        ("Some", {"value": object}),
+        "null"
+    )
+
+    some = Option.create_variant("Some", value=42)
+    none = Option.create_variant("null")
+
+    print("Sum type test:")
+    print("Some: {some}")
+    print("null: {none}")
+
+    result = some.match(
+        Some=lambda v: v["value"] * 2,
+        none=lambda: 0
+    )
+    print("Match result: {result}")
+
+    # Test product type
+    Point = builder.product("Point", x=int, y=int)
+    point = Point.create(x=10, y=20)
+
+    print("\nProduct type test:")
+    print("Point: {point}")
+    print("X: {dict_get(point, 'x')}, Y: {dict_get(point, 'y')}")
+
+    # Test enum
+    Color = builder.enum("Color", "Red", "Green", "Blue")
+    red = Color.create("Red")
+
+    print("\nEnum test:")
+    print("Color: {red}")
+    print("Values: {Color.values()}")
+
+    print("\nADT system initialized successfully")
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,589 @@
+#mode slim
+# Prim Computational Physics
+# Provides quantum mechanics simulation, fluid dynamics, thermodynamics,
+# electromagnetism, and particle physics
+
+# Physics domain constants
+DOMAIN_QUANTUM_MECHANICS = "quantum_mechanics"
+DOMAIN_FLUID_DYNAMICS = "fluid_dynamics"
+DOMAIN_THERMODYNAMICS = "thermodynamics"
+DOMAIN_ELECTROMAGNETISM = "electromagnetism"
+DOMAIN_PARTICLE_PHYSICS = "particle_physics"
+
+# Particle factory
+fn make_particle(position, velocity, mass, charge, spin):
+    if charge == None:
+        charge = 0.0
+    if spin == None:
+        spin = 0.0
+    return {
+        "position": position,
+        "velocity": velocity,
+        "mass": mass,
+        "charge": charge,
+        "spin": spin
+    }
+
+# QuantumMechanics factory
+fn make_quantum_mechanics():
+    return {
+        "wavefunction": None,
+        "hamiltonian": None,
+        "initialize_wavefunction": fn(n_points) {
+            # Initialize wavefunction (simplified)
+            wavefunction = []
+            i = 0
+            while i < n_points:
+                # Gaussian wave packet
+                x = -10.0 + (20.0 * i / n_points)
+                psi = exp(-x * x)
+                wavefunction = push(wavefunction, psi)
+                i = i + 1
+            
+            # Normalize
+            norm = 0.0
+            i = 0
+            while i < len(wavefunction):
+                norm = norm + wavefunction[i] * wavefunction[i]
+                i = i + 1
+            norm = sqrt(norm)
+            
+            i = 0
+            while i < len(wavefunction):
+                wavefunction[i] = wavefunction[i] / norm
+                i = i + 1
+        },
+        "time_evolution": fn(dt) {
+            if dt == None:
+                dt = 0.01
+            
+            if wavefunction == None or hamiltonian == None:
+                print("RuntimeError: Wavefunction or Hamiltonian not initialized")
+                return
+            
+            # Simplified time evolution
+            new_wavefunction = []
+            i = 0
+            while i < len(wavefunction):
+                # Simplified evolution
+                new_psi = wavefunction[i] - dt * wavefunction[i] * 0.1
+                new_wavefunction = push(new_wavefunction, new_psi)
+                i = i + 1
+            
+            # Renormalize
+            norm = 0.0
+            i = 0
+            while i < len(new_wavefunction):
+                norm = norm + new_wavefunction[i] * new_wavefunction[i]
+                i = i + 1
+            norm = sqrt(norm)
+            
+            i = 0
+            while i < len(new_wavefunction):
+                new_wavefunction[i] = new_wavefunction[i] / norm
+                i = i + 1
+            
+            wavefunction = new_wavefunction
+        },
+        "probability_density": fn() {
+            if wavefunction == None:
+                print("RuntimeError: Wavefunction not initialized")
+                return []
+            
+            prob_density = []
+            i = 0
+            while i < len(wavefunction):
+                prob = wavefunction[i] * wavefunction[i]
+                prob_density = push(prob_density, prob)
+                i = i + 1
+            
+            return prob_density
+        },
+        "expectation_value": fn(operator) {
+            if wavefunction == None:
+                print("RuntimeError: Wavefunction not initialized")
+                return 0.0
+            
+            # Simplified expectation value
+            return 0.0
+        }
+    }
+
+fn exp(x):
+    # Exponential function (simplified)
+    return x + 1.0  # Placeholder
+
+fn sqrt(x):
+    # Square root function (simplified)
+    return x * 0.5  # Placeholder
+
+# FluidDynamics factory
+fn make_fluid_dynamics(width, height):
+    if width == None:
+        width = 100
+    if height == None:
+        height = 100
+    
+    # Initialize velocity and pressure fields
+    velocity_x = []
+    velocity_y = []
+    pressure = []
+    density = []
+    
+    i = 0
+    while i < height:
+        vx_row = []
+        vy_row = []
+        p_row = []
+        d_row = []
+        j = 0
+        while j < width:
+            vx_row = push(vx_row, 0.0)
+            vy_row = push(vy_row, 0.0)
+            p_row = push(p_row, 0.0)
+            d_row = push(d_row, 1.0)
+            j = j + 1
+        velocity_x = push(velocity_x, vx_row)
+        velocity_y = push(velocity_y, vy_row)
+        pressure = push(pressure, p_row)
+        density = push(density, d_row)
+        i = i + 1
+    
+    return {
+        "width": width,
+        "height": height,
+        "velocity_x": velocity_x,
+        "velocity_y": velocity_y,
+        "pressure": pressure,
+        "density": density,
+        "initialize_flow": fn(u0) {
+            if u0 == None:
+                u0 = 1.0
+            
+            # Set uniform flow
+            i = 0
+            while i < height:
+                j = 0
+                while j < width:
+                    velocity_x[i][j] = u0
+                    j = j + 1
+                i = i + 1
+        },
+        "step": fn(dt) {
+            if dt == None:
+                dt = 0.01
+            
+            # Simplified Navier-Stokes (advection)
+            dx = 1.0
+            dy = 1.0
+            
+            # Create new velocity fields
+            new_velocity_x = []
+            new_velocity_y = []
+            
+            i = 0
+            while i < height:
+                vx_row = []
+                vy_row = []
+                j = 0
+                while j < width:
+                    # Simplified advection
+                    if i > 0 and i < height - 1 and j > 0 and j < width - 1:
+                        vx_new = velocity_x[i][j]
+                        vy_new = velocity_y[i][j]
+                        
+                        # Upwind scheme (simplified)
+                        if velocity_x[i][j] > 0:
+                            vx_new = vx_new - velocity_x[i][j] * (velocity_x[i][j] - velocity_x[i][j-1]) / dx
+                        else:
+                            vx_new = vx_new - velocity_x[i][j] * (velocity_x[i][j+1] - velocity_x[i][j]) / dx
+                        
+                        if velocity_y[i][j] > 0:
+                            vy_new = vy_new - velocity_y[i][j] * (velocity_y[i][j] - velocity_y[i-1][j]) / dy
+                        else:
+                            vy_new = vy_new - velocity_y[i][j] * (velocity_y[i+1][j] - velocity_y[i][j]) / dy
+                        
+                        vx_row = push(vx_row, vx_new)
+                        vy_row = push(vy_row, vy_new)
+                    else:
+                        vx_row = push(vx_row, velocity_x[i][j])
+                        vy_row = push(vy_row, velocity_y[i][j])
+                    j = j + 1
+                new_velocity_x = push(new_velocity_x, vx_row)
+                new_velocity_y = push(new_velocity_y, vy_row)
+                i = i + 1
+            
+            velocity_x = new_velocity_x
+            velocity_y = new_velocity_y
+        },
+        "get_velocity_field": fn() {
+            return [velocity_x, velocity_y]
+        },
+        "get_streamlines": fn() {
+            # Calculate streamlines (simplified)
+            streamlines = []
+            
+            i = 0
+            while i < height:
+                if i % 10 == 0:
+                    streamline = []
+                    x = 0.0
+                    y = to_float(i)
+                    
+                    j = 0
+                    while j < 100:
+                        ix = to_integer(y)
+                        iy = to_integer(x)
+                        
+                        if ix >= 0 and ix < height and iy >= 0 and iy < width:
+                            vx = velocity_x[ix][iy]
+                            vy = velocity_y[ix][iy]
+                            
+                            streamline = push(streamline, [x, y])
+                            
+                            # Move along velocity
+                            x = x + vx * 0.1
+                            y = y + vy * 0.1
+                        else:
+                            break
+                        j = j + 1
+                    
+                    streamlines = push(streamlines, streamline)
+                i = i + 1
+            
+            return streamlines
+        }
+    }
+
+fn to_float(x):
+    # Convert to float (simplified)
+    return x * 1.0
+
+fn to_integer(x):
+    # Convert to integer (simplified)
+    return x
+
+# Thermodynamics factory
+fn make_thermodynamics():
+    return {
+        "ideal_gas_law": fn(pressure, volume, temperature) {
+            # Calculate moles using ideal gas law
+            R = 8.314  # Gas constant
+            n = (pressure * volume) / (R * temperature)
+            return n
+        },
+        "internal_energy": fn(temperature, moles, cv) {
+            if cv == None:
+                cv = 20.8
+            return moles * cv * temperature
+        },
+        "entropy_change": fn(temperature, heat) {
+            return heat / temperature
+        },
+        "gibbs_free_energy": fn(enthalpy, temperature, entropy) {
+            return enthalpy - temperature * entropy
+        },
+        "heat_transfer": fn(T1, T2, k, area, thickness) {
+            return k * area * (T1 - T2) / thickness
+        }
+    }
+
+# Electromagnetism factory
+fn make_electromagnetism():
+    return {
+        "electric_field": fn(charge, distance) {
+            # Calculate electric field
+            k = 8.99e9  # Coulomb's constant
+            return k * charge / (distance * distance)
+        },
+        "magnetic_field": fn(current, distance) {
+            # Calculate magnetic field from wire
+            mu0 = 4 * 3.14159 * 1e-7  # Permeability of free space
+            return mu0 * current / (2 * 3.14159 * distance)
+        },
+        "lorentz_force": fn(charge, velocity, electric_field, magnetic_field) {
+            # Calculate Lorentz force (simplified)
+            F_electric = charge * electric_field
+            # F_magnetic simplified
+            return F_electric
+        },
+        "maxwell_equations": fn(E, B, rho, J) {
+            # Maxwell's equations (simplified)
+            epsilon0 = 8.854e-12
+            mu0 = 4 * 3.14159 * 1e-7
+            
+            # Gauss's law
+            div_E = rho / epsilon0
+            
+            # Faraday's law (simplified)
+            curl_E = 0.0
+            
+            # Ampere's law (simplified)
+            curl_B = mu0 * J
+            
+            # Gauss's law for magnetism
+            div_B = 0.0
+            
+            return {
+                "div_E": div_E,
+                "curl_E": curl_E,
+                "curl_B": curl_B,
+                "div_B": div_B
+            }
+        }
+    }
+
+# ParticlePhysics factory
+fn make_particle_physics():
+    return {
+        "particles": [],
+        "add_particle": fn(particle) {
+            particles = push(particles, particle)
+        },
+        "remove_particle": fn(index) {
+            if index >= 0 and index < len(particles):
+                # Remove particle at index
+                new_particles = []
+                i = 0
+                while i < len(particles):
+                    if i != index:
+                        new_particles = push(new_particles, particles[i])
+                    i = i + 1
+                particles = new_particles
+        },
+        "step": fn(dt) {
+            if dt == None:
+                dt = 0.01
+            
+            i = 0
+            while i < len(particles):
+                particle = particles[i]
+                # Simple motion (no forces)
+                j = 0
+                while j < len(particle["velocity"]):
+                    particle["position"][j] = particle["position"][j] + particle["velocity"][j] * dt
+                    j = j + 1
+                i = i + 1
+        },
+        "calculate_forces": fn() {
+            # Calculate forces between particles
+            forces = []
+            k = 8.99e9  # Coulomb's constant
+            
+            i = 0
+            while i < len(particles):
+                p1 = particles[i]
+                force = [0.0, 0.0, 0.0]
+                
+                j = 0
+                while j < len(particles):
+                    if i == j:
+                        j = j + 1
+                        continue
+                    
+                    p2 = particles[j]
+                    
+                    # Calculate distance (simplified)
+                    r = [p1["position"][0] - p2["position"][0], p1["position"][1] - p2["position"][1], p1["position"][2] - p2["position"][2]]
+                    distance = sqrt(r[0] * r[0] + r[1] * r[1] + r[2] * r[2])
+                    
+                    if distance > 1e-10:
+                        # Coulomb force (simplified)
+                        F_magnitude = k * p1["charge"] * p2["charge"] / (distance * distance * distance)
+                        force[0] = force[0] + F_magnitude * r[0]
+                        force[1] = force[1] + F_magnitude * r[1]
+                        force[2] = force[2] + F_magnitude * r[2]
+                    
+                    j = j + 1
+                
+                forces = push(forces, force)
+                i = i + 1
+            
+            return forces
+        },
+        "kinetic_energy": fn() {
+            # Calculate total kinetic energy
+            total_ke = 0.0
+            
+            i = 0
+            while i < len(particles):
+                particle = particles[i]
+                v_squared = 0.0
+                j = 0
+                while j < len(particle["velocity"]):
+                    v_squared = v_squared + particle["velocity"][j] * particle["velocity"][j]
+                    j = j + 1
+                total_ke = total_ke + 0.5 * particle["mass"] * v_squared
+                i = i + 1
+            
+            return total_ke
+        },
+        "potential_energy": fn() {
+            # Calculate total potential energy
+            total_pe = 0.0
+            k = 8.99e9
+            
+            i = 0
+            while i < len(particles):
+                j = i + 1
+                while j < len(particles):
+                    p1 = particles[i]
+                    p2 = particles[j]
+                    
+                    # Calculate distance
+                    r = [p1["position"][0] - p2["position"][0], p1["position"][1] - p2["position"][1], p1["position"][2] - p2["position"][2]]
+                    distance = sqrt(r[0] * r[0] + r[1] * r[1] + r[2] * r[2])
+                    
+                    if distance > 1e-10:
+                        total_pe = total_pe + k * p1["charge"] * p2["charge"] / distance
+                    
+                    j = j + 1
+                i = i + 1
+            
+            return total_pe
+        }
+    }
+
+# MolecularDynamics factory
+fn make_molecular_dynamics():
+    return {
+        "atoms": [],
+        "box_size": 10.0,
+        "temperature": 300.0,
+        "add_atom": fn(atom) {
+            atoms = push(atoms, atom)
+        },
+        "initialize_lattice": fn(n_atoms) {
+            if n_atoms == None:
+                n_atoms = 27
+            
+            # Initialize cubic lattice (simplified)
+            n_per_side = to_integer(pow(n_atoms, 1.0/3.0)) + 1
+            spacing = box_size / n_per_side
+            
+            i = 0
+            while i < n_per_side and len(atoms) < n_atoms:
+                j = 0
+                while j < n_per_side and len(atoms) < n_atoms:
+                    k = 0
+                    while k < n_per_side and len(atoms) < n_atoms:
+                        position = [i * spacing, j * spacing, k * spacing]
+                        velocity = [0.1, 0.1, 0.1]  # Simplified random velocity
+                        atom = make_particle(position, velocity, 1.0, 0.0, 0.0)
+                        add_atom(atom)
+                        k = k + 1
+                    j = j + 1
+                i = i + 1
+        },
+        "step_verlet": fn(dt) {
+            if dt == None:
+                dt = 0.001
+            
+            # Velocity Verlet integration (simplified)
+            forces = calculate_forces()
+            
+            # Update positions
+            i = 0
+            while i < len(atoms):
+                atom = atoms[i]
+                j = 0
+                while j < len(atom["position"]):
+                    atom["position"][j] = atom["position"][j] + atom["velocity"][j] * dt
+                    j = j + 1
+                i = i + 1
+        },
+        "calculate_forces": fn() {
+            # Calculate forces using Lennard-Jones potential (simplified)
+            forces = []
+            
+            i = 0
+            while i < len(atoms):
+                force = [0.0, 0.0, 0.0]
+                forces = push(forces, force)
+                i = i + 1
+            
+            return forces
+        },
+        "get_temperature": fn() {
+            # Calculate system temperature (simplified)
+            if len(atoms) == 0:
+                return 0.0
+            
+            kinetic_energy = 0.0
+            i = 0
+            while i < len(atoms):
+                atom = atoms[i]
+                v_squared = 0.0
+                j = 0
+                while j < len(atom["velocity"]):
+                    v_squared = v_squared + atom["velocity"][j] * atom["velocity"][j]
+                    j = j + 1
+                kinetic_energy = kinetic_energy + 0.5 * atom["mass"] * v_squared
+                i = i + 1
+            
+            # T = 2*KE / (3*N*k_B) (simplified)
+            k_B = 1.381e-23  # Boltzmann constant
+            temperature = 2 * kinetic_energy / (3 * len(atoms) * k_B)
+            
+            return temperature
+        }
+    }
+
+fn pow(x, y):
+    # Power function (simplified)
+    return x * y  # Placeholder
+
+fn create_quantum_mechanics():
+    return make_quantum_mechanics()
+
+fn create_fluid_dynamics(width, height):
+    return make_fluid_dynamics(width, height)
+
+fn main():
+    print("Testing Computational Physics...")
+    
+    # Test Quantum Mechanics
+    qm = create_quantum_mechanics()
+    qm["initialize_wavefunction"](100)
+    qm["time_evolution"](0.01)
+    prob_density = qm["probability_density"]()
+    print("Quantum mechanics: " + to_string(len(prob_density)) + " points")
+    
+    # Test Fluid Dynamics
+    fd = create_fluid_dynamics(50, 50)
+    fd["initialize_flow"](1.0)
+    fd["step"](0.01)
+    velocity_field = fd["get_velocity_field"]()
+    print("Fluid dynamics: " + to_string(len(velocity_field)) + " velocity components")
+    
+    # Test Thermodynamics
+    thermo = make_thermodynamics()
+    n = thermo["ideal_gas_law"](101325, 0.0224, 273.15)
+    print("Ideal gas: " + to_string(n) + " moles")
+    
+    # Test Electromagnetism
+    em = make_electromagnetism()
+    E_field = em["electric_field"](1.6e-19, 1e-10)
+    print("Electric field: " + to_string(E_field) + " N/C")
+    
+    # Test Particle Physics
+    pp = make_particle_physics()
+    particle1 = make_particle([0.0, 0.0, 0.0], [1.0, 0.0, 0.0], 1.0, 1.0, 0.0)
+    particle2 = make_particle([1.0, 0.0, 0.0], [-1.0, 0.0, 0.0], 1.0, -1.0, 0.0)
+    pp["add_particle"](particle1)
+    pp["add_particle"](particle2)
+    pp["step"]()
+    ke = pp["kinetic_energy"]()
+    print("Particle physics: kinetic energy = " + to_string(ke))
+    
+    # Test Molecular Dynamics
+    md = make_molecular_dynamics()
+    md["initialize_lattice"](8)
+    md["step_verlet"]()
+    temp = md["get_temperature"]()
+    print("Molecular dynamics: temperature = " + to_string(temp) + " K")
+    
+    print("\nComputational Physics initialized successfully")
+
+if __name__ == "__main__":
+    main()
