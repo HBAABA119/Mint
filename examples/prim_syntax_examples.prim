@@ -1,0 +1,134 @@
+# Prim Language Syntax Examples
+#
+# This file demonstrates the three syntax modes of the Prim language.
+# Each section shows equivalent functionality in different modes.
+
+# SLIM MODE - Python-like, indentation-based
+#mode slim
+
+# Basic variable assignment
+message = "Hello from Slim Mode!"
+number = 42
+
+# Function definition
+fn greet(name):
+    return "Greetings, " + name + "!"
+
+# Conditional
+if number > 40:
+    result = greet("Slim User")
+    print(result)
+
+# Loop
+counter = 0
+while counter < 3:
+    print("Slim loop iteration:", counter)
+    counter = counter + 1
+
+# List operations
+numbers = [1, 2, 3, 4, 5]
+sum = 0
+for num in numbers:
+    sum = sum + num
+
+print("Sum from Slim:", sum)
+
+
+# BLOCK MODE - C/JS-style with braces
+#mode block
+
+// Basic variable assignment
+var message = "Hello from Block Mode!";
+var number = 42;
+
+// Function definition
+fn greet(name) {
+    return "Greetings, " + name + "!";
+}
+
+// Conditional
+if (number > 40) {
+    var result = greet("Block User");
+    print(result);
+}
+
+// Loop
+var counter = 0;
+while (counter < 3) {
+    print("Block loop iteration:", counter);
+    counter = counter + 1;
+}
+
+// List operations
+var numbers = [1, 2, 3, 4, 5];
+var sum = 0;
+for (var num in numbers) {
+    sum = sum + num;
+}
+print("Sum from Block:", sum);
+
+
+// FLOW MODE - Functional/pipe-based
+#mode flow
+
+// Basic variable assignment
+message := "Hello from Flow Mode!"
+number := 42
+
+// Function definition
+greet = |name| -> "Greetings, " + name + "!"
+
+// Conditional - using functional approach
+number > 40 && (greet("Flow User") |> print(#))
+
+// Loop simulation using recursion
+loop = |count, max| ->
+    if count < max then (
+        print("Flow loop iteration:", count);
+        loop(count + 1, max)
+    ) else (
+        null
+    )
+
+loop(0, 3)
+
+// List operations with functional style
+numbers := [1, 2, 3, 4, 5]
+sum := numbers |> reduce(|acc, val| acc + val, 0)
+print("Sum from Flow:", sum)
+
+
+# ADVANCED EXAMPLE - All modes calculating Fibonacci
+#mode slim
+
+fn fibonacci(n):
+    if n <= 1:
+        return n
+    else:
+        return fibonacci(n - 1) + fibonacci(n - 2)
+
+result_slim = fibonacci(6)
+print("Fibonacci(6) from Slim:", result_slim)
+
+
+#mode block
+
+fn fibonacci(n) {
+    if (n <= 1) {
+        return n;
+    } else {
+        return fibonacci(n - 1) + fibonacci(n - 2);
+    }
+}
+
+var result_block = fibonacci(6);
+print("Fibonacci(6) from Block:", result_block);
+
+
+#mode flow
+
+fibonacci = |n| ->
+    n <= 1 ? n : fibonacci(n - 1) + fibonacci(n - 2)
+
+result_flow := fibonacci(6)
+print("Fibonacci(6) from Flow:", result_flow)

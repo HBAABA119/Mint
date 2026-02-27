@@ -1,0 +1,10 @@
+# Prim Language v1.0 Requirements
+# Core dependencies - Python 3.6+ is required
+
+# No external dependencies needed for basic functionality
+# Prim is built with standard Python libraries
+
+# Optional development dependencies (uncomment to install)
+# pytest>=6.0.0
+# flake8>=3.8.0
+# black>=21.0.0
