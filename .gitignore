@@ -36,6 +36,11 @@ PRIM_ROADMAP.md
 *.swo
 *~
 
+# Rust
+target/
+**/*.rs.bk
+Cargo.lock
+
 # OS
 .DS_Store
 Thumbs.db

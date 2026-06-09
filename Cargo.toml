@@ -1,0 +1,10 @@
+[workspace]
+members = [
+    "mint-core",
+    "mint-lexer",
+    "mint-parser",
+    "mint-vm",
+    "mint-stdlib",
+    "mintc",
+]
+resolver = "2"

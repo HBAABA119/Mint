@@ -1,628 +1,87 @@
-# Prim Language Grammar Reference
+# Mint Language Grammar (v0.1 - Light Mode)
 
-## Overview
+## Notation
 
-This document provides a complete grammar reference for the Prim language, including lexical structure, syntax, and semantics.
+- `|` separates alternatives
+- `*` means zero or more
+- `+` means one or more
+- `?` means optional
+- `"terminal"` means literal text
+
+## Program Structure
+
+```
+program       = statement*
+statement     = function_def | if_stmt | while_stmt | for_stmt 
+              | return_stmt | assignment | expr_stmt
+
+function_def  = "fn" IDENTIFIER "(" [params] ")" ":" block
+params        = IDENTIFIER ("," IDENTIFIER)*
+
+if_stmt       = "if" expr ":" block ["else" ":" block]
+while_stmt    = "while" expr ":" block
+for_stmt      = "for" IDENTIFIER "in" expr ":" block
+return_stmt   = "return" [expr]
+
+assignment    = IDENTIFIER "=" expr
+
+block         = NEWLINE INDENT statement+ DEDENT
+```
+
+## Expressions (Precedence from lowest to highest)
+
+```
+expr          = logical_or
+logical_or    = logical_and ("or" logical_and)*
+logical_and   = equality ("and" equality)*
+equality      = comparison (("==" | "!=") comparison)*
+comparison    = term (("<" | "<=" | ">" | ">=") term)*
+term          = factor (("+" | "-") factor)*
+factor        = unary (("*" | "/" | "%") unary)*
+unary         = ("-" | "not") unary | call
+call          = primary ("(" [args] ")")*
+primary       = NUMBER | STRING | "true" | "false" | "null" 
+              | IDENTIFIER | "(" expr ")" | "[" [args] "]"
+args          = expr ("," expr)*
+```
 
 ## Lexical Structure
 
-### Whitespace
-
-Whitespace characters (space, tab, newline, carriage return, form feed) are used to separate tokens and are otherwise ignored.
-
-### Comments
-
-```prim
-// Single-line comment
-
-/*
- Multi-line comment
- spanning multiple lines
- */
-```
-
-### Identifiers
-
-Identifiers must start with a letter or underscore, followed by letters, digits, or underscores.
-
-```
-identifier ::= letter (letter | digit | '_')*
-```
-
-Examples: `myVariable`, `_private`, `camelCase`, `PascalCase`
-
-### Keywords
-
-```
-let, const, fn, return, if, else, while, for, break, continue,
-class, extends, this, super, import, from, as, export, type, interface,
-implements, match, case, default, try, catch, finally, throw, async, await, yield,
-use, mode
-```
-
-## Syntax Modes
-
-Prim supports three distinct syntax modes, which can be toggled using the `#mode` directive.
-
-### 1. Slim Mode (`#mode slim`)
-Python-inspired, indentation-based syntax.
-- **Functions**: `fn name(args):`
-- **Blocks**: Defined by indentation.
-- **Assignments**: `name = value`
-
-### 2. Block Mode (`#mode block`)
-C/JavaScript-inspired, brace-based syntax.
-- **Functions**: `fn name(args) { ... }`
-- **Blocks**: Defined by `{ }`.
-- **Assignments**: `var name = value;` or `const name = value;`
-- **Statements**: Must end with `;`.
-
-### 3. Flow Mode (`#mode flow`)
-Functional, pipe-based syntax.
-- **Functions**: `name = |args| -> expression`
-- **Assignments**: `name := value`
-- **Piping**: `value |> function(#)` where `#` is the placeholder for the piped value.
-
-## Module System
-
-### Importing
-```prim
-use prim_math
-use prim_std_collections as collections
-
-// Selective import
-from prim_math import sin, cos
-```
-
-### Exporting
-In Slim and Block modes:
-```prim
-export fn my_function():
-    return 42
-```
-
-## Advanced Types
-
-### Interfaces
-```prim
-interface Shape:
-    fn area() -> number
-    fn perimeter() -> number
-```
-
-### Type Aliases
-```prim
-type ID = string | number
-```
-
-### Literals
-
-#### Integer Literals
-```
-42
--42
-0x2A    // Hexadecimal
-0o52    // Octal
-0b1010  // Binary
-```
-
-#### Float Literals
-```
-3.14
--0.001
-1e10
-1.5e-3
-```
-
-#### String Literals
-```
-"Hello, World!"
-'Multiline
- string'
-```
-
-#### Boolean Literals
-```
-true
-false
-```
-
-#### Null Literal
-```
-null
-```
-
-### Operators
-
-#### Arithmetic
-```
-+  -  *  /  %  **  // Power
-```
-
-#### Comparison
-```
-==  !=  <  >  <=  >=
-```
-
-#### Logical
-```
-&&  ||  !  // AND, OR, NOT
-```
-
-#### Bitwise
-```
-&  |  ^  ~  <<  >>
-```
-
-#### Assignment
-```
-=  +=  -=  *=  /=  %=  **=
-```
-
-#### Other
-```
-.  ->  =>  ?  :  ??  ::  // Member access, arrow, fat arrow, ternary, null coalescing
-```
-
-## Syntax
-
-### Program Structure
-
-```
-Program ::= {Declaration}
-```
-
-### Declarations
-
-```
-Declaration ::=
-    | ClassDecl
-    | FunctionDecl
-    | VariableDecl
-    | TypeDecl
-    | InterfaceDecl
-    | ImportDecl
-    | ExportDecl
-    | Statement
-```
-
-### Variable Declaration
-
-```
-VariableDecl ::=
-    "let" Identifier (":" Type)? ("=" Expression)?
-    | "const" Identifier (":" Type)? ("=" Expression)?
-```
-
-Examples:
-```prim
-let x: int = 42;
-const name: string = "Prim";
-let y = 3.14;
-```
-
-### Function Declaration
-
-```
-FunctionDecl ::=
-    "fn" Identifier "(" ParameterList? ")" ("->" Type)? Block
-
-ParameterList ::= Parameter ("," Parameter)*
-Parameter ::= Identifier (":" Type)?
-
-Block ::= "{" {Statement} "}"
-```
-
-Examples:
-```prim
-fn add(a: int, b: int) -> int {
-    return a + b;
-}
-
-fn greet(name: string) {
-    print("Hello, " + name);
-}
-```
-
-### Arrow Function
-
-```
-ArrowFunction ::= ParameterList "=>" Expression | Block
-```
-
-Examples:
-```prim
-let add = (a: int, b: int) -> int => a + b;
-let greet = (name: string) => print("Hello, " + name);
-```
-
-### Class Declaration
-
-```
-ClassDecl ::=
-    "class" Identifier ("extends" Identifier)? "{" {ClassMember} "}"
-
-ClassMember ::=
-    | FieldDecl
-    | MethodDecl
-    | ConstructorDecl
-
-FieldDecl ::= ("let" | "const") Identifier (":" Type)? ("=" Expression)? ";"
-MethodDecl ::= "fn" Identifier "(" ParameterList? ")" ("->" Type)? Block
-ConstructorDecl ::= "fn" "new" "(" ParameterList? ")" "->" Identifier Block
-```
-
-Examples:
-```prim
-class Person {
-    let name: string;
-    let age: int;
-
-    fn new(name: string, age: int) -> Person {
-        return Person { name, age };
-    }
-
-    fn greet(self) {
-        print("Hello, I'm " + self.name);
-    }
-}
-```
-
-### Type Declaration
-
-```
-TypeDecl ::= "type" Identifier "=" Type
-```
-
-Examples:
-```prim
-type Result<T> = Ok(T) | Error(string);
-type Option<T> = Some(T) | None;
-```
-
-### Interface Declaration
-
-```
-InterfaceDecl ::= "interface" Identifier "{" {InterfaceMember} "}"
-InterfaceMember ::= Identifier ":" Type ";"
-```
-
-Examples:
-```prim
-interface Drawable {
-    draw(): void;
-}
-```
-
-### Import Declaration
-
-```
-ImportDecl ::=
-    | "import" Identifier ("as" Identifier)? ";"
-    | "import" "{" {ImportItem} "}" "from" String ";"
-    | "import" "*" "as" Identifier "from" String ";"
-
-ImportItem ::= Identifier ("as" Identifier)?
-```
-
-Examples:
-```prim
-import math;
-import { add, subtract } from math;
-import * as m from math;
-```
-
-### Export Declaration
-
-```
-ExportDecl ::=
-    | "export" Declaration
-    | "export" "{" {ExportItem} "}"
-
-ExportItem ::= Identifier ("as" Identifier)?
-```
-
-Examples:
-```prim
-export fn my_function() { ... }
-export { my_function, my_const };
-```
-
-### Statements
-
-```
-Statement ::=
-    | ExpressionStmt
-    | Block
-    | IfStmt
-    | WhileStmt
-    | ForStmt
-    | MatchStmt
-    | ReturnStmt
-    | BreakStmt
-    | ContinueStmt
-    | TryStmt
-    | ThrowStmt
-    | VariableDecl
-```
-
-#### Expression Statement
-
-```
-ExpressionStmt ::= Expression ";"
-```
-
-#### If Statement
-
-```
-IfStmt ::= "if" Expression Block ("else" Block)?
-```
-
-#### While Statement
-
-```
-WhileStmt ::= "while" Expression Block
-```
-
-#### For Statement
-
-```
-ForStmt ::=
-    | "for" "(" VariableDecl? ";" Expression? ";" Assignment? ")" Block
-    | "for" Identifier "in" Expression Block
-```
-
-#### Match Statement
-
-```
-MatchStmt ::= "match" Expression "{" {MatchArm} "}"
-MatchArm ::= Pattern "=>" Expression (",")?
-
-Pattern ::=
-    | Literal
-    | Identifier
-    | TuplePattern
-    | StructPattern
-```
-
-#### Return Statement
-
-```
-ReturnStmt ::= "return" Expression? ";"
-```
-
-#### Break/Continue Statement
-
-```
-BreakStmt ::= "break" ";"
-ContinueStmt ::= "continue" ";"
-```
-
-#### Try Statement
-
-```
-TryStmt ::= "try" Block "catch" "(" Identifier ")" Block ("finally" Block)?
-```
-
-#### Throw Statement
-
-```
-ThrowStmt ::= "throw" Expression ";"
-```
-
-### Expressions
-
-```
-Expression ::= Assignment
-```
-
-#### Assignment
-
-```
-Assignment ::= Conditional ("=" Assignment)?
-```
-
-#### Conditional (Ternary)
-
-```
-Conditional ::= LogicalOr ("?" Expression ":" Conditional)?
-```
-
-#### Logical Or
-
-```
-LogicalOr ::= LogicalAnd {"||" LogicalAnd}
-```
-
-#### Logical And
-
-```
-LogicalAnd ::= Equality {"&&" Equality}
-```
-
-#### Equality
-
-```
-Equality ::= Comparison {("==" | "!=") Comparison}
-```
-
-#### Comparison
-
-```
-Comparison ::= Term {("<" | "<=" | ">" | ">=") Term}
-```
-
-#### Term
-
-```
-Term ::= Factor {("+" | "-") Factor}
-```
-
-#### Factor
-
-```
-Factor ::= Unary {("*" | "/" | "%") Unary}
-```
-
-#### Unary
-
-```
-Unary ::= ("-" | "!" | "~") Unary | Primary
-```
-
-#### Primary
-
-```
-Primary ::=
-    | Literal
-    | Identifier
-    | Grouping
-    | Call
-    | Member
-    | List
-    | Dict
-    | Lambda
-
-Literal ::= Integer | Float | String | Boolean | Null
-Grouping ::= "(" Expression ")"
-```
-
-#### Call
-
-```
-Call ::= Primary "(" ArgumentList? ")"
-ArgumentList ::= Expression ("," Expression)*
-```
-
-#### Member
-
-```
-Member ::= Primary ("." Identifier)+
-```
-
-#### List
-
-```
-List ::= "[" Expression ("," Expression)* "]"
-```
-
-#### Dict
-
-```
-Dict ::= "{" (String ":" Expression ("," String ":" Expression)*)? "}"
-```
-
-#### Lambda
-
-```
-Lambda ::= "|" ParameterList? "|" Expression
-```
-
-### Types
-
-```
-Type ::=
-    | PrimitiveType
-    | NamedType
-    | FunctionType
-    | ListType
-    | DictType
-    | UnionType
-    | OptionalType
-    | TupleType
-
-PrimitiveType ::= "int" | "float" | "string" | "bool" | "null"
-NamedType ::= Identifier
-FunctionType ::= "fn" "(" TypeList? ")" "->" Type
-ListType ::= Type "[]"
-DictType ::= "{" Type ":" Type "}"
-UnionType ::= Type "|" Type
-OptionalType ::= Type "?"
-TupleType ::= "(" Type ("," Type)+ ")"
-```
-
-## Operator Precedence (Highest to Lowest)
-
-1. `.` (member access)
-2. `()` `[]` `{}` (grouping, indexing, call)
-3. `!` `~` `-` (unary)
-4. `**` (power)
-5. `*` `/` `%` (multiplication, division, modulo)
-6. `+` `-` (addition, subtraction)
-7. `<<` `>>` (bit shifts)
-8. `<` `<=` `>` `>=` (comparison)
-9. `==` `!=` (equality)
-10. `&` (bitwise AND)
-11. `^` (bitwise XOR)
-12. `|` (bitwise OR)
-13. `&&` (logical AND)
-14. `||` (logical OR)
-15. `?` `:` (ternary)
-16. `=` `+=` `-=` `*=` `/=` `%=` `**=` (assignment)
-
-## Examples
-
-### Complete Program
-
-```prim
-import math;
-
-fn main() {
-    let numbers = [1, 2, 3, 4, 5];
-    let sum = calculate_sum(numbers);
-    print("Sum: " + sum);
-}
-
-fn calculate_sum(numbers: list[int]) -> int {
-    let total = 0;
-    for n in numbers {
-        total = total + n;
-    }
-    return total;
-}
-```
-
-### Class with Methods
-
-```prim
-class Calculator {
-    fn add(a: int, b: int) -> int {
-        return a + b;
-    }
-
-    fn multiply(a: int, b: int) -> int {
-        return a * b;
-    }
-}
-```
-
-### Async Function
-
-```prim
-async fn fetch_data(url: string) -> dict<string, any> {
-    let response = await http.get(url);
-    return response.json();
-}
-```
-
-### Pattern Matching
-
-```prim
-match value {
-    1 => print("One"),
-    2 => print("Two"),
-    x if x > 2 => print("Greater than two"),
-    _ => print("Other")
-}
 ```
-
-## Grammar Summary
-
-The Prim language grammar is designed to be:
-
-- **Simple**: Easy to parse and understand
-- **Expressive**: Powerful enough for real-world programming
-- **Safe**: Type-safe and memory-safe by default
-- **Performant**: Optimizable to native code
-
-For more details, see the [Language Specification](./language_specification.md).
+comment       = "#" [any character]* NEWLINE
+identifier    = (letter | "_") (letter | digit | "_")*
+number        = digit+ ("." digit+)?
+string        = '"' [any character except '"' | "\" any character]* '"'
+keyword       = "fn" | "if" | "else" | "while" | "for" | "return" 
+              | "let" | "true" | "false" | "null" | "and" | "or" | "not"
+operator      = "+" | "-" | "*" | "/" | "%" | "=" | "==" | "!=" 
+              | "<" | "<=" | ">" | ">=" | "!" | "|" | "->" | ":="
+punctuation   = "(" | ")" | "{" | "}" | "[" | "]" | "," | ":" | "."
+newline       = "\n" | "\r\n"
+indent        = leading whitespace (tracked by indentation stack)
+```
+
+## Modes
+
+Mint supports three syntax modes selected by a `#mode` directive at the top of a file:
+
+| Directive   | Syntax Style    |
+|-------------|-----------------|
+| `#mode light` | Indentation-based (Python-like) |
+| `#mode brace` | Braces and semicolons (C/JS-like) |
+| `#mode stream` | Pipes and arrows (Elixir/F#-like) |
+
+## Built-in Functions
+
+| Function | Description |
+|----------|-------------|
+| `print(...)` | Print values to stdout |
+| `len(x)` | Length of string or list |
+| `str(x)` | Convert to string |
+| `num(x)` | Convert to number |
+| `bool(x)` | Convert to boolean |
+| `int(x)` | Convert to integer |
+| `push(list, val)` | Push value to list |
+| `pop(list)` | Pop value from list |
+| `input(prompt?)` | Read line from stdin |
+| `type_of(x)` | Get type name as string |
