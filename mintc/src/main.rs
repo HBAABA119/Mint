@@ -1,10 +1,16 @@
+use mint_core::{Token, Node};
+use mint_lexer::{light, brace, stream};
+use mint_parser::{light as parse_light, brace as parse_brace, stream as parse_stream};
+use mint_vm::Interpreter;
 use std::env;
 use std::fs;
 use std::process;
 
-use mint_lexer::light;
-use mint_parser::light as parser;
-use mint_vm::Interpreter;
+enum Mode {
+    Light,
+    Brace,
+    Stream,
+}
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -53,6 +59,44 @@ fn read_source(args: &[String]) -> String {
     }
 }
 
+fn detect_mode(source: &str) -> Mode {
+    for line in source.lines() {
+        let trimmed = line.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+        match trimmed {
+            "#mode light" => return Mode::Light,
+            "#mode brace" => return Mode::Brace,
+            "#mode stream" => return Mode::Stream,
+            _ if trimmed.starts_with("#mode ") => return Mode::Light,
+            _ if trimmed.starts_with("#") => continue,
+            _ => return Mode::Light,
+        }
+    }
+    Mode::Light
+}
+
+fn tokenize_and_parse(source: &str, mode: &Mode) -> Result<(Vec<Token>, Node), Vec<String>> {
+    match mode {
+        Mode::Light => {
+            let tokens = light::tokenize(source)?;
+            let ast = parse_light::parse(&tokens)?;
+            Ok((tokens, ast))
+        }
+        Mode::Brace => {
+            let tokens = brace::tokenize(source)?;
+            let ast = parse_brace::parse(&tokens)?;
+            Ok((tokens, ast))
+        }
+        Mode::Stream => {
+            let tokens = stream::tokenize(source)?;
+            let ast = parse_stream::parse(&tokens)?;
+            Ok((tokens, ast))
+        }
+    }
+}
+
 fn cmd_run(args: &[String]) {
     let show_ast;
     let file_args;
@@ -65,17 +109,10 @@ fn cmd_run(args: &[String]) {
     }
 
     let source = read_source(file_args);
-    let tokens = match light::tokenize(&source) {
-        Ok(tokens) => tokens,
-        Err(errors) => {
-            for err in &errors {
-                eprintln!("Error: {}", err);
-            }
-            process::exit(1);
-        }
-    };
-    let ast = match parser::parse(&tokens) {
-        Ok(ast) => ast,
+    let mode = detect_mode(&source);
+
+    let (_tokens, ast) = match tokenize_and_parse(&source, &mode) {
+        Ok(result) => result,
         Err(errors) => {
             for err in &errors {
                 eprintln!("Error: {}", err);
@@ -100,18 +137,12 @@ fn cmd_run(args: &[String]) {
 
 fn cmd_check(args: &[String]) {
     let source = read_source(args);
-    match light::tokenize(&source) {
-        Ok(tokens) => match parser::parse(&tokens) {
-            Ok(_) => {
-                println!("No errors found.");
-            }
-            Err(errors) => {
-                for err in &errors {
-                    eprintln!("Error: {}", err);
-                }
-                process::exit(1);
-            }
-        },
+    let mode = detect_mode(&source);
+
+    match tokenize_and_parse(&source, &mode) {
+        Ok(_) => {
+            println!("No errors found.");
+        }
         Err(errors) => {
             for err in &errors {
                 eprintln!("Error: {}", err);
@@ -123,20 +154,42 @@ fn cmd_check(args: &[String]) {
 
 fn cmd_tokens(args: &[String]) {
     let source = read_source(args);
-    match light::tokenize(&source) {
-        Ok(tokens) => {
-            for tok in &tokens {
-                println!(
-                    "{:?}:{}:{} {}",
-                    tok.kind, tok.location.line, tok.location.column, tok.lexeme
-                );
+    let mode = detect_mode(&source);
+
+    let tokens: Vec<Token> = match mode {
+        Mode::Light => match light::tokenize(&source) {
+            Ok(tokens) => tokens,
+            Err(errors) => {
+                for err in &errors {
+                    eprintln!("Error: {}", err);
+                }
+                process::exit(1);
             }
-        }
-        Err(errors) => {
-            for err in &errors {
-                eprintln!("Error: {}", err);
+        },
+        Mode::Brace => match brace::tokenize(&source) {
+            Ok(tokens) => tokens,
+            Err(errors) => {
+                for err in &errors {
+                    eprintln!("Error: {}", err);
+                }
+                process::exit(1);
             }
-            process::exit(1);
-        }
+        },
+        Mode::Stream => match stream::tokenize(&source) {
+            Ok(tokens) => tokens,
+            Err(errors) => {
+                for err in &errors {
+                    eprintln!("Error: {}", err);
+                }
+                process::exit(1);
+            }
+        },
+    };
+
+    for tok in &tokens {
+        println!(
+            "{:?}:{}:{} {}",
+            tok.kind, tok.location.line, tok.location.column, tok.lexeme
+        );
     }
 }

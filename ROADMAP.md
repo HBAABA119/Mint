@@ -1,6 +1,6 @@
 # Mint Development Roadmap
 
-## v0.1 — Rust Bootstrap Compiler (Current)
+## v0.1 — Rust Bootstrap Compiler
 
 **Goal:** `mintc run` works for light mode programs.
 
@@ -17,13 +17,13 @@
 
 **Goal:** All three syntax modes compile to the same AST and pass a cross-mode test suite.
 
-- [ ] Brace mode lexer (`#mode brace` - C/JS style with `{}` and `;`)
-- [ ] Brace mode parser
-- [ ] Stream mode lexer (`#mode stream` - pipe-based, `|>` operator)
-- [ ] Stream mode parser
-- [ ] Cross-mode test suite (same program in all 3 modes → equivalent results)
-- [ ] Error messages with source locations
-- [ ] Better error recovery in parser
+- [x] Brace mode lexer (`#mode brace` - C/JS style with `{}` and `;`)
+- [x] Brace mode parser
+- [x] Stream mode lexer (`#mode stream` - pipe-based, `|>` operator)
+- [x] Stream mode parser
+- [x] Cross-mode test suite (same program in all 3 modes → equivalent results)
+- [x] Error messages with source locations
+- [x] Better error recovery in parser
 
 ## v0.3 — Standard Library
 
@@ -71,12 +71,118 @@
 - [ ] Profiling-guided optimizations
 - [ ] JIT compilation exploration
 
+## v0.7 — Mint CLI Tooling
+
+**Goal:** A world-class `mint` CLI — project scaffolding, build system, package management, dev tools, and IDE integration. Designed for a smooth developer experience from `mint new` to `mint publish`.
+
+### Approach
+
+| Option | Description | Timeline |
+|--------|-------------|----------|
+| **(A) Cargo wrapper** | `mint` is a thin Rust binary calling `mintc` under the hood | v0.7–v0.9 (fast to ship) |
+| **(B) Self-hosted** | `mint` is written in Mint itself | v1.0+ (requires solid file I/O, subprocess spawning, arg parsing) |
+
+**Plan:** Ship (A) first for immediate utility. The CLI architecture should be designed from day one so that (B) is a drop-in replacement — same interface, same exit codes, same JSON output schemas.
+
+### Full Command Reference
+
+#### Project Lifecycle
+| Command | When | Complexity | Description |
+|---------|------|------------|-------------|
+| `mint new <project>` | v0.7 | Low | Scaffold a new project from template (`--lib`, `--bin`, `--web`, `--game`, `--bare`) |
+| `mint init` | v0.7 | Low | Turn existing directory into a Mint project |
+| `mint build` | v0.7 | Low | Compile project (already have via mintc) |
+| `mint run` | v0.7 | Low | Build and run (already have via mintc) |
+| `mint check` | v0.7 | Low | Type-check and lint without producing output |
+| `mint clean` | v0.7 | Low | Remove build artifacts |
+| `mint watch` | v0.8 | Medium | File watcher that re-runs `check` or `test` on change |
+
+#### Testing
+| Command | When | Complexity | Description |
+|---------|------|------------|-------------|
+| `mint test` | v0.7 | Medium | Discover and run `*.test.mint` files with assertion output |
+| `mint test --watch` | v0.8 | Medium | Continuously run tests on file change |
+| `mint test --coverage` | v1.0 | High | Code coverage reporting |
+| `mint bench` | v0.9 | High | Microbenchmark harness with statistical reporting |
+
+#### Package Management
+| Command | When | Complexity | Description |
+|---------|------|------------|-------------|
+| `mint add <package>` | v0.9 | Medium | Add a package dependency |
+| `mint add --dev <package>` | v0.9 | Medium | Add a dev dependency |
+| `mint remove <package>` | v0.9 | Low | Remove a dependency |
+| `mint update` | v0.9 | Medium | Update all dependencies to latest compatible |
+| `mint update <package>` | v0.9 | Low | Update a specific package |
+| `mint publish` | v1.0 | High | Publish package to registry |
+| `mint login` / `mint logout` | v1.0 | Low | Registry authentication |
+| `mint search <query>` | v1.0 | Medium | Search packages in registry |
+
+#### Code Quality
+| Command | When | Complexity | Description |
+|---------|------|------------|-------------|
+| `mint fmt` | v1.0 | High | Format code respecting per-mode style (light/brace/stream) |
+| `mint fmt --check` | v1.0 | Low | CI mode — exit non-zero if files aren't formatted |
+| `mint lint` | v1.0 | High | Static analysis with configurable rule sets |
+| `mint lint --fix` | v1.0 | High | Auto-fix where possible |
+| `mint analyze` | v1.5 | High | Deep code analysis (complexity, dependency graph, dead code) |
+
+#### Documentation
+| Command | When | Complexity | Description |
+|---------|------|------------|-------------|
+| `mint doc` | v1.0 | Medium | Generate HTML docs from doc comments |
+| `mint doc --serve` | v1.0 | Low | Serve docs locally with live reload |
+| `mint doc --check` | v1.0 | Low | Warn about missing or stale docs |
+
+#### Developer Experience
+| Command | When | Complexity | Description |
+|---------|------|------------|-------------|
+| `mint repl` | v0.8 | Medium | Interactive REPL with history, multi-line, tab completion |
+| `mint lsp` | v1.5 | Very High | Language server protocol for IDE integration |
+| `mint completions <shell>` | v0.8 | Low | Generate shell completions (bash, zsh, fish, powershell) |
+| `mint config` | v0.8 | Low | View current configuration |
+| `mint config set <key> <value>` | v0.8 | Low | Set a config value |
+| `mint config init` | v0.8 | Low | Create default `mint.toml` in project |
+| `mint info` | v0.7 | Low | Show compiler version, platform, installed tools |
+| `mint doctor` | v0.8 | Low | Diagnose common environment issues |
+
+#### Output & Integration
+| Flag | Description |
+|------|-------------|
+| `--json` | Machine-readable JSON output (for editors, CI) |
+| `--quiet` | Suppress non-essential output |
+| `--verbose` / `-v` | Detailed logging |
+| `--no-color` | Disable colored output |
+| `--profile` | Print timing breakdown of each phase |
+
+### CLI Architecture Notes
+
+- **Exit codes:** 0 = success, 1 = user error (bad args), 2 = tool error (bug), 3 = test failure
+- **JSON output schema:** Every command that produces output accepts `--json` with a documented schema
+- **Progress spinner:** Long-running commands (`build`, `test`, `publish`) show a terminal spinner
+- **Colors:** Respect `NO_COLOR`, `CLICOLOR`, `CLICOLOR_FORCE` conventions
+- **Config hierarchy:** `mint.toml` (project) → `~/.config/mint/config.toml` (user) → env vars → defaults
+
+- [ ] `mint new` / `mint init` — scaffolding with template presets
+- [ ] `mint build` / `mint run` / `mint check` — wrap mintc as subcommands
+- [ ] `mint clean` — build artifact removal
+- [ ] `mint test` — test runner with discovery and assertions
+- [ ] `mint completions` — shell completion generation
+- [ ] `mint config` / `mint info` — configuration and diagnostics
+- [ ] `mint watch` / `mint repl` — interactive dev loop
+- [ ] `mint add` / `mint remove` / `mint update` — package management
+- [ ] `mint fmt` / `mint lint` — formatting and linting
+- [ ] `mint doc` — documentation generation
+- [ ] `mint publish` / `mint search` — registry integration
+- [ ] `mint lsp` / `mint analyze` — IDE and deep analysis
+- [ ] CLI architecture: approach decision (wrapper vs self-hosted), exit codes, JSON output, config hierarchy
+
 ## v1.0 — Stable Release
 
 **Goal:** Production-ready language with docs, tests, package manager.
 
 - [ ] Comprehensive test suite (>90% coverage)
 - [ ] Documentation site
+- [ ] `mint doc` — API docs from comments
 - [ ] Error messages with suggestions
 - [ ] Package manager (mint-get)
 - [ ] Language server protocol (LSP) support

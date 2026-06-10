@@ -1,9 +1,5 @@
 use mint_core::{BinaryOp, Node, Token, TokenKind, UnaryOp};
 
-/// Parses a sequence of tokens into an AST node.
-///
-/// Returns `Node::Program` containing the parsed statements on success,
-/// or a list of error messages on failure.
 pub fn parse(tokens: &[Token]) -> Result<Node, Vec<String>> {
     let mut parser = Parser::new(tokens);
     parser.parse_program()
@@ -105,6 +101,7 @@ impl<'a> Parser<'a> {
             match self.peek().kind {
                 TokenKind::Fn
                 | TokenKind::If
+                | TokenKind::Else
                 | TokenKind::While
                 | TokenKind::For
                 | TokenKind::Return => return,
@@ -128,7 +125,7 @@ impl<'a> Parser<'a> {
             if self.check(TokenKind::Eof) {
                 break;
             }
-            match self.parse_declaration() {
+            match self.parse_statement() {
                 Ok(stmt) => statements.push(stmt),
                 Err(e) => {
                     self.errors.push(e);
@@ -143,28 +140,92 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn parse_declaration(&mut self) -> Result<Node, String> {
+    // --- Statements ---
+
+    fn parse_statement(&mut self) -> Result<Node, String> {
         match self.peek().kind {
             TokenKind::Fn => self.parse_function_def(),
-            TokenKind::If => self.parse_if_stmt(),
-            TokenKind::While => self.parse_while_stmt(),
-            TokenKind::For => self.parse_for_stmt(),
-            TokenKind::Return => self.parse_return_stmt(),
-            _ => self.parse_assignment_or_expr(),
+            TokenKind::While => self.parse_while_statement(),
+            TokenKind::For => self.parse_for_statement(),
+            TokenKind::Return => self.parse_return_statement(),
+            TokenKind::Let | TokenKind::Var => {
+                self.advance();
+                self.parse_assignment()
+            }
+            _ => {
+                if self.check(TokenKind::Identifier)
+                    && self.current + 1 < self.tokens.len()
+                    && self.tokens[self.current + 1].kind == TokenKind::ColonEq
+                {
+                    self.parse_assignment()
+                } else {
+                    let expr = self.parse_expression()?;
+                    Ok(Node::ExpressionStatement {
+                        expr: Box::new(expr),
+                    })
+                }
+            }
         }
     }
 
-    // --- Statements ---
+    fn parse_assignment(&mut self) -> Result<Node, String> {
+        let name = self.consume_identifier("expected variable name")?;
+        self.consume(TokenKind::ColonEq, "expected ':=' after variable name")?;
+        let value = self.parse_expression()?;
+        Ok(Node::Assignment {
+            name,
+            value: Box::new(value),
+            mutable: false,
+        })
+    }
 
-    fn parse_statement(&mut self) -> Result<Option<Node>, String> {
-        while self.check(TokenKind::Newline) {
+    fn parse_while_statement(&mut self) -> Result<Node, String> {
+        self.consume(TokenKind::While, "expected 'while'")?;
+        let condition = self.parse_expression()?;
+        self.consume(TokenKind::Colon, "expected ':' after while condition")?;
+        let body = self.parse_block()?;
+        Ok(Node::While {
+            condition: Box::new(condition),
+            body: Box::new(body),
+        })
+    }
+
+    fn parse_for_statement(&mut self) -> Result<Node, String> {
+        self.consume(TokenKind::For, "expected 'for'")?;
+        let var = self.consume_identifier("expected variable name after 'for'")?;
+        if self.check(TokenKind::Identifier) && self.peek().lexeme == "in" {
             self.advance();
+        } else {
+            return Err(format!(
+                "expected 'in' after loop variable at {}, got {:?} ('{}')",
+                self.peek_location(),
+                self.peek().kind,
+                self.peek().lexeme
+            ));
         }
-        if self.check(TokenKind::Dedent) || self.check(TokenKind::Eof) {
-            return Ok(None);
-        }
-        let stmt = self.parse_declaration()?;
-        Ok(Some(stmt))
+        let iterable = self.parse_expression()?;
+        self.consume(TokenKind::Colon, "expected ':' after for loop iterable")?;
+        let body = self.parse_block()?;
+        Ok(Node::For {
+            var,
+            iterable: Box::new(iterable),
+            body: Box::new(body),
+        })
+    }
+
+    fn parse_return_statement(&mut self) -> Result<Node, String> {
+        self.consume(TokenKind::Return, "expected 'return'")?;
+        let value = if !self.check(TokenKind::Newline)
+            && !self.check(TokenKind::Dedent)
+            && !self.check(TokenKind::Eof)
+        {
+            self.parse_expression()?
+        } else {
+            Node::NullLiteral
+        };
+        Ok(Node::Return {
+            value: Box::new(value),
+        })
     }
 
     fn parse_function_def(&mut self) -> Result<Node, String> {
@@ -173,13 +234,26 @@ impl<'a> Parser<'a> {
         self.consume(TokenKind::LParen, "expected '(' after function name")?;
         let params = self.parse_params()?;
         self.consume(TokenKind::RParen, "expected ')' after parameters")?;
-        self.consume(TokenKind::Colon, "expected ':' after function signature")?;
-        let body = self.parse_block()?;
-        Ok(Node::FunctionDef {
-            name,
-            params,
-            body: Box::new(body),
-        })
+
+        if self.match_token(&[TokenKind::Eq, TokenKind::Colon]) {
+            let body = if self.check(TokenKind::Newline) || self.check(TokenKind::Indent) {
+                self.parse_block()?
+            } else {
+                self.parse_expression()?
+            };
+            Ok(Node::FunctionDef {
+                name,
+                params,
+                body: Box::new(body),
+            })
+        } else {
+            Err(format!(
+                "expected '=' or ':' after function signature at {}, got {:?} ('{}')",
+                self.peek_location(),
+                self.peek().kind,
+                self.peek().lexeme
+            ))
+        }
     }
 
     fn parse_params(&mut self) -> Result<Vec<String>, String> {
@@ -195,109 +269,21 @@ impl<'a> Parser<'a> {
         Ok(params)
     }
 
-    fn parse_if_stmt(&mut self) -> Result<Node, String> {
-        self.consume(TokenKind::If, "expected 'if'")?;
-        let condition = self.parse_expression()?;
-        self.consume(TokenKind::Colon, "expected ':' after if condition")?;
-        let then_branch = self.parse_block()?;
-        let else_branch = if self.match_token(&[TokenKind::Else]) {
-            self.consume(TokenKind::Colon, "expected ':' after 'else'")?;
-            Some(Box::new(self.parse_block()?))
-        } else {
-            None
-        };
-        Ok(Node::If {
-            condition: Box::new(condition),
-            then_branch: Box::new(then_branch),
-            else_branch,
-        })
-    }
-
-    fn parse_while_stmt(&mut self) -> Result<Node, String> {
-        self.consume(TokenKind::While, "expected 'while'")?;
-        let condition = self.parse_expression()?;
-        self.consume(TokenKind::Colon, "expected ':' after while condition")?;
-        let body = self.parse_block()?;
-        Ok(Node::While {
-            condition: Box::new(condition),
-            body: Box::new(body),
-        })
-    }
-
-    fn parse_for_stmt(&mut self) -> Result<Node, String> {
-        self.consume(TokenKind::For, "expected 'for'")?;
-        let var = self.consume_identifier("expected variable name after 'for'")?;
-
-        if self.check(TokenKind::Identifier) && self.peek().lexeme == "in" {
-            self.advance();
-        } else {
-            return Err(format!(
-                "expected 'in' after loop variable at {}, got {:?} ('{}')",
-                self.peek_location(),
-                self.peek().kind,
-                self.peek().lexeme
-            ));
-        }
-
-        let iterable = self.parse_expression()?;
-        self.consume(TokenKind::Colon, "expected ':' after for loop iterable")?;
-        let body = self.parse_block()?;
-        Ok(Node::For {
-            var,
-            iterable: Box::new(iterable),
-            body: Box::new(body),
-        })
-    }
-
-    fn parse_return_stmt(&mut self) -> Result<Node, String> {
-        self.consume(TokenKind::Return, "expected 'return'")?;
-        let value = if !self.check(TokenKind::Newline)
-            && !self.check(TokenKind::Dedent)
-            && !self.check(TokenKind::Eof)
-        {
-            self.parse_expression()?
-        } else {
-            Node::NullLiteral
-        };
-        Ok(Node::Return {
-            value: Box::new(value),
-        })
-    }
-
-    fn parse_assignment_or_expr(&mut self) -> Result<Node, String> {
-        if self.check(TokenKind::Identifier) {
-            if self.current + 1 < self.tokens.len()
-                && self.tokens[self.current + 1].kind == TokenKind::Eq
-            {
-                let name = self.peek().lexeme.clone();
-                self.advance();
-                self.advance();
-                let value = self.parse_expression()?;
-                return Ok(Node::Assignment {
-                    name,
-                    value: Box::new(value),
-                    mutable: false,
-                });
-            }
-        }
-
-        let expr = self.parse_expression()?;
-        Ok(Node::ExpressionStatement {
-            expr: Box::new(expr),
-        })
-    }
-
     // --- Blocks ---
 
     fn parse_block(&mut self) -> Result<Node, String> {
         self.consume(TokenKind::Newline, "expected newline after ':'")?;
         self.consume(TokenKind::Indent, "expected indented block")?;
-
         let mut statements = Vec::new();
         while !self.check(TokenKind::Dedent) && !self.check(TokenKind::Eof) {
-            if let Some(stmt) = self.parse_statement()? {
-                statements.push(stmt);
+            while self.check(TokenKind::Newline) {
+                self.advance();
             }
+            if self.check(TokenKind::Dedent) || self.check(TokenKind::Eof) {
+                break;
+            }
+            let stmt = self.parse_statement()?;
+            statements.push(stmt);
         }
         self.consume(TokenKind::Dedent, "expected dedent at end of block")?;
         Ok(Node::Block { statements })
@@ -306,7 +292,34 @@ impl<'a> Parser<'a> {
     // --- Expressions (precedence climbing) ---
 
     fn parse_expression(&mut self) -> Result<Node, String> {
-        self.parse_or()
+        self.parse_pipe_expr()
+    }
+
+    fn parse_pipe_expr(&mut self) -> Result<Node, String> {
+        let mut left = self.parse_or()?;
+        while self.check(TokenKind::Pipe) && self.peek().lexeme == "|>" {
+            self.advance();
+            let right = self.parse_or()?;
+            match right {
+                Node::Identifier(name) => {
+                    left = Node::FunctionCall {
+                        callee: Box::new(Node::Identifier(name)),
+                        args: vec![left],
+                    };
+                }
+                Node::FunctionCall { callee, mut args } => {
+                    args.insert(0, left);
+                    left = Node::FunctionCall { callee, args };
+                }
+                _ => {
+                    return Err(format!(
+                        "pipe requires a function call or identifier at {}",
+                        self.peek_location()
+                    ));
+                }
+            }
+        }
+        Ok(left)
     }
 
     fn parse_or(&mut self) -> Result<Node, String> {
@@ -449,6 +462,56 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_primary(&mut self) -> Result<Node, String> {
+        if self.check(TokenKind::If) {
+            self.advance();
+            let condition = self.parse_expression()?;
+            if !self.check(TokenKind::Identifier) || self.peek().lexeme != "then" {
+                return Err(format!(
+                    "expected 'then' after if condition at {}, got {:?} ('{}')",
+                    self.peek_location(),
+                    self.peek().kind,
+                    self.peek().lexeme
+                ));
+            }
+            self.advance();
+            let then_branch = self.parse_expression()?;
+            self.consume(TokenKind::Else, "expected 'else'")?;
+            let else_branch = self.parse_expression()?;
+            return Ok(Node::If {
+                condition: Box::new(condition),
+                then_branch: Box::new(then_branch),
+                else_branch: Some(Box::new(else_branch)),
+            });
+        }
+
+        if self.check(TokenKind::Pipe) && self.peek().lexeme == "|" {
+            self.advance();
+            let mut params = Vec::new();
+            if !self.check(TokenKind::Pipe) {
+                let name = self.consume_identifier("expected parameter name")?;
+                params.push(name);
+                while self.match_token(&[TokenKind::Comma]) {
+                    let name = self.consume_identifier("expected parameter name")?;
+                    params.push(name);
+                }
+            }
+            if !self.check(TokenKind::Pipe) || self.peek().lexeme != "|" {
+                return Err(format!(
+                    "expected '|' after lambda parameters at {}, got {:?} ('{}')",
+                    self.peek_location(),
+                    self.peek().kind,
+                    self.peek().lexeme
+                ));
+            }
+            self.advance();
+            self.consume(TokenKind::Arrow, "expected '->' in lambda")?;
+            let body = self.parse_expression()?;
+            return Ok(Node::Lambda {
+                params,
+                body: Box::new(body),
+            });
+        }
+
         if self.match_token(&[TokenKind::Integer, TokenKind::Float]) {
             let lexeme = self.previous().lexeme.clone();
             let value: f64 = lexeme.parse().unwrap_or(0.0);

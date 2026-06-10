@@ -1,18 +1,24 @@
-# Mint v0.1
+# Mint v0.2
 
-**Mint** is a systems-oriented programming language being rewritten from the ground up in Rust. It supports three syntax modes — **light**, **brace**, and **stream** — that all compile to the same runtime.
+**Mint** is a systems-oriented programming language being rewritten from the ground up in Rust. It supports three syntax modes — **light**, **brace**, and **stream** — that all compile to the same AST and produce identical output for equivalent programs.
 
 ## Status
 
-Mint is in **early development**. This is a complete rewrite of the original Prim language prototype (which was written in Python). Currently only **light mode** (`#mode light`) is implemented in the Rust compiler.
+Mint is in **active development**. This is a complete rewrite of the original Prim language prototype (which was written in Python). All three syntax modes are now implemented and pass cross-mode equivalence tests.
 
 ### What works
-- Lexer, parser, and tree-walk interpreter for light mode
+- All three syntax modes (light, brace, stream)
+- Lexers, parsers, and tree-walk interpreter for all modes
 - Variables, arithmetic, if/else, while/for loops, functions, lambdas, lists
+- Pipe operator (`|>`) in stream mode
+- Lambda expressions (`|x| -> x * 2`) in stream mode
+- `var`/`let` declarations in brace and stream modes
+- `:=` walrus operator in stream mode
 - Built-in stdlib: `print`, `len`, `str`, `num`, `bool`, `int`, `push`, `pop`, `input`, `type_of`
 
 ### What's coming
-- Brace and stream mode parsers
+- Better error messages with source locations
+- Comprehensive pure-Mint standard library
 - Self-hosting (Mint compiler written in Mint)
 - Bytecode compiler and VM
 - FFI for system-level programming
@@ -63,8 +69,8 @@ print("fib(10) =", fib(10))
 | Directive | Style | Like |
 |-----------|-------|------|
 | `#mode light` | Indentation-based | Python |
-| `#mode brace` | Braces + semicolons | C/JS *(coming soon)* |
-| `#mode stream` | Pipes + arrows | Elixir/F# *(coming soon)* |
+| `#mode brace` | Braces + semicolons | C/JS |
+| `#mode stream` | Pipes + arrows, `:=`, `\|>`, `\|x\| -> expr` | Elixir/F# |
 
 ## Project Structure
 
