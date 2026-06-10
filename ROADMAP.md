@@ -1,5 +1,10 @@
 # Mint Development Roadmap
 
+> **Version scheme (after v1.0):** The number after the dot is a single decimal counter.  
+> **Small changes** (patches/fixes) append a digit: v1.1 → v1.11 → v1.12.  
+> **Medium changes** (feature drops) increment the tens digit: v1.1 → v1.2 → v1.10 → v1.20.  
+> **Big changes** (major cycles) hit .90 → .99 and roll to the next major: v1.99 → v2.0.
+
 ## v0.1 — Rust Bootstrap Compiler
 
 **Goal:** `mintc run` works for light mode programs.
@@ -29,13 +34,17 @@
 
 **Goal:** Comprehensive stdlib written in pure Mint (stdlib/*.mint) with Rust FFI backing.
 
-- [ ] Collections: map, filter, reduce, sort, find
-- [ ] Strings: split, join, upper, lower, trim, replace
-- [ ] Math: abs, sqrt, pow, sin, cos, pi, e (implemented in pure Mint)
-- [ ] I/O: read_file, write_file, file_exists
-- [ ] JSON: parse, stringify
-- [ ] Iterators and lazy evaluation
-- [ ] Result/Option types for error handling
+- [x] New Rust-backed builtins: split, join, read_file, write_file, file_exists, abs, sqrt, pow, round, floor, ceil, sin, cos, range
+- [x] String builtins: upper, lower, trim, replace, contains, starts_with, ends_with, substring
+- [x] JSON builtins: json_parse, json_stringify (via serde_json, objects → Dict type)
+- [x] stdlib auto-loading from `stdlib/` directory on interpreter startup
+- [x] `mint-core`: Index node type for list/string indexing
+- [x] All 3 parsers: index expression `list[i]` support
+- [x] VM: Index evaluation (list and string)
+- [x] `stdlib/math.mint` — pi, e, radians, degrees, clamp, lerp (pure Mint)
+- [x] `stdlib/collections.mint` — map, filter, reduce, find, any, all, sum, reverse (pure Mint)
+- [x] `stdlib/strings.mint` — capitalize, lines, unlines, strip, pad_left, pad_right, count (pure Mint)
+- [x] `stdlib/io.mint` — read, write, exists, read_lines, write_lines (pure Mint wrappers)
 
 ## v0.4 — Self-Hosting
 
@@ -79,8 +88,8 @@
 
 | Option | Description | Timeline |
 |--------|-------------|----------|
-| **(A) Cargo wrapper** | `mint` is a thin Rust binary calling `mintc` under the hood | v0.7–v0.9 (fast to ship) |
-| **(B) Self-hosted** | `mint` is written in Mint itself | v1.0+ (requires solid file I/O, subprocess spawning, arg parsing) |
+| **(A) Cargo wrapper** | `mint` is a thin Rust binary calling `mintc` under the hood | v0.7–v0.8 (fast to ship) |
+| **(B) Self-hosted** | `mint` is written in Mint itself | v0.9+ (requires solid file I/O, subprocess spawning, arg parsing) |
 
 **Plan:** Ship (A) first for immediate utility. The CLI architecture should be designed from day one so that (B) is a drop-in replacement — same interface, same exit codes, same JSON output schemas.
 
@@ -108,11 +117,11 @@
 #### Package Management
 | Command | When | Complexity | Description |
 |---------|------|------------|-------------|
-| `mint add <package>` | v0.9 | Medium | Add a package dependency |
-| `mint add --dev <package>` | v0.9 | Medium | Add a dev dependency |
-| `mint remove <package>` | v0.9 | Low | Remove a dependency |
-| `mint update` | v0.9 | Medium | Update all dependencies to latest compatible |
-| `mint update <package>` | v0.9 | Low | Update a specific package |
+| `mint add <package>` | v0.8 | Medium | Add a package dependency |
+| `mint add --dev <package>` | v0.8 | Medium | Add a dev dependency |
+| `mint remove <package>` | v0.8 | Low | Remove a dependency |
+| `mint update` | v0.8 | Medium | Update all dependencies to latest compatible |
+| `mint update <package>` | v0.8 | Low | Update a specific package |
 | `mint publish` | v1.0 | High | Publish package to registry |
 | `mint login` / `mint logout` | v1.0 | Low | Registry authentication |
 | `mint search <query>` | v1.0 | Medium | Search packages in registry |
@@ -120,30 +129,30 @@
 #### Code Quality
 | Command | When | Complexity | Description |
 |---------|------|------------|-------------|
-| `mint fmt` | v1.0 | High | Format code respecting per-mode style (light/brace/stream) |
-| `mint fmt --check` | v1.0 | Low | CI mode — exit non-zero if files aren't formatted |
-| `mint lint` | v1.0 | High | Static analysis with configurable rule sets |
-| `mint lint --fix` | v1.0 | High | Auto-fix where possible |
-| `mint analyze` | v1.5 | High | Deep code analysis (complexity, dependency graph, dead code) |
+| `mint fmt` | v0.9 | High | Format code respecting per-mode style (light/brace/stream) |
+| `mint fmt --check` | v0.9 | Low | CI mode — exit non-zero if files aren't formatted |
+| `mint lint` | v0.9 | High | Static analysis with configurable rule sets |
+| `mint lint --fix` | v0.9 | High | Auto-fix where possible |
+| `mint analyze` | v0.9 | High | Deep code analysis (complexity, dependency graph, dead code) |
 
 #### Documentation
 | Command | When | Complexity | Description |
 |---------|------|------------|-------------|
-| `mint doc` | v1.0 | Medium | Generate HTML docs from doc comments |
-| `mint doc --serve` | v1.0 | Low | Serve docs locally with live reload |
-| `mint doc --check` | v1.0 | Low | Warn about missing or stale docs |
+| `mint doc` | v0.9 | Medium | Generate HTML docs from doc comments |
+| `mint doc --serve` | v0.9 | Low | Serve docs locally with live reload |
+| `mint doc --check` | v0.9 | Low | Warn about missing or stale docs |
 
 #### Developer Experience
 | Command | When | Complexity | Description |
 |---------|------|------------|-------------|
 | `mint repl` | v0.8 | Medium | Interactive REPL with history, multi-line, tab completion |
-| `mint lsp` | v1.5 | Very High | Language server protocol for IDE integration |
+| `mint lsp` | v1.0 | Very High | Language server protocol for IDE integration |
 | `mint completions <shell>` | v0.8 | Low | Generate shell completions (bash, zsh, fish, powershell) |
-| `mint config` | v0.8 | Low | View current configuration |
-| `mint config set <key> <value>` | v0.8 | Low | Set a config value |
-| `mint config init` | v0.8 | Low | Create default `mint.toml` in project |
+| `mint config` | v0.7 | Low | View current configuration |
+| `mint config set <key> <value>` | v0.7 | Low | Set a config value |
+| `mint config init` | v0.7 | Low | Create default `mint.toml` in project |
 | `mint info` | v0.7 | Low | Show compiler version, platform, installed tools |
-| `mint doctor` | v0.8 | Low | Diagnose common environment issues |
+| `mint doctor` | v0.7 | Low | Diagnose common environment issues |
 
 #### Output & Integration
 | Flag | Description |
@@ -167,26 +176,61 @@
 - [ ] `mint clean` — build artifact removal
 - [ ] `mint test` — test runner with discovery and assertions
 - [ ] `mint completions` — shell completion generation
-- [ ] `mint config` / `mint info` — configuration and diagnostics
-- [ ] `mint watch` / `mint repl` — interactive dev loop
-- [ ] `mint add` / `mint remove` / `mint update` — package management
-- [ ] `mint fmt` / `mint lint` — formatting and linting
-- [ ] `mint doc` — documentation generation
-- [ ] `mint publish` / `mint search` — registry integration
-- [ ] `mint lsp` / `mint analyze` — IDE and deep analysis
+- [ ] `mint config` / `mint info` / `mint doctor` — configuration and diagnostics
 - [ ] CLI architecture: approach decision (wrapper vs self-hosted), exit codes, JSON output, config hierarchy
+
+## v0.8 — Package Management & Interactive Tools
+
+**Goal:** `mint` becomes a full-featured package manager and interactive development environment.
+
+### Package Management
+- [ ] `mint add <package>` — add a package dependency
+- [ ] `mint add --dev <package>` — add a dev dependency
+- [ ] `mint remove <package>` — remove a dependency
+- [ ] `mint update` — update all dependencies
+- [ ] `mint update <package>` — update a specific package
+- [ ] Package registry design and protocol
+- [ ] Lockfile (`mint.lock`) for reproducible builds
+- [ ] Version resolution (semver or compatible scheme)
+
+### Interactive Tools
+- [ ] `mint watch` — file watcher that re-runs `check` or `test` on change
+- [ ] `mint repl` — interactive REPL with history, multi-line editing, tab completion
+- [ ] `mint completions <shell>` — shell completion generation (bash, zsh, fish, powershell)
+- [ ] Editor syntax highlighting (VS Code extension, vim, helix)
+
+## v0.9 — Code Quality & Documentation
+
+**Goal:** Professional developer tooling — formatter, linter, doc generator, benchmark harness.
+
+### Code Quality
+- [ ] `mint fmt` — format code respecting per-mode style (light/brace/stream)
+- [ ] `mint fmt --check` — CI mode that exits non-zero if unformatted
+- [ ] `mint lint` — static analysis with configurable rule sets
+- [ ] `mint lint --fix` — auto-fix where possible
+- [ ] `mint analyze` — deep code analysis (complexity, dependency graph, dead code)
+
+### Documentation
+- [ ] `mint doc` — generate HTML API docs from doc comments
+- [ ] `mint doc --serve` — serve docs locally with live reload
+- [ ] `mint doc --check` — warn about missing or stale docs
+
+### Performance
+- [ ] `mint bench` — microbenchmark harness with statistical reporting
 
 ## v1.0 — Stable Release
 
-**Goal:** Production-ready language with docs, tests, package manager.
+**Goal:** Production-ready language suitable for real projects.
 
 - [ ] Comprehensive test suite (>90% coverage)
-- [ ] Documentation site
-- [ ] `mint doc` — API docs from comments
-- [ ] Error messages with suggestions
-- [ ] Package manager (mint-get)
-- [ ] Language server protocol (LSP) support
-- [ ] Formatter and linter
+- [ ] Official documentation site (mint-lang.org or similar)
+- [ ] `mint lsp` — Language server protocol for IDE integration (completions, hover, go-to-def, diagnostics)
+- [ ] `mint test --coverage` — code coverage reporting
+- [ ] `mint publish` — publish packages to registry
+- [ ] `mint login` / `mint logout` — registry authentication
+- [ ] `mint search <query>` — search packages in registry
+- [ ] Error messages with suggestions (did you mean `x`?)
+- [ ] `mint.toml` manifest specification finalized
 - [ ] v1.0 release
 
 ## v2.0+ — Systems Programming and Domain Expansion

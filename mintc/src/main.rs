@@ -97,6 +97,71 @@ fn tokenize_and_parse(source: &str, mode: &Mode) -> Result<(Vec<Token>, Node), V
     }
 }
 
+fn run_mint_program(source: &str, ast_only: bool) {
+    let mode = detect_mode(source);
+    let (_tokens, ast) = match tokenize_and_parse(source, &mode) {
+        Ok(result) => result,
+        Err(errors) => {
+            for err in &errors {
+                eprintln!("Error: {}", err);
+            }
+            process::exit(1);
+        }
+    };
+
+    if ast_only {
+        println!("{:#?}", ast);
+    }
+
+    let mut interpreter = Interpreter::new();
+    load_stdlib_dir(&mut interpreter, "stdlib");
+    match interpreter.interpret(&ast) {
+        Ok(_) => {}
+        Err(msg) => {
+            eprintln!("Runtime Error: {}", msg);
+            process::exit(1);
+        }
+    }
+}
+
+fn load_stdlib_dir(interpreter: &mut Interpreter, dir: &str) {
+    let path = std::path::Path::new(dir);
+    if !path.is_dir() {
+        return;
+    }
+    let mut entries: Vec<_> = match std::fs::read_dir(path) {
+        Ok(e) => e.filter_map(|e| e.ok()).collect(),
+        Err(_) => return,
+    };
+    entries.sort_by_key(|e| e.file_name());
+
+    for entry in entries {
+        let entry_path = entry.path();
+        if entry_path.extension().map_or(false, |e| e == "mint") {
+            let source = match std::fs::read_to_string(&entry_path) {
+                Ok(s) => s,
+                Err(_) => continue,
+            };
+            let mode = detect_mode(&source);
+            let result = tokenize_and_parse(&source, &mode);
+            match result {
+                Ok((_, ast)) => {
+                    let mut child = interpreter.globals.create_child();
+                    let _ = interpreter.interpret_in_env(&ast, &mut child);
+                    for (name, val) in child.get_all() {
+                        interpreter.globals.define(&name, val);
+                    }
+                }
+                Err(errors) => {
+                    for err in &errors {
+                        eprintln!("Warning: stdlib '{}': {}", entry_path.display(), err);
+                    }
+                }
+            }
+        }
+    }
+}
+
 fn cmd_run(args: &[String]) {
     let show_ast;
     let file_args;
@@ -109,30 +174,7 @@ fn cmd_run(args: &[String]) {
     }
 
     let source = read_source(file_args);
-    let mode = detect_mode(&source);
-
-    let (_tokens, ast) = match tokenize_and_parse(&source, &mode) {
-        Ok(result) => result,
-        Err(errors) => {
-            for err in &errors {
-                eprintln!("Error: {}", err);
-            }
-            process::exit(1);
-        }
-    };
-
-    if show_ast {
-        println!("{:#?}", ast);
-    }
-
-    let mut interpreter = Interpreter::new();
-    match interpreter.interpret(&ast) {
-        Ok(_) => {}
-        Err(msg) => {
-            eprintln!("Runtime Error: {}", msg);
-            process::exit(1);
-        }
-    }
+    run_mint_program(&source, show_ast);
 }
 
 fn cmd_check(args: &[String]) {

@@ -157,6 +157,14 @@ impl Environment {
             variables: Rc::new(RefCell::new(HashMap::new())),
         }
     }
+
+    pub fn get_all(&self) -> Vec<(String, RuntimeValue)> {
+        self.variables
+            .borrow()
+            .iter()
+            .map(|(k, v)| (k.clone(), v.clone()))
+            .collect()
+    }
 }
 
 impl fmt::Debug for Environment {
@@ -254,6 +262,10 @@ pub enum Node {
         value: Box<Node>,
     },
     ListLiteral(Vec<Node>),
+    Index {
+        target: Box<Node>,
+        index: Box<Node>,
+    },
 }
 
 // --- Lexer types ---

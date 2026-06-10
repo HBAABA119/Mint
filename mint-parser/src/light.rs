@@ -428,22 +428,33 @@ impl<'a> Parser<'a> {
 
     fn parse_call(&mut self) -> Result<Node, String> {
         let mut left = self.parse_primary()?;
-        while self.match_token(&[TokenKind::LParen]) {
-            let mut args = Vec::new();
-            if !self.check(TokenKind::RParen) {
-                args.push(self.parse_expression()?);
-                while self.match_token(&[TokenKind::Comma]) {
-                    if self.check(TokenKind::RParen) {
-                        break;
-                    }
+        loop {
+            if self.match_token(&[TokenKind::LParen]) {
+                let mut args = Vec::new();
+                if !self.check(TokenKind::RParen) {
                     args.push(self.parse_expression()?);
+                    while self.match_token(&[TokenKind::Comma]) {
+                        if self.check(TokenKind::RParen) {
+                            break;
+                        }
+                        args.push(self.parse_expression()?);
+                    }
                 }
+                self.consume(TokenKind::RParen, "expected ')' after arguments")?;
+                left = Node::FunctionCall {
+                    callee: Box::new(left),
+                    args,
+                };
+            } else if self.match_token(&[TokenKind::LBracket]) {
+                let index = self.parse_expression()?;
+                self.consume(TokenKind::RBracket, "expected ']' after index")?;
+                left = Node::Index {
+                    target: Box::new(left),
+                    index: Box::new(index),
+                };
+            } else {
+                break;
             }
-            self.consume(TokenKind::RParen, "expected ')' after arguments")?;
-            left = Node::FunctionCall {
-                callee: Box::new(left),
-                args,
-            };
         }
         Ok(left)
     }

@@ -157,6 +157,43 @@ impl Interpreter {
                 }
                 Ok(RuntimeValue::List(items))
             }
+            Node::Index { target, index } => {
+                let target_val = Self::eval(target, env)?;
+                let index_val = Self::eval(index, env)?;
+                let idx = match index_val {
+                    RuntimeValue::Number(n) => n as usize,
+                    _ => return Err(EvalError::Message("Index must be a number".to_string())),
+                };
+                match &target_val {
+                    RuntimeValue::List(items) => {
+                        if idx < items.len() {
+                            Ok(items[idx].clone())
+                        } else {
+                            Err(EvalError::Message(format!(
+                                "Index {} out of bounds for list of length {}",
+                                idx,
+                                items.len()
+                            )))
+                        }
+                    }
+                    RuntimeValue::String(s) => {
+                        let chars: Vec<char> = s.chars().collect();
+                        if idx < chars.len() {
+                            Ok(RuntimeValue::String(chars[idx].to_string()))
+                        } else {
+                            Err(EvalError::Message(format!(
+                                "Index {} out of bounds for string of length {}",
+                                idx,
+                                chars.len()
+                            )))
+                        }
+                    }
+                    other => Err(EvalError::Message(format!(
+                        "Cannot index into {}",
+                        other.type_name()
+                    ))),
+                }
+            }
         }
     }
 

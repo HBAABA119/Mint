@@ -228,6 +228,25 @@ impl<'a> Parser<'a> {
         self.consume(TokenKind::For, "expected 'for'")?;
         self.consume(TokenKind::LParen, "expected '(' after 'for'")?;
 
+        // Iterator-style: for (i in iterable)
+        if self.check(TokenKind::Identifier)
+            && self.current + 1 < self.tokens.len()
+            && self.tokens[self.current + 1].kind == TokenKind::Identifier
+            && self.tokens[self.current + 1].lexeme == "in"
+        {
+            let var = self.consume_identifier("expected variable name in for")?;
+            self.advance(); // consume 'in'
+            let iterable = self.parse_expression()?;
+            self.consume(TokenKind::RParen, "expected ')' after iterable")?;
+            let body = self.parse_block()?;
+            return Ok(Node::For {
+                var,
+                iterable: Box::new(iterable),
+                body: Box::new(body),
+            });
+        }
+
+        // C-style: for (init; cond; update)
         let init = if !self.check(TokenKind::Semicolon) {
             Some(self.parse_expression()?)
         } else {
@@ -474,22 +493,33 @@ impl<'a> Parser<'a> {
 
     fn parse_call(&mut self) -> Result<Node, String> {
         let mut left = self.parse_primary()?;
-        while self.match_token(&[TokenKind::LParen]) {
-            let mut args = Vec::new();
-            if !self.check(TokenKind::RParen) {
-                args.push(self.parse_expression()?);
-                while self.match_token(&[TokenKind::Comma]) {
-                    if self.check(TokenKind::RParen) {
-                        break;
-                    }
+        loop {
+            if self.match_token(&[TokenKind::LParen]) {
+                let mut args = Vec::new();
+                if !self.check(TokenKind::RParen) {
                     args.push(self.parse_expression()?);
+                    while self.match_token(&[TokenKind::Comma]) {
+                        if self.check(TokenKind::RParen) {
+                            break;
+                        }
+                        args.push(self.parse_expression()?);
+                    }
                 }
+                self.consume(TokenKind::RParen, "expected ')' after arguments")?;
+                left = Node::FunctionCall {
+                    callee: Box::new(left),
+                    args,
+                };
+            } else if self.match_token(&[TokenKind::LBracket]) {
+                let index = self.parse_expression()?;
+                self.consume(TokenKind::RBracket, "expected ']' after index")?;
+                left = Node::Index {
+                    target: Box::new(left),
+                    index: Box::new(index),
+                };
+            } else {
+                break;
             }
-            self.consume(TokenKind::RParen, "expected ')' after arguments")?;
-            left = Node::FunctionCall {
-                callee: Box::new(left),
-                args,
-            };
         }
         Ok(left)
     }

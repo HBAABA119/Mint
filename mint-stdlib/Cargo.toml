@@ -5,3 +5,4 @@ edition = "2021"
 
 [dependencies]
 mint-core = { path = "../mint-core" }
+serde_json = "1"
